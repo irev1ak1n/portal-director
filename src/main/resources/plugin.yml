@@ -1,0 +1,34 @@
+name: PortalDirector
+version: '${version}'
+main: dev.portaldirector.PortalDirectorPlugin
+description: '${description}'
+api-version: '26.3'
+authors: [PortalDirector contributors]
+
+commands:
+  pd:
+    description: Portal Director - generate portal scenes, run entrances and TNT minecart waves.
+    usage: /pd help
+    aliases: [portaldirector]
+
+permissions:
+  portaldirector.generate:
+    description: Generate and clear portals, change generator settings.
+    default: op
+  portaldirector.group:
+    description: Manage groups, assignments and entrances.
+    default: op
+  portaldirector.tnt:
+    description: Launch and clear TNT minecarts.
+    default: op
+  portaldirector.scene:
+    description: Save, load and clear scenes.
+    default: op
+  portaldirector.admin:
+    description: Everything in Portal Director.
+    default: op
+    children:
+      portaldirector.generate: true
+      portaldirector.group: true
+      portaldirector.tnt: true
+      portaldirector.scene: true

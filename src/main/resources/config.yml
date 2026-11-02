@@ -1,0 +1,48 @@
+# Portal Director settings. Most of these are changed in-game with /pd commands (/pd settings, /pd set <key> <value>)
+# and saved here automatically. Edit while the server is stopped, or use /pd reload.
+#
+# generate.height-min / height-max are blocks ABOVE THE GROUND for floating portals.
+# tnt.protect-terrain: explosions hurt entities but destroy no blocks.
+# TNT minecarts are never launched unless an admin runs /pd tnt launch or /pd tnt wave.
+generate:
+  count: 30
+  radius: 100
+  spacing: 8
+  placement: mixed
+  air-ratio: 0.5
+  height-min: 15
+  height-max: 60
+  orientation: random
+  layout: random
+  facing: auto
+  max-slope: 3
+  blocks-per-tick: 400
+  max-chunks: 900
+  max-portals: 500
+groups:
+  auto-assign: true
+  announce-join: true
+entrance:
+  block-vanilla-travel: true
+  staging-invisible: false
+  freeze-staged: true
+  walk-ticks: 26
+  walk-speed: 0.22
+  fall-protection-seconds: 20
+  wave-size: 5
+  return-on-reset: true
+tnt:
+  per-portal: 1
+  speed: 1.3
+  lift: 0.25
+  waves: 1
+  wave-delay-ticks: 100
+  stagger-ticks: 0
+  interval-ticks: 4
+  preview: false
+  protect-terrain: true
+  protect-portals: true
+  max-active: 300
+  lifetime-seconds: 60
+  spawns-per-tick: 60
+  fuse-ticks: -1

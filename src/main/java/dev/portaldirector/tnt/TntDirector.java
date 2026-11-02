@@ -1,0 +1,195 @@
+package dev.portaldirector.tnt;
+
+import dev.portaldirector.Settings;
+import dev.portaldirector.model.PortalSpec;
+import dev.portaldirector.scene.SceneManager;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.ExplosionPrimeEvent;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+/** Launches TNT minecarts out of portals on explicit command only, in timed waves. */
+public final class TntDirector implements Listener {
+
+    public record Summary(int minecarts, int waves, int durationTicks, boolean preview) {
+    }
+
+    private final class Sequence {
+        final World world;
+        final List<PortalSpec> portals;
+        final List<TntSchedule.Launch> launches;
+        int index;
+        int tick;
+        BukkitTask task;
+        int skipped;
+
+        Sequence(World world, List<PortalSpec> portals, List<TntSchedule.Launch> launches) {
+            this.world = world;
+            this.portals = portals;
+            this.launches = launches;
+        }
+
+        void run() {
+            int spawned = 0;
+            while (index < launches.size() && launches.get(index).tick() <= tick) {
+                if (spawned >= settings.tntSpawnsPerTick) break;
+                TntSchedule.Launch l = launches.get(index++);
+                if (active.size() >= settings.tntMaxActive) {
+                    skipped++;
+                } else {
+                    spawn(world, portals.get(l.portalIndex()));
+                    spawned++;
+                }
+            }
+            tick++;
+            if (index >= launches.size()) stopSequence(this);
+        }
+    }
+
+    private final Plugin plugin;
+    private final Settings settings;
+    private final SceneManager scenes;
+    private final NamespacedKey tagKey;
+    private final Map<UUID, Integer> active = new HashMap<>();
+    private final List<Sequence> sequences = new ArrayList<>();
+    private BukkitTask sweeper;
+
+    public TntDirector(Plugin plugin, Settings settings, SceneManager scenes) {
+        this.plugin = plugin;
+        this.settings = settings;
+        this.scenes = scenes;
+        this.tagKey = new NamespacedKey(plugin, "tnt");
+    }
+
+    public void start() {
+        sweeper = plugin.getServer().getScheduler().runTaskTimer(plugin, this::sweep, 20L, 20L);
+    }
+
+    public void shutdown() {
+        if (sweeper != null) sweeper.cancel();
+        stop();
+    }
+
+    public int activeCount() {
+        return active.size();
+    }
+
+    public int runningSequences() {
+        return sequences.size();
+    }
+
+    /** Starts a launch sequence. Nothing is ever launched without this being called from a command. */
+    public Summary launch(World world, List<PortalSpec> portals, int perPortal, int waves, int waveDelayTicks, int staggerTicks) {
+        List<TntSchedule.Launch> plan = TntSchedule.plan(portals.size(), perPortal, waves, waveDelayTicks,
+                staggerTicks, settings.tntIntervalTicks);
+        Sequence seq = new Sequence(world, new ArrayList<>(portals), plan);
+        sequences.add(seq);
+        seq.task = plugin.getServer().getScheduler().runTaskTimer(plugin, seq::run, 0L, 1L);
+        int duration = plan.isEmpty() ? 0 : plan.get(plan.size() - 1).tick();
+        return new Summary(plan.size(), waves, duration, settings.tntPreview);
+    }
+
+    private void spawn(World world, PortalSpec p) {
+        Location loc = new Location(world, p.centerX(), p.standY(), p.centerZ(), p.yaw(), 0f);
+        if (!world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) return;
+        ExplosiveMinecart cart = world.spawn(loc, ExplosiveMinecart.class, c -> {
+            c.getPersistentDataContainer().set(tagKey, PersistentDataType.BYTE, (byte) 1);
+            c.setMaxSpeed(Math.max(c.getMaxSpeed(), settings.tntSpeed));
+        });
+        cart.setVelocity(new Vector(p.stepX() * settings.tntSpeed, settings.tntLift, p.stepZ() * settings.tntSpeed));
+        if (settings.tntFuseTicks >= 0) {
+            cart.setFuseTicks(settings.tntFuseTicks);
+            cart.ignite();
+        }
+        active.put(cart.getUniqueId(), Bukkit.getCurrentTick());
+    }
+
+    private void stopSequence(Sequence s) {
+        if (s.task != null) s.task.cancel();
+        sequences.remove(s);
+    }
+
+    /** Stops all running sequences. Minecarts already in the world keep going. */
+    public int stop() {
+        int n = sequences.size();
+        for (Sequence s : new ArrayList<>(sequences)) stopSequence(s);
+        return n;
+    }
+
+    /** Stops sequences and removes every tracked minecart. */
+    public int clear() {
+        stop();
+        int removed = 0;
+        for (World w : Bukkit.getWorlds()) {
+            for (ExplosiveMinecart cart : w.getEntitiesByClass(ExplosiveMinecart.class)) {
+                if (isOurs(cart)) {
+                    cart.remove();
+                    removed++;
+                }
+            }
+        }
+        active.clear();
+        return removed;
+    }
+
+    private boolean isOurs(Entity e) {
+        return active.containsKey(e.getUniqueId()) || e.getPersistentDataContainer().has(tagKey, PersistentDataType.BYTE);
+    }
+
+    private void sweep() {
+        int now = Bukkit.getCurrentTick();
+        int lifetime = settings.tntLifetimeSeconds * 20;
+        Iterator<Map.Entry<UUID, Integer>> it = active.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<UUID, Integer> e = it.next();
+            Entity cart = Bukkit.getEntity(e.getKey());
+            if (cart == null || !cart.isValid()) {
+                it.remove();
+            } else if (now - e.getValue() > lifetime) {
+                cart.remove();
+                it.remove();
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    public void onPrime(ExplosionPrimeEvent e) {
+        if (settings.tntPreview && isOurs(e.getEntity())) e.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    public void onExplode(EntityExplodeEvent e) {
+        if (!isOurs(e.getEntity())) return;
+        if (settings.protectTerrain) {
+            e.blockList().clear();
+        } else if (settings.protectPortals) {
+            String world = e.getEntity().getWorld().getName();
+            List<PortalSpec> portals = scenes.portalsIn(world);
+            e.blockList().removeIf(b -> {
+                for (PortalSpec p : portals) {
+                    if (p.contains(b.getX(), b.getY(), b.getZ())) return true;
+                }
+                return false;
+            });
+        }
+        active.remove(e.getEntity().getUniqueId());
+    }
+}
