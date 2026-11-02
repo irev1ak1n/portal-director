@@ -44,13 +44,18 @@ public final class RemovalJob implements Job {
     private BukkitTask task;
 
     public RemovalJob(Plugin plugin, World world, Scene scene, int blocksPerTick, Consumer<Result> onDone) {
+        this(plugin, world, scene, blocksPerTick, new ArrayList<>(scene.blocks().all()), onDone);
+    }
+
+    /** Restores only the given records, for removing a single portal. */
+    public RemovalJob(Plugin plugin, World world, Scene scene, int blocksPerTick, List<BlockLog.Rec> all,
+                      Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
         this.scene = scene;
         this.blocksPerTick = blocksPerTick;
         this.onDone = onDone;
         Map<Long, List<BlockLog.Rec>> byChunk = new LinkedHashMap<>();
-        List<BlockLog.Rec> all = new ArrayList<>(scene.blocks().all());
         // Newest first, so layered changes unwind in the right order.
         for (int i = all.size() - 1; i >= 0; i--) {
             BlockLog.Rec r = all.get(i);

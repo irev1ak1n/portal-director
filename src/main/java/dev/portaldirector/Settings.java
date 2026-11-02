@@ -43,7 +43,11 @@ public final class Settings {
         }
 
         public void set(String value) {
-            setter.accept(value);
+            try {
+                setter.accept(value);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(key.substring(key.indexOf('.') + 1) + ": " + e.getMessage());
+            }
         }
 
         public List<String> suggestions() {

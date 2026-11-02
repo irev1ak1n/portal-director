@@ -18,6 +18,16 @@ public final class PortalEdits {
     private PortalEdits() {
     }
 
+    /** Places one edit and logs what was there, so the scene can be removed safely later. */
+    public static void apply(World world, dev.portaldirector.scene.BlockLog log, Edit e) {
+        var b = world.getBlockAt(e.x(), e.y(), e.z());
+        String placed = e.data().getAsString();
+        String original = b.getBlockData().getAsString();
+        if (original.equals(placed) && !log.has(e.x(), e.y(), e.z())) return;
+        log.record(e.x(), e.y(), e.z(), original, placed);
+        b.setBlockData(e.data(), false);
+    }
+
     /** Support under the frame, a cleared walkway, the obsidian frame and finally the activated interior. */
     public static List<Edit> forPortal(World world, PortalSpec p, int maxSupport) {
         List<Edit> edits = new ArrayList<>();

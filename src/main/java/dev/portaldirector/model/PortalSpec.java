@@ -27,6 +27,28 @@ public record PortalSpec(int id, int x, int y, int z, Axis axis, BlockFace facin
         if (!ok) throw new IllegalArgumentException("facing " + facing + " does not fit axis " + axis);
     }
 
+    /**
+     * Builds a portal from the coordinates admins type: the lower of the two bottom interior blocks
+     * (smaller x for north/south portals, smaller z for east/west ones). The obsidian floor is one block below.
+     */
+    public static PortalSpec fromAnchor(int id, int ax, int ay, int az, BlockFace facing, boolean floating) {
+        Axis axis = facing == BlockFace.NORTH || facing == BlockFace.SOUTH ? Axis.X : Axis.Z;
+        return new PortalSpec(id, axis == Axis.X ? ax - 1 : ax, ay - 1, axis == Axis.Z ? az - 1 : az, axis, facing, floating);
+    }
+
+    /** The coordinates {@link #fromAnchor} takes: the lower bottom interior block. */
+    public int anchorX() {
+        return axis == Axis.X ? x + 1 : x;
+    }
+
+    public int anchorY() {
+        return y + 1;
+    }
+
+    public int anchorZ() {
+        return axis == Axis.Z ? z + 1 : z;
+    }
+
     public PortalSpec withId(int newId) {
         return new PortalSpec(newId, x, y, z, axis, facing, floating);
     }

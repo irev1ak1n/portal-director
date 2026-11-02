@@ -1,0 +1,164 @@
+# Portal Director
+
+Build a field of Nether portals, line your players up behind them and let them all walk out at once.
+Then, if you want to, send TNT minecarts out of the same portals. Made for video creators who want the huge
+portal scenes from Minecraft invasion videos without building them by hand.
+
+* **Paper 26.3, Java 25.** Server side only. Nobody needs a mod.
+* Portals look and glow like real ones (4x5 obsidian frame, purple 2x3 interior), but they are decoration:
+  nothing sends anyone to the Nether. Entrances are done by moving players, not by vanilla portal linking.
+
+## Install
+
+1. Download `PortalDirector-1.0.0.jar` and put it in your server's `plugins` folder.
+2. Start the server. Operators can use everything straight away (permission `portaldirector.admin`).
+
+## Five minute tour: 30 players, 30 portals, one command
+
+Stand where you want the scene to be, then:
+
+```
+/pd generate 30 mixed            30 portals around you, on the ground and floating
+/pd group create NULL            a group for the players who will take part
+/pd group block set emerald_block    players who step on an emerald block join automatically
+```
+
+Place an emerald block (or a path of them) and have everybody walk over it. They are added once, with a single
+action bar line and no chat spam, and each one gets the next free portal. When everybody is in:
+
+```
+/pd group assign NULL auto       portal 1 -> first player, portal 2 -> second, ... (optional, it already happened)
+/pd group prepare NULL           everybody is moved into their own portal and held there
+/pd group release NULL           all of them walk out into the Overworld at the same moment
+/pd group reset NULL             cancel and send everyone back to where they were
+```
+
+Players walk out of the purple portal in the direction it faces, for a second or so. Players coming out of
+floating portals are protected from fall damage for 20 seconds (`/pd set entrance.fall-protection-seconds 30`).
+
+Want waves instead? `/pd group release NULL staggered 10` releases 5 players every 10 seconds;
+`/pd group release NULL staggered 10 8` makes the waves 8 players.
+
+Extra portals stay empty. Extra players simply have no portal (`/pd group assignments` shows who is where).
+
+## Ready-made scenes
+
+```
+/pd preset list
+/pd preset invasion        random portals on the ground and in the air, all facing the middle
+/pd preset sky-army        floating portals at many different heights
+/pd preset formation       a tidy grid of ground portals, everyone walking out the same way
+/pd preset tnt-barrage     a ring of portals with 2 minecarts each and 3 timed waves ready
+/pd preset invasion 60     the same with a different portal count
+```
+
+A preset sets the generator options, builds the scene (named after the preset) around you and leaves
+everything else alone. Run `/pd scene clear invasion` to take it down again.
+
+## TNT minecart attacks
+
+Nothing is ever launched unless you type a command.
+
+```
+/pd tnt preview on                 safe mode: minecarts fly and land but never explode
+/pd tnt launch all                 one minecart out of every portal, all at the same moment
+/pd tnt launch all 3               three per portal
+/pd tnt launch 1,4,10-15 2         only these portals
+/pd tnt launch floating            or ground, or: group NULL
+/pd tnt launch all 2 stagger 0.5   half a second between portals
+/pd tnt wave 5 20                  5 waves, 20 seconds apart (add a count and portals: /pd tnt wave 5 20 2 ground)
+/pd tnt stop                       stop sending more
+/pd tnt clear                      remove every minecart that is still around
+/pd tnt preview off                real explosions again
+```
+
+By default explosions hurt players and mobs but do not break any blocks (`tnt.protect-terrain`), and
+the portals themselves are always protected (`tnt.protect-portals`). At most 300 minecarts exist at once
+(`tnt.max-active`) and leftovers disappear after 60 seconds.
+
+Minecarts leave through the portal in the direction it faces and then follow normal Minecraft physics.
+
+## Scenes
+
+Every portal belongs to a scene. A scene remembers its portals, their IDs, orientation, the players
+assigned to them and every block it changed, so it can be taken down without damaging anything.
+
+```
+/pd scene info                 what is in the current scene
+/pd scene save invasion        name and save the current scene
+/pd scene new heist            start a second, independent scene
+/pd scene load invasion        switch to a scene
+/pd scene list
+/pd scene clear [name]         remove the portals and restore the terrain (also: /pd clear)
+/pd scene rebuild [name]       put missing portals back
+/pd scene delete <name>        forget an empty scene
+```
+
+Removal only restores a block if it still holds what the scene put there. If somebody built on top of a
+portal, or mined the frame, those blocks are left exactly as they are.
+
+Scenes, groups, assignments and all settings survive restarts.
+
+## Generator settings
+
+Everything is also editable with `/pd settings` and `/pd set <name> <value>`. Tab completion helps everywhere.
+
+| Command | What it does |
+|---|---|
+| `/pd generate [count] [ground\|air\|mixed] [add]` | Build portals. `add` keeps the portals already in the scene |
+| `/pd count 50` | Portals per generate |
+| `/pd radius 100` | How far from the center portals may go (up to 400) |
+| `/pd spacing 10` | Empty blocks kept between portals (minimum 1) |
+| `/pd height 25 80` | Floating portals hang this many blocks above the ground, a different height each |
+| `/pd placement ground\|air\|mixed` | Ground, floating, or both (`generate.air-ratio` sets the share) |
+| `/pd orientation x\|z\|random` | Which way the frame runs. Always upright |
+| `/pd facing auto\|inward\|outward\|random\|north\|south\|east\|west` | The way players and minecarts leave |
+| `/pd layout random\|grid\|circle\|wave` | How portals are arranged |
+| `/pd center here` / `/pd center 100 -40 world` / `/pd center reset` | Pin the middle of the scene |
+| `/pd list`, `/pd tp <id>` | Browse portals and visit one |
+| `/pd stop` | Cancel a generation or removal that is running |
+
+Portals avoid water, steep ground and anything that looks built by a player (chests, houses, farms...);
+they only replace ground, plants and trees. Ground portals get support underneath on uneven terrain. Building
+is spread over many ticks and chunks in the area are loaded a few at a time, so the server does not freeze.
+
+## Groups and entrances
+
+| Command | What it does |
+|---|---|
+| `/pd group create <name>` | New group |
+| `/pd group block set <block>` | Stepping on this block joins the group |
+| `/pd group info [name]` | Members and their portals |
+| `/pd group add\|remove [name] <player>` | Manual membership |
+| `/pd group assign <name> auto [fill]` | Portal 1 -> player 1, ... (`fill` keeps manual choices) |
+| `/pd group assign <name> <portal> <player>` | Manual slot |
+| `/pd group assign <name> swap <a> <b>` / `clear [portal]` | Rearrange |
+| `/pd group assignments [name]` | Who is at which portal |
+| `/pd group prepare <name>` | Stage everyone |
+| `/pd group release <name> [staggered <secs> [players per wave]]` | Everybody walks out |
+| `/pd group reset <name>` | Cancel and send players back |
+| `/pd group disband <name>` | Delete the group |
+| `/pd staging set` / `/pd staging clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
+
+With only one group you can leave its name out. Players who disconnect while prepared are placed back in their
+portal when they return. To hide staged players, `/pd set entrance.staging-invisible on`.
+
+## Permissions
+
+Operators have everything by default. `portaldirector.admin` is all of it, or give people the pieces:
+`portaldirector.generate`, `.group`, `.tnt`, `.scene`.
+
+## Building from source
+
+```
+gradlew build           (needs a JDK that can start Gradle; the build uses a Java 25 toolchain)
+```
+
+The jar is in `build/libs/`. `gradlew test` runs the unit tests.
+
+## Testing it yourself
+
+`scripts/setup-test-server.ps1 -AcceptEula` creates an offline-mode Paper test server bound to 127.0.0.1 next to
+the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node run.js`)
+that drives 30 bots through the whole flow. Read `bot-test/README.md` before trusting it: bots cannot see
+the scene.

@@ -5,8 +5,6 @@ import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Job;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -185,13 +183,7 @@ public final class GenerationJob implements Job {
     }
 
     private void apply(PortalEdits.Edit e) {
-        Block b = world.getBlockAt(e.x(), e.y(), e.z());
-        BlockData current = b.getBlockData();
-        String placed = e.data().getAsString();
-        String original = current.getAsString();
-        if (original.equals(placed) && !scene.blocks().has(e.x(), e.y(), e.z())) return;
-        scene.blocks().record(e.x(), e.y(), e.z(), original, placed);
-        b.setBlockData(e.data(), false);
+        PortalEdits.apply(world, scene.blocks(), e);
     }
 
     private void finish() {
