@@ -19,34 +19,60 @@ portal scenes from Minecraft invasion videos without building them by hand.
 Stand somewhere open with grass and a bit of space, then type:
 
 ```
-/pd generate 30        build 30 portals around you (on the ground and floating)
+/pd generate 30        build 30 scattered portals around you
 /pd list               the id and coordinates of every portal
 /pd clear              remove everything and put the ground back
 ```
 
-That is all you need to start. `/pd help` explains the rest in plain words, and pressing Tab after `/pd` shows
-every command. To go to a portal, use Minecraft's own `/tp` with the coordinates from `/pd list`.
-
-All configuration goes through `/pd set`. Change how portals are built, then generate again
-(`/pd generate 30 replace` removes the old ones first):
+That is the random layout. For organised formations pick a layout first (details in "Layouts" below):
 
 ```
-/pd settings               every setting and its current value
-/pd set radius 50          how far from you portals may be
-/pd set spacing horizontal 10   least empty blocks between portals across the ground
-/pd set spacing vertical 5      least empty blocks between floating portals above each other
-/pd set mode air           ground, air or mixed
-/pd set layout circle      random, grid, circle or wave
-/pd set height min 10      floating portals hang at least 10 blocks above the ground ...
-/pd set height max 40      ... and at most 40 blocks above it
+/pd set layout grid      /pd set grid rows 4       /pd set grid columns 5        /pd generate
+/pd set layout square    /pd set square per-side 5 /pd set square layers 3       /pd generate
+/pd set layout wave      /pd set wave rows 4       /pd set wave per-row 5        /pd generate
 ```
 
-If portals already exist, `/pd generate 30` tells you your options instead of just refusing:
-`/pd generate 30 add` keeps them and builds 30 more, and `/pd generate 30 replace` swaps them for new ones.
+`/pd help` explains everything in plain words, and pressing Tab after `/pd` shows every command. To go to a portal, use
+Minecraft's own `/tp` with the coordinates from `/pd list`.
+
+All configuration goes through `/pd set`. `/pd settings` shows the current values and how many portals the next
+`/pd generate` will make. If portals already exist, `/pd generate` tells you your options instead of just refusing:
+`/pd generate add` keeps them and builds more, `/pd generate replace` swaps them for new ones, `/pd clear` removes them.
 
 **Can't see them?** The server only sends the land around you up to its view distance. If the view distance is
-smaller than the radius, far portals are invisible until you get closer, and Portal Director warns you after generating when
-this might be the problem. Raise `view-distance` in `server.properties` or use a smaller `/pd set radius`.
+smaller than the formation, far portals are invisible until you get closer, and Portal Director warns you after generating when
+this might be the problem. Raise `view-distance` in `server.properties`, or use a smaller formation.
+
+## Layouts
+
+Every layout works the same way: `/pd set layout <random|grid|square|wave>`, set that layout's numbers, then `/pd generate`.
+Grid, square and wave work out how many portals to build from their own numbers, and `/pd generate` tells you the total before it starts
+and the real count when it is done. Portals are always upright; facing only turns them sideways and decides where players and minecarts come out.
+
+| Layout | Settings | What you get |
+|---|---|---|
+| random | `/pd set count 50`, `/pd set radius 100` | Portals scattered around you. `/pd generate 50` is a shortcut |
+| grid | `/pd set grid rows 4`, `/pd set grid columns 5` | A vertical wall: 4 rows going up, 5 columns side by side, exactly 20 portals, evenly aligned |
+| square | `/pd set square per-side 5`, `/pd set square layers 3` | A square perimeter with 5 portals on each side, repeated in 3 identical layers stacked upward, 60 portals |
+| wave | `/pd set wave rows 4`, `/pd set wave per-row 5` | Rows of 5 that rise and fall like a wave, every other row shifted sideways, exactly 20 portals |
+
+**Spacing.** `/pd set spacing horizontal 8` is the empty gap between portals side by side (columns, neighbours on a square side). `/pd set spacing vertical 5` is the
+gap between rows and between layers above each other. They are independent.
+
+**Facing.** `/pd set facing north|south|east|west` turns a whole grid or wave wall: it faces that way, and players and minecarts come out of that side.
+`random` turns every portal its own way but keeps every position exactly where it was. A square uses `/pd set facing inward` (toward the middle, the default) or `outward`.
+`auto` (the default) makes a wall face you.
+
+**Center.** The formation is built around where you stand (`/pd set center here` pins that spot), or around coordinates: `/pd set center 150 100 -200`
+(x y z), `/pd set center reset` goes back to your position. Height rule for several rows or layers: the middle one (for an even number, the lower of the two middle ones) has its doorway at the
+center height, and the others are stacked above and below it, one row or layer apart. So 3 layers are below, at and above the center; 2 layers are at the center and above it; a 4-row
+grid has one row below, one at the center and two above.
+
+**Ground or air.** `/pd set mode ground` (also `mixed`) stands the lowest row on the terrain. `/pd set mode air` floats the formation exactly around the center height, so
+a large square can hang over forests, mountains or an arena. Natural blocks (grass, stone, trees) in the way are replaced, and `/pd clear` puts them back. If something a
+player built is in the way, nothing is built and nothing is changed: you get the list of blocked portals, and `/pd generate partial` builds only the ones that fit.
+
+Square layouts also let `/pd group release <name> clockwise|opposite-sides|side-by-side` release players around the square, and `/pd tnt launch square` or `/pd tnt launch side east` pick its portals.
 
 ## Two ways to use the portals
 
@@ -112,43 +138,6 @@ or stand on the ground. A portal is refused when it is closer than one empty blo
 build height or world border, or would replace blocks that look player-built (add `force` at the end to override
 that last check). From the console add the world name: `/pd portal create 0 100 0 north world`.
 
-## Square formation
-
-Portals along the four sides of a square with an open middle, like an arena. Players or minecarts come out
-toward the middle (inward, the default) or away from it (outward).
-
-```
-/pd square preview 60                  plan it first: how many fit, outlined with particles, nothing is built
-/pd square create 60                   a square about 60 blocks wide around you
-/pd square create 8 portals-per-side   8 portals on every side, the size is worked out for you
-/pd square create 100 spacing 3        3 empty blocks between neighbouring portals
-/pd square create 60 elevation 25      floating, 25 blocks above the highest ground
-/pd square create 60 facing outward    portals face away from the middle
-/pd square create 60 center 100 -40 world    exact center instead of where you stand
-/pd square facing outward              set the default and turn the existing square around
-/pd square info
-/pd square remove                      take the whole square down and restore the terrain
-```
-
-Before anything is built you see the result: for example "9 portals per side, 36 in all, 2 blocks between
-them. Fits: 36 of 36". If water, steep ground or a building blocks some positions nothing is built unless you add
-`partial`. The sides are identical and each one stops short of the next, so frames never touch at the corners.
-Ids go clockwise from the north-west corner: the north side first, then east, south and west. The square
-is made of normal portals, so everything else works on it: group assignment, entrances, TNT and clear.
-
-Cinematic releases (give each side's portals players with `/pd group assign`, then `prepare`, then):
-
-```
-/pd group release NULL all-at-once            every side at the same moment
-/pd group release NULL clockwise 0.5          one portal after another around the square, 0.5 s apart
-/pd group release NULL clockwise 2 4          four portals at a time, 2 s apart
-/pd group release NULL opposite-sides 3       north and south together, then east and west 3 s later
-/pd group release NULL side-by-side 4         one side at a time, 4 s apart
-```
-
-TNT from the square: `/pd tnt launch square`, `/pd tnt launch side east`, `/pd tnt launch square 2 stagger 0.25`
-(the stagger follows the clockwise order), `/pd tnt wave 5 20 1 square`.
-
 ## Clearing and restoring
 
 Portal Director remembers every portal and every block it changed, even after a restart. `/pd clear` removes the portals and
@@ -158,35 +147,33 @@ are saved too.
 
 ## Settings
 
-`/pd settings` shows every value, `/pd set <name> <value>` changes one, and Tab completion fills in names and values.
+`/pd settings` shows the values that matter for the current layout, `/pd set <name> <value>` changes one, and Tab completion fills in names and values.
 `/pd set` is the only way to configure Portal Director.
 
 | Command | What it does |
 |---|---|
-| `/pd generate [count] [ground\|air\|mixed] [add\|replace]` | Build portals. `add` keeps existing ones, `replace` removes them first |
-| `/pd set count 50` | Portals per generate (default 30) |
-| `/pd set radius 100` | How far from the center portals may go (up to 400) |
-| `/pd set spacing horizontal 8` | Least empty blocks between portal frames, measured across the ground (x/z). Default 8 |
-| `/pd set spacing vertical 5` | Least empty blocks between floating portals at different heights. Default 5 |
-| `/pd set mode ground\|air\|mixed` | On the ground, floating, or both (`/pd set air-ratio 0.5` is the share that floats) |
-| `/pd set height min 15` / `/pd set height max 60` | Floating portals hang this many blocks above the ground, a different height each |
-| `/pd set min-y 40` / `/pd set max-y 250` | Absolute limits for any portal (optional) |
-| `/pd set orientation x\|z\|random` | Which way the frame runs. Always upright |
-| `/pd set facing auto\|inward\|outward\|random\|north\|south\|east\|west` | The way players and minecarts leave |
-| `/pd set layout random\|grid\|circle\|wave` | How portals are arranged |
-| `/pd set center here` / `/pd set center 100 -40 world` / `/pd set center reset` | Pin the middle of the formation |
-| `/pd set staging here` / `/pd set staging clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
+| `/pd generate [count] [ground\|air\|mixed] [add\|replace] [partial]` | Build the current layout. A count only applies to the random layout |
+| `/pd set layout random\|grid\|square\|wave` | The formation |
+| `/pd set grid rows 4` / `columns 5` | Grid size |
+| `/pd set square per-side 5` / `layers 3` | Square size |
+| `/pd set wave rows 4` / `per-row 5` | Wave size |
+| `/pd set count 50` / `radius 100` | Random layout: how many portals and how far from the center |
+| `/pd set mode ground\|air\|mixed` | Stand on the terrain, or float around the center height (`/pd set air-ratio 0.5` sets the share that floats in the random layout) |
+| `/pd set spacing horizontal 8` / `vertical 5` | Gap between portals side by side / between rows and layers |
+| `/pd set facing north\|south\|east\|west\|random\|inward\|outward\|auto` | Which way portals face and where players and minecarts come out |
+| `/pd set center here` / `150 100 -200` / `reset` | Where the formation is centered |
+| `/pd set height min 15` / `height max 60` | Random layout: floating portals hang this far above the ground |
+| `/pd set orientation x\|z\|random` | Random layout: which way the frames run |
+| `/pd set min-y 40` / `max-y 250` | Absolute limits for any portal (optional) |
+| `/pd set staging here` / `clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
 | `/pd set tnt.fuse-seconds 3`, `/pd set entrance.walk-ticks 30` ... | Every other option; `/pd settings all` lists them |
 | `/pd list` | The id and coordinates of every portal |
 | `/pd stop` | Cancel a generation or removal that is running |
 
-**How spacing works.** Two portals are always kept apart: either by the horizontal spacing along x or z, or by the vertical
-spacing between their heights. So a floating portal can hang straight above another one as long as there are at least
-`spacing vertical` blocks between them, and portals at the same height keep `spacing horizontal` blocks between their frames.
-Frames can never touch or overlap, whichever way they are turned. (Older configs with a single `generate.spacing`
-keep working: that value becomes the horizontal spacing.)
+**How spacing works.** Two portals are always kept apart: either by the horizontal spacing along x or z, or by the vertical spacing between their heights.
+Frames can never touch or overlap, whichever way they are turned. (Older configs with a single `generate.spacing` keep working: that value becomes the horizontal spacing.)
 
-Portals avoid water, steep ground and anything that looks built by a player (chests, houses, farms...);
+In the random layout portals avoid water, steep ground and anything that looks built by a player (chests, houses, farms...);
 they only replace ground, plants and trees. Ground portals are set level with the ground, never buried, never under a hill or a tree canopy, and get support underneath on uneven terrain. Building
 is spread over many ticks and chunks in the area are loaded a few at a time, so the server does not freeze.
 
@@ -242,6 +229,6 @@ The jar is in `build/libs/`. `gradlew test` runs the unit tests.
 ## Testing it yourself
 
 `scripts/setup-test-server.ps1 -AcceptEula` creates an offline-mode Paper test server bound to 127.0.0.1 next to
-the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node ux-test.js` or `node square-test.js`)
+the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node ux-test.js` or `node layout-test.js`)
 that drives a few bots through the whole flow. Read `bot-test/README.md` before trusting it: bots cannot see
 the portals.

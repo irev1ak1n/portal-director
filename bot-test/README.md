@@ -3,7 +3,7 @@
 A local harness for PortalDirector. It is not part of the plugin and not needed to use it.
 
 It starts the isolated Paper server created by `scripts/setup-test-server.ps1` (offline mode, **127.0.0.1 only**,
-port 25590, next to the repository in `portal-director-server`), connects 30 Mineflayer bots and drives the plugin
+port 25590, next to the repository in `portal-director-server`), connects a few Mineflayer bots and drives the plugin
 from the server console.
 
 ```
@@ -12,7 +12,7 @@ powershell -File scripts\setup-test-server.ps1 -AcceptEula
 cd bot-test
 npm install --ignore-scripts
 node ux-test.js      # commands, plains generation, Nether travel, TNT explosions
-node square-test.js  # square formation, release patterns
+node layout-test.js  # grid, square and wave layouts: coordinates, spacing, facings, entrances, TNT, restore
 ```
 
 Results go to `reports/latest.json` and the server console to `reports/server-console.log`.

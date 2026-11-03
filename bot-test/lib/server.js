@@ -42,8 +42,7 @@ class TestServer extends EventEmitter {
         const line = buffer.slice(0, i).replace(/\r$/, '').replace(ANSI, '')
         buffer = buffer.slice(i + 1)
         this.lines.push(line)
-        if (this.logFile) fs.appendFileSync(this.logFile, line + '
-')
+        if (this.logFile) fs.appendFileSync(this.logFile, line + String.fromCharCode(10))
         this.emit('line', line)
       }
     }
