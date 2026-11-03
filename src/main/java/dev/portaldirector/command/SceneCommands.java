@@ -165,7 +165,7 @@ final class SceneCommands {
         }
         Msg.line(s, "  Generator: " + pl.settings().gen.count + " x " + pl.settings().gen.placement.name().toLowerCase(Locale.ROOT)
                 + ", " + pl.settings().gen.layout.name().toLowerCase(Locale.ROOT) + ", radius " + pl.settings().gen.radius
-                + ", spacing " + pl.settings().gen.spacing + " (/pd settings for all)");
+                + ", spacing " + pl.settings().gen.spacingH + " across / " + pl.settings().gen.spacingV + " vertical (/pd settings for all)");
         int missing = missingPortals(sc);
         if (missing > 0) Msg.line(s, "  " + missing + " portals are missing from the loaded world. /pd scene rebuild fixes that.");
     }

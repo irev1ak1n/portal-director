@@ -111,6 +111,11 @@ public final class Settings {
     }
 
     public void load(FileConfiguration c) {
+        // Older configs had a single generate.spacing: it becomes the horizontal spacing.
+        if (c.contains("generate.spacing") && !c.contains("generate.spacing-horizontal")) {
+            c.set("generate.spacing-horizontal", c.get("generate.spacing"));
+        }
+        c.set("generate.spacing", null);
         for (Option o : options.values()) {
             if (c.contains(o.key)) {
                 try {
@@ -155,7 +160,8 @@ public final class Settings {
     private void register() {
         intOpt("generate.count", "portals per generate", 1, 1000, () -> gen.count, v -> gen.count = v);
         intOpt("generate.radius", "blocks around the center", 8, 400, () -> gen.radius, v -> gen.radius = v);
-        intOpt("generate.spacing", "empty blocks between portals", 0, 100, () -> gen.spacing, v -> gen.spacing = v);
+        intOpt("generate.spacing-horizontal", "least empty blocks between portal frames across the ground (x/z)", 1, 100, () -> gen.spacingH, v -> gen.spacingH = v);
+        intOpt("generate.spacing-vertical", "least empty blocks between floating portals above each other", 1, 100, () -> gen.spacingV, v -> gen.spacingV = v);
         enumOpt("generate.placement", Placement.class, () -> gen.placement, v -> gen.placement = v);
         dblOpt("generate.air-ratio", "share of floating portals in mixed mode (0 to 1)", 0, 1, () -> gen.airRatio, v -> gen.airRatio = v);
         intOpt("generate.height-min", "lowest floating portal, blocks above ground", 2, 300, () -> gen.heightMin, v -> gen.heightMin = v);

@@ -2,13 +2,15 @@
 # and saved here automatically. Edit while the server is stopped, or use /pd reload.
 #
 # generate.height-min / height-max are blocks ABOVE THE GROUND for floating portals.
+# generate.spacing-horizontal: least gap between frames across the ground (x/z). spacing-vertical: least gap between floating portals above each other.
 # tnt.protect-terrain: explosions hurt entities but destroy no blocks. tnt.fuse-seconds: 0 means minecarts explode only when they crash.
 # entrance.block-vanilla-travel: true turns generated portals into decoration (no Nether travel).
 # TNT minecarts are never launched unless an admin runs /pd tnt launch or /pd tnt wave.
 generate:
   count: 30
   radius: 100
-  spacing: 8
+  spacing-horizontal: 8
+  spacing-vertical: 5
   placement: mixed
   air-ratio: 0.5
   height-min: 15

@@ -7,7 +7,10 @@ public final class GenSettings {
 
     public int count = 30;
     public int radius = 100;
-    public int spacing = 8;
+    /** Smallest gap between portal frames on the ground plane (x or z). */
+    public int spacingH = 8;
+    /** Smallest gap between portals that sit above each other. */
+    public int spacingV = 5;
     public Placement placement = Placement.MIXED;
     public double airRatio = 0.5;
     public int heightMin = 15;
@@ -23,7 +26,8 @@ public final class GenSettings {
         GenSettings c = new GenSettings();
         c.count = count;
         c.radius = radius;
-        c.spacing = spacing;
+        c.spacingH = spacingH;
+        c.spacingV = spacingV;
         c.placement = placement;
         c.airRatio = airRatio;
         c.heightMin = heightMin;

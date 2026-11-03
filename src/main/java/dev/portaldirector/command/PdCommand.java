@@ -187,7 +187,8 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd list", "the id and coordinates of every portal");
                 Msg.cmd(s, "/pd settings", "see every setting and its value");
                 Msg.cmd(s, "/pd set radius 50", "how far from you portals may be");
-                Msg.cmd(s, "/pd set spacing 5", "empty blocks between portals");
+                Msg.cmd(s, "/pd set spacing horizontal 10", "least empty blocks between portals, measured across the ground");
+                Msg.cmd(s, "/pd set spacing vertical 5", "least empty blocks between floating portals above each other");
                 Msg.cmd(s, "/pd set mode ground|air|mixed", "on the ground, floating, or both");
                 Msg.cmd(s, "/pd set layout random|grid|circle|wave", "arrangement");
                 Msg.cmd(s, "/pd set height min 10  /pd set height max 40", "floating portals hang this far above the ground");

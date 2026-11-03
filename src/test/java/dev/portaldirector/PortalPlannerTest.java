@@ -32,14 +32,19 @@ class PortalPlannerTest {
         s.placement = placement;
         s.layout = layout;
         s.radius = 100;
-        s.spacing = 8;
+        s.spacingH = 8;
+        s.spacingV = 5;
         return s;
     }
 
     private static void assertNoOverlapAndGap(List<PortalSpec> portals, int gap) {
+        assertNoOverlapAndGap(portals, gap, gap);
+    }
+
+    private static void assertNoOverlapAndGap(List<PortalSpec> portals, int gapH, int gapV) {
         for (int i = 0; i < portals.size(); i++) {
             for (int j = i + 1; j < portals.size(); j++) {
-                assertTrue(portals.get(i).separatedFrom(portals.get(j), gap),
+                assertTrue(portals.get(i).separatedFrom(portals.get(j), gapH, gapV),
                         "portals " + portals.get(i).id() + " and " + portals.get(j).id() + " are too close");
             }
         }
@@ -60,17 +65,19 @@ class PortalPlannerTest {
     void neverOverlapsAndKeepsTheSpacing() {
         for (Layout layout : Layout.values()) {
             GenSettings s = settings(40, Placement.MIXED, layout);
-            s.spacing = 10;
+            s.spacingH = 10;
+            s.spacingV = 6;
             List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 7);
             assertFalse(out.isEmpty(), layout.name());
-            assertNoOverlapAndGap(out, 10);
+            assertNoOverlapAndGap(out, 10, 6);
         }
     }
 
     @Test
     void zeroSpacingStillLeavesOneBlockBetweenPortals() {
         GenSettings s = settings(60, Placement.GROUND, Layout.RANDOM);
-        s.spacing = 0;
+        s.spacingH = 0;
+        s.spacingV = 0;
         s.radius = 40;
         assertNoOverlapAndGap(run(FakeTerrain.flat(64), s, List.of(), 1, 3), 1);
     }
@@ -114,6 +121,48 @@ class PortalPlannerTest {
         GenSettings s = settings(5, Placement.GROUND, Layout.RANDOM);
         s.orientation = Orientation.X;
         assertTrue(run(cliffs, s, List.of(), 1, 4).isEmpty());
+    }
+
+    @Test
+    void portalsAtDifferentHeightsMayShareTheSameColumn() {
+        GenSettings s = settings(40, Placement.AIR, Layout.RANDOM);
+        s.radius = 10;
+        s.spacingH = 8;
+        s.spacingV = 5;
+        s.heightMin = 2;
+        s.heightMax = 90;
+        List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 21);
+        assertNoOverlapAndGap(out, 8, 5);
+        int stackedPairs = 0;
+        for (int i = 0; i < out.size(); i++) {
+            for (int j = i + 1; j < out.size(); j++) {
+                if (!out.get(i).separatedFrom(out.get(j), 8)) stackedPairs++;
+            }
+        }
+        assertTrue(stackedPairs > 0, "some portals should hang above others instead of being rejected");
+        assertTrue(out.size() > 12, "a tiny radius should still hold many portals when they can stack: " + out.size());
+    }
+
+    @Test
+    void portalsAtTheSameHeightKeepTheHorizontalGapWhateverTheirRotation() {
+        for (Orientation o : Orientation.values()) {
+            GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
+            s.orientation = o;
+            s.radius = 40;
+            s.heightMin = 20;
+            s.heightMax = 20;
+            s.spacingH = 9;
+            s.spacingV = 3;
+            List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 5);
+            for (int i = 0; i < out.size(); i++) {
+                for (int j = i + 1; j < out.size(); j++) {
+                    PortalSpec a = out.get(i);
+                    PortalSpec b = out.get(j);
+                    assertEquals(a.y(), b.y());
+                    assertTrue(a.separatedFrom(b, 9), "same-height portals " + a.id() + " and " + b.id() + " closer than the horizontal gap");
+                }
+            }
+        }
     }
 
     @Test

@@ -143,12 +143,16 @@ public final class PortalPlanner {
             return null;
         }
 
-        private int gap() {
-            return Math.max(1, s.spacing);
+        private int gapH() {
+            return Math.max(1, s.spacingH);
+        }
+
+        private int gapV() {
+            return Math.max(1, s.spacingV);
         }
 
         private int pitch() {
-            return 5 + gap();
+            return 5 + gapH();
         }
 
         private PortalSpec tryPlace(int px, int pz) {
@@ -184,7 +188,7 @@ public final class PortalPlanner {
             if (!volumeFree(spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
             if (!air && !openAbove(terrain, spec)) return fail("under a tree or a ledge");
             for (PortalSpec other : blockers) {
-                if (!spec.separatedFrom(other, gap())) return fail("too close to another portal");
+                if (!spec.separatedFrom(other, gapH(), gapV())) return fail("too close to another portal");
             }
             return spec;
         }

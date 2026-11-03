@@ -149,6 +149,18 @@ public record PortalSpec(int id, int x, int y, int z, Axis axis, BlockFace facin
         return false;
     }
 
+    /**
+     * True when the two portals, with their walkways, are far enough apart: at least {@code gapH} empty blocks
+     * between them along x or along z, or at least {@code gapV} blocks between them vertically.
+     */
+    public boolean separatedFrom(PortalSpec other, int gapH, int gapV) {
+        int[] a = box();
+        int[] b = other.box();
+        boolean horizontal = a[3] + gapH < b[0] || b[3] + gapH < a[0] || a[5] + gapH < b[2] || b[5] + gapH < a[2];
+        boolean vertical = a[4] + gapV < b[1] || b[4] + gapV < a[1];
+        return horizontal || vertical;
+    }
+
     public boolean contains(int bx, int by, int bz) {
         int[] b = box();
         return bx >= b[0] && bx <= b[3] && by >= b[1] && by <= b[4] && bz >= b[2] && bz <= b[5];

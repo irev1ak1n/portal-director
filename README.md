@@ -33,7 +33,8 @@ All configuration goes through `/pd set`. Change how portals are built, then gen
 ```
 /pd settings               every setting and its current value
 /pd set radius 50          how far from you portals may be
-/pd set spacing 5          empty blocks between portals
+/pd set spacing horizontal 10   least empty blocks between portals across the ground
+/pd set spacing vertical 5      least empty blocks between floating portals above each other
 /pd set mode air           ground, air or mixed
 /pd set layout circle      random, grid, circle or wave
 /pd set height min 10      floating portals hang at least 10 blocks above the ground ...
@@ -194,7 +195,8 @@ Scenes, groups, assignments and all settings survive restarts.
 | `/pd generate [count] [ground\|air\|mixed] [add\|replace]` | Build portals. `add` keeps existing ones, `replace` removes them first |
 | `/pd set count 50` | Portals per generate (default 30) |
 | `/pd set radius 100` | How far from the center portals may go (up to 400) |
-| `/pd set spacing 8` | Empty blocks kept between portals |
+| `/pd set spacing horizontal 8` | Least empty blocks between portal frames, measured across the ground (x/z). Default 8 |
+| `/pd set spacing vertical 5` | Least empty blocks between floating portals at different heights. Default 5 |
 | `/pd set mode ground\|air\|mixed` | On the ground, floating, or both (`/pd set air-ratio 0.5` is the share that floats) |
 | `/pd set height min 15` / `/pd set height max 60` | Floating portals hang this many blocks above the ground, a different height each |
 | `/pd set min-y 40` / `/pd set max-y 250` | Absolute limits for any portal (optional) |
@@ -206,6 +208,12 @@ Scenes, groups, assignments and all settings survive restarts.
 | `/pd set tnt.fuse-seconds 3`, `/pd set entrance.walk-ticks 30` ... | Every other option; `/pd settings all` lists them |
 | `/pd list` | The id and coordinates of every portal |
 | `/pd stop` | Cancel a generation or removal that is running |
+
+**How spacing works.** Two portals are always kept apart: either by the horizontal spacing along x or z, or by the vertical
+spacing between their heights. So a floating portal can hang straight above another one as long as there are at least
+`spacing vertical` blocks between them, and portals at the same height keep `spacing horizontal` blocks between their frames.
+Frames can never touch or overlap, whichever way they are turned. (Older configs with a single `generate.spacing`
+keep working: that value becomes the horizontal spacing.)
 
 Portals avoid water, steep ground and anything that looks built by a player (chests, houses, farms...);
 they only replace ground, plants and trees. Ground portals are set level with the ground, never buried, never under a hill or a tree canopy, and get support underneath on uneven terrain. Building

@@ -32,7 +32,6 @@ final class GenerateCommands {
         ALIASES.put("placement", "generate.placement");
         ALIASES.put("count", "generate.count");
         ALIASES.put("radius", "generate.radius");
-        ALIASES.put("spacing", "generate.spacing");
         ALIASES.put("layout", "generate.layout");
         ALIASES.put("orientation", "generate.orientation");
         ALIASES.put("facing", "generate.facing");
@@ -49,7 +48,7 @@ final class GenerateCommands {
     /** Settings shown by /pd settings, in this order, with the name admins use. */
     private static final String[][] SHOWN = {
             {"count", "generate.count"}, {"mode", "generate.placement"}, {"radius", "generate.radius"},
-            {"spacing", "generate.spacing"}, {"layout", "generate.layout"}, {"orientation", "generate.orientation"},
+            {"spacing horizontal", "generate.spacing-horizontal"}, {"spacing vertical", "generate.spacing-vertical"}, {"layout", "generate.layout"}, {"orientation", "generate.orientation"},
             {"facing", "generate.facing"}, {"height min", "generate.height-min"}, {"height max", "generate.height-max"},
             {"air-ratio", "generate.air-ratio"}, {"slope", "generate.max-slope"}, {"min-y", "generate.min-y"}, {"max-y", "generate.max-y"}};
 
@@ -170,7 +169,7 @@ final class GenerateCommands {
                         + (before > 0 ? " (" + scene.portals().size() + " in total)" : "") + ".");
                 if (result.placed() < result.requested()) {
                     Msg.info(s, "Only " + result.placed() + " fit in this area. " + shortfall(result.reasons()) + " Make room with /pd set radius " + Math.min(400, st.gen.radius * 3 / 2)
-                            + ", /pd set spacing " + Math.max(2, st.gen.spacing / 2) + ", or try /pd set mode air.");
+                            + ", /pd set spacing horizontal " + Math.max(2, st.gen.spacingH / 2) + ", or try /pd set mode air.");
                 }
                 Report.formation(s, pl, scene);
             }
@@ -270,6 +269,12 @@ final class GenerateCommands {
                     Msg.info(s, "Change a setting with /pd set <name> <value>, for example /pd set radius 50 or /pd set mode air. /pd settings shows all of them.");
                     return;
                 }
+                if (a.get(0).equalsIgnoreCase("spacing") && (a.size() < 2 || !List.of("horizontal", "vertical").contains(a.get(1).toLowerCase(Locale.ROOT)))) {
+                    Settings.Option h = pl.settings().options().get("generate.spacing-horizontal");
+                    Settings.Option v = pl.settings().options().get("generate.spacing-vertical");
+                    throw new IllegalArgumentException("Spacing has two parts. Horizontal (" + h.get() + " now) is the gap between portals across the ground: /pd set spacing horizontal 10. "
+                            + "Vertical (" + v.get() + " now) is the gap between floating portals above each other: /pd set spacing vertical 5.");
+                }
                 Found f = find(a);
                 if (f == null) {
                     throw new IllegalArgumentException("There is no setting called '" + String.join(" ", a) + "'. /pd settings lists the names, and Tab completion after /pd set shows them.");
@@ -294,6 +299,7 @@ final class GenerateCommands {
                     return names;
                 }
                 if (a.get(0).equalsIgnoreCase("height") && a.size() == 2) return List.of("min", "max");
+                if (a.get(0).equalsIgnoreCase("spacing") && a.size() == 2) return List.of("horizontal", "vertical");
                 Found f = find(a.subList(0, a.size() - 1));
                 if (f == null || f.used() != a.size() - 1) return List.of();
                 List<String> sug = new ArrayList<>(f.option().suggestions());
@@ -307,6 +313,7 @@ final class GenerateCommands {
         for (Map.Entry<String, String> e : ALIASES.entrySet()) {
             if (e.getValue().equals(o.key) && !e.getKey().equals("placement") && !e.getKey().startsWith("height-")) return e.getKey();
         }
+        if (o.key.startsWith("generate.spacing-")) return o.key.replace("generate.spacing-", "spacing ");
         return o.key.startsWith("generate.height-") ? o.key.replace("generate.height-", "height ") : o.key;
     }
 
@@ -326,6 +333,7 @@ final class GenerateCommands {
                         Settings.Option o = st.options().get(row[1]);
                         Msg.line(s, String.format("    %-11s %-8s %s", row[0], o.get(), o.hint));
                     }
+                    Msg.line(s, "  Spacing horizontal: least gap between portal frames across the ground. Spacing vertical: least gap between floating portals above each other.");
                     Msg.line(s, "  Height min/max are blocks ABOVE the ground for floating portals. min-y/max-y are absolute limits for every portal.");
                     Msg.line(s, "  More: /pd settings tnt | players | square | all");
                     return;
