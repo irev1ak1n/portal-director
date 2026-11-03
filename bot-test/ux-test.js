@@ -379,7 +379,6 @@ async function main () {
   await run('tp @a 1000 200 1000', 60)
   await run('pd clear', 200)
   await sleep(10000)
-  await run('pd scene new boom')
   const FX = CX + 120
   await run(`fill ${FX - 12} 60 ${CZ - 12} ${FX + 24} 70 ${CZ + 12} minecraft:dirt`)
   await run(`fill ${FX - 12} 71 ${CZ - 12} ${FX + 24} 71 ${CZ + 12} minecraft:grass_block`)
@@ -412,7 +411,7 @@ async function main () {
   await sleep(6500)
   const wallLeft = await run(`execute if block ${FX + 8} 73 ${CZ} minecraft:stone_bricks`, 400)
   check('terrain damage on: the wall block in front of the portal is gone', !/passed/i.test(wallLeft), wallLeft.trim().split('\n').pop())
-  const portalsFine = await badBlocks(readScene('boom').portals)
+  const portalsFine = await badBlocks(readScene('default').portals)
   check('the portal itself survived (portal protection)', portalsFine === 0)
   await run('pd tnt terrain-damage off')
   await run('pd tnt wave 3 2')
@@ -429,15 +428,10 @@ async function main () {
   check('the minecart limit is explained when it is reached', limited <= 2 && /skipped|not launched|limit/.test(msg), limited + ' alive')
   await run('pd tnt clear', 300)
 
-  // scenes
-  out = await run('pd scene list')
-  check('scene list marks the selected scene', /> boom/.test(out) && /\(selected\)/.test(out), out.split('\n').filter(l => /boom/.test(l)).join(' | '))
-  out = await run('pd scene select default')
-  check('scene select switches scene', /loaded|selected/i.test(out), out.trim().split('\n').pop())
-  const sceneBoom = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'boom.blocks'))
-  await run('pd scene select boom')
-  out = await runUntil('pd clear', /cleared: \d+ blocks restored/, 120000)
-  check('clear works again afterwards and restores blocks', (await wrongRestoredAfterReplace(sceneBoom)) === 0 || /cleared/.test(out), out.replace(/^\[[^\]]*\] /, ''))
+  // clear and build something different
+  const sceneBoom = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
+  out = await runUntil('pd clear', /Cleared: \d+ blocks restored/, 120000)
+  check('clear restores the blocks', (await wrongRestoredAfterReplace(sceneBoom)) === 0 && /Cleared/.test(out), out.replace(/^\[[^\]]*\] /, ''))
   out = await runUntil('pd generate 8 ground', /Built \d+ of 8|went wrong|Only/, 120000)
   check('a completely new formation can be built after clearing', /Built/.test(out), out.replace(/^\[[^\]]*\] /, ''))
   out = (await run('pd generate 8')) + (await run('pd generate 8'))

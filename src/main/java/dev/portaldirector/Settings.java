@@ -174,7 +174,7 @@ public final class Settings {
         intOpt("generate.max-y", "highest allowed y for the top of any portal frame", -64, 320, () -> gen.maxY, v -> gen.maxY = v);
         intOpt("generate.blocks-per-tick", "blocks placed per tick", 20, 5000, () -> blocksPerTick, v -> blocksPerTick = v);
         intOpt("generate.max-chunks", "refuse areas needing more chunks than this", 16, 5000, () -> maxChunks, v -> maxChunks = v);
-        intOpt("generate.max-portals", "portals allowed in one scene", 1, 5000, () -> maxPortals, v -> maxPortals = v);
+        intOpt("generate.max-portals", "most portals that can exist at once", 1, 5000, () -> maxPortals, v -> maxPortals = v);
 
         intOpt("square.spacing", "empty blocks between neighbouring portals in a square", 0, 20, () -> squareSpacing, v -> squareSpacing = v);
         enumOpt("square.facing", SquareFacing.class, () -> squareFacing, v -> squareFacing = v);
@@ -200,7 +200,7 @@ public final class Settings {
         intOpt("tnt.interval-ticks", "ticks between minecarts from the same portal", 1, 100, () -> tntIntervalTicks, v -> tntIntervalTicks = v);
         boolOpt("tnt.preview", "spawn minecarts that never explode", () -> tntPreview, v -> tntPreview = v);
         boolOpt("tnt.protect-terrain", "explosions hurt entities but break no blocks", () -> protectTerrain, v -> protectTerrain = v);
-        boolOpt("tnt.protect-portals", "scene portals survive explosions even when terrain damage is on", () -> protectPortals, v -> protectPortals = v);
+        boolOpt("tnt.protect-portals", "portals survive explosions even when terrain damage is on", () -> protectPortals, v -> protectPortals = v);
         intOpt("tnt.max-active", "most minecarts alive at once", 1, 5000, () -> tntMaxActive, v -> tntMaxActive = v);
         intOpt("tnt.lifetime-seconds", "minecarts that have not exploded are removed after this", 5, 3600, () -> tntLifetimeSeconds, v -> tntLifetimeSeconds = v);
         intOpt("tnt.spawns-per-tick", "most minecarts spawned in a single tick", 1, 500, () -> tntSpawnsPerTick, v -> tntSpawnsPerTick = v);

@@ -178,7 +178,7 @@ final class SquareCommands {
         }
         if (size > 400) throw new IllegalArgumentException("That square would be " + size + " blocks wide; the limit is 400.");
         if (4 * perSide > pl.settings().maxPortals) {
-            throw new IllegalArgumentException(4 * perSide + " portals is more than the limit of " + pl.settings().maxPortals + " per scene.");
+            throw new IllegalArgumentException(4 * perSide + " portals is more than the limit of " + pl.settings().maxPortals + " in total.");
         }
         return new Request(world, cx, cz, perSide, gap, size, facing, elevation, partial, number);
     }
@@ -197,13 +197,13 @@ final class SquareCommands {
         if (pl.activeJob() != null) throw pl.busy();
         Scene scene = pl.scenes().currentOrCreate(rq.world());
         if (!scene.portals().isEmpty() && !scene.worldName().equals(rq.world().getName())) {
-            throw new IllegalArgumentException("Scene " + scene.name() + " is in world " + scene.worldName() + ". Start a new one with /pd scene new <name>.");
+            throw new IllegalArgumentException("The existing portals are in world " + scene.worldName() + ". Run /pd clear first to build in " + rq.world().getName() + ".");
         }
         if (!previewOnly && scene.square() != null) {
-            throw new IllegalArgumentException("Scene " + scene.name() + " already has a square. /pd square remove takes it down, or use /pd scene new <name>.");
+            throw new IllegalArgumentException("There is already a square. /pd square remove takes it down first.");
         }
         if (scene.portals().size() + 4 * rq.perSide() > pl.settings().maxPortals) {
-            throw new IllegalArgumentException("That would be more than " + pl.settings().maxPortals + " portals in one scene.");
+            throw new IllegalArgumentException("That would be more than " + pl.settings().maxPortals + " portals in total.");
         }
         int x0 = rq.centerX() - rq.size() / 2;
         int z0 = rq.centerZ() - rq.size() / 2;
@@ -264,7 +264,7 @@ final class SquareCommands {
             if (result.cancelled()) {
                 Msg.info(s, "Stopped. " + result.placed() + " portals were finished.");
             } else {
-                Msg.ok(s, "Square built: " + result.placed() + " portals in scene " + scene.name() + " (ids " + ids.get(0) + "-" + ids.get(ids.size() - 1) + ").");
+                Msg.ok(s, "Square built: " + result.placed() + " portals (ids " + ids.get(0) + "-" + ids.get(ids.size() - 1) + ").");
             }
         });
         pl.activeJob(job);
@@ -297,7 +297,7 @@ final class SquareCommands {
 
     private SquareInfo requireSquare() {
         Scene sc = pl.scenes().current();
-        if (sc == null || sc.square() == null) throw new IllegalArgumentException("The current scene has no square. /pd square create 60 builds one.");
+        if (sc == null || sc.square() == null) throw new IllegalArgumentException("There is no square. /pd square create 60 builds one.");
         return sc.square();
     }
 
@@ -374,7 +374,7 @@ final class SquareCommands {
     private void info(CommandSender s) {
         SquareInfo sq = requireSquare();
         Scene sc = pl.scenes().current();
-        Msg.head(s, "Square in scene " + sc.name());
+        Msg.head(s, "Square");
         Msg.line(s, "  " + sq.size() + " x " + sq.size() + " around " + sq.centerX() + ", " + sq.centerZ() + ", " + sq.perSide() + " portals per side, "
                 + sq.spacing() + " blocks between them, facing " + sq.facing().name().toLowerCase(Locale.ROOT));
         for (int i = 0; i < 4; i++) {

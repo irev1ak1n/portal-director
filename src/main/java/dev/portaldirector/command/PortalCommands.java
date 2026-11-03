@@ -134,10 +134,10 @@ final class PortalCommands {
 
         Scene scene = pl.scenes().currentOrCreate(world);
         if (!scene.portals().isEmpty() && !scene.worldName().equals(world.getName())) {
-            throw new IllegalArgumentException("Scene " + scene.name() + " is in world " + scene.worldName() + ". Start a new one with /pd scene new <name>.");
+            throw new IllegalArgumentException("The existing portals are in world " + scene.worldName() + ". Run /pd clear first to build in " + world.getName() + ".");
         }
         if (scene.portals().size() >= pl.settings().maxPortals) {
-            throw new IllegalArgumentException("Scene " + scene.name() + " already has the maximum of " + pl.settings().maxPortals + " portals.");
+            throw new IllegalArgumentException("There are already " + pl.settings().maxPortals + " portals, the most allowed. /pd clear removes them.");
         }
         PortalSpec probe = PortalSpec.fromAnchor(scene.nextId(), x, y, z, facing, false);
         if (probe.y() < world.getMinHeight() + 1 || probe.y() + PortalSpec.HEIGHT >= world.getMaxHeight() - 1) {
@@ -203,13 +203,13 @@ final class PortalCommands {
         pl.scenes().save(scene);
         pl.saveSettings();
         Msg.ok(s, "Portal " + spec.id() + " built at " + x + ", " + y + ", " + z + " facing " + facing.name().toLowerCase(Locale.ROOT)
-                + (floating ? " (floating)" : " (on the ground)") + " in scene " + scene.name() + ".");
+                + (floating ? " (floating)" : " (on the ground)") + ".");
     }
 
     private void remove(CommandSender s, List<String> a) {
         if (a.isEmpty()) throw new IllegalArgumentException("Which portal? /pd portal remove <id>");
         Scene sc = pl.scenes().current();
-        if (sc == null) throw new IllegalArgumentException("There is no scene yet.");
+        if (sc == null) throw new IllegalArgumentException("There are no portals yet.");
         int id;
         try {
             id = Integer.parseInt(a.get(0));
@@ -217,7 +217,7 @@ final class PortalCommands {
             throw new IllegalArgumentException("Portal ids are numbers, like /pd portal remove 7.");
         }
         PortalSpec p = sc.portals().get(id);
-        if (p == null) throw new IllegalArgumentException("There is no portal " + id + " in scene " + sc.name() + ". /pd list shows them.");
+        if (p == null) throw new IllegalArgumentException("There is no portal " + id + ". /pd list shows them.");
         if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");

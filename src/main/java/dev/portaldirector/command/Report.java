@@ -17,7 +17,7 @@ final class Report {
 
     static void formation(CommandSender s, PortalDirectorPlugin pl, Scene sc) {
         if (sc.portals().isEmpty()) return;
-        Msg.info(s, "/pd list shows the id and coordinates of every portal in scene " + sc.name() + ".");
+        Msg.info(s, "/pd list shows the id and coordinates of every portal.");
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) return;
         double fromX = 0;

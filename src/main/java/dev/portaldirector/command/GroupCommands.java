@@ -282,7 +282,7 @@ final class GroupCommands {
         Group g = resolve(s, a, 0).group();
         Scene sc = scene();
         TreeMap<Integer, UUID> map = sc.assignmentsOf(g.name());
-        Msg.head(s, g.name() + " in scene " + sc.name());
+        Msg.head(s, g.name());
         StringBuilder line = new StringBuilder("  ");
         int col = 0;
         for (int id : sc.portals().keySet()) {
@@ -356,7 +356,7 @@ final class GroupCommands {
     /** Square formations: release by side or around the square. */
     private void releasePattern(CommandSender s, Group g, Scene sc, ReleasePattern pattern, List<String> t) {
         if (pattern != ReleasePattern.ALL_AT_ONCE && sc.square() == null) {
-            throw new IllegalArgumentException("Scene " + sc.name() + " has no square, so '" + t.get(0) + "' has nothing to go around. /pd square create 60 builds one.");
+            throw new IllegalArgumentException("There is no square, so '" + t.get(0) + "' has nothing to go around. /pd square create 60 builds one.");
         }
         int defaultDelay = pattern == ReleasePattern.CLOCKWISE ? 10 : 60;
         int delay = t.size() > 1 ? Durations.parseTicks(t.get(1)) : defaultDelay;

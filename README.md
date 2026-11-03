@@ -41,9 +41,8 @@ All configuration goes through `/pd set`. Change how portals are built, then gen
 /pd set height max 40      ... and at most 40 blocks above it
 ```
 
-If a scene already has portals, `/pd generate 30` tells you your options instead of just refusing:
-`/pd generate 30 add` keeps them and builds 30 more, `/pd generate 30 replace` swaps them for new ones, and
-`/pd scene new heist` starts a separate scene.
+If portals already exist, `/pd generate 30` tells you your options instead of just refusing:
+`/pd generate 30 add` keeps them and builds 30 more, and `/pd generate 30 replace` swaps them for new ones.
 
 **Can't see them?** The server only sends the land around you up to its view distance. If the view distance is
 smaller than the radius, far portals are invisible until you get closer, and Portal Director warns you after generating when
@@ -107,7 +106,7 @@ east/west ones). The obsidian floor is the block directly below it, so the frame
 south portals are 4 blocks wide along x, east and west portals along z. The direction is the way people walk
 out of the portal.
 
-Manual portals get the next free id in the current scene and behave exactly like generated ones: they can be
+Manual portals get the next free id and behave exactly like generated ones: they can be
 assigned to players, used for entrances and TNT, saved, rebuilt and cleared. They can float at any valid height
 or stand on the ground. A portal is refused when it is closer than one empty block to another portal, outside the
 build height or world border, or would replace blocks that look player-built (add `force` at the end to override
@@ -135,7 +134,7 @@ Before anything is built you see the result: for example "9 portals per side, 36
 them. Fits: 36 of 36". If water, steep ground or a building blocks some positions nothing is built unless you add
 `partial`. The sides are identical and each one stops short of the next, so frames never touch at the corners.
 Ids go clockwise from the north-west corner: the north side first, then east, south and west. The square
-is a normal part of its scene, so everything else works on it: group assignment, entrances, TNT, save, rebuild, clear.
+is made of normal portals, so everything else works on it: group assignment, entrances, TNT and clear.
 
 Cinematic releases (give each side's portals players with `/pd group assign`, then `prepare`, then):
 
@@ -150,40 +149,12 @@ Cinematic releases (give each side's portals players with `/pd group assign`, th
 TNT from the square: `/pd tnt launch square`, `/pd tnt launch side east`, `/pd tnt launch square 2 stagger 0.25`
 (the stagger follows the clockwise order), `/pd tnt wave 5 20 1 square`.
 
-## Ready-made scenes
+## Clearing and restoring
 
-```
-/pd preset list
-/pd preset invasion        random portals on the ground and in the air, all facing the middle
-/pd preset sky-army        floating portals at many different heights
-/pd preset formation       a tidy grid of ground portals, everyone walking out the same way
-/pd preset tnt-barrage     a ring of portals with 2 minecarts each and 3 timed waves ready
-/pd preset invasion 60     the same with a different portal count
-```
-
-A preset sets the generator options, builds the scene (named after the preset) around you and leaves
-everything else alone. Run `/pd scene clear invasion` to take it down again.
-
-## Scenes
-
-Every portal belongs to a scene. A scene remembers its portals, their IDs, orientation, the players
-assigned to them and every block it changed, so it can be taken down without damaging anything.
-
-```
-/pd scene info                 what is in the current scene
-/pd scene save invasion        name and save the current scene
-/pd scene new heist            start a second, independent scene
-/pd scene load invasion        switch to a scene
-/pd scene list
-/pd scene clear [name]         remove the portals and restore the terrain (also: /pd clear)
-/pd scene rebuild [name]       put missing portals back
-/pd scene delete <name>        forget an empty scene
-```
-
-Removal only restores a block if it still holds what the scene put there. If somebody built on top of a
-portal, or mined the frame, those blocks are left exactly as they are.
-
-Scenes, groups, assignments and all settings survive restarts.
+Portal Director remembers every portal and every block it changed, even after a restart. `/pd clear` removes the portals and
+puts the ground back. A block is only restored if it still holds what Portal Director put there: if somebody built on a
+portal or mined the frame, those blocks are left exactly as they are. Your assigned players, the join block and all settings
+are saved too.
 
 ## Settings
 
@@ -203,7 +174,7 @@ Scenes, groups, assignments and all settings survive restarts.
 | `/pd set orientation x\|z\|random` | Which way the frame runs. Always upright |
 | `/pd set facing auto\|inward\|outward\|random\|north\|south\|east\|west` | The way players and minecarts leave |
 | `/pd set layout random\|grid\|circle\|wave` | How portals are arranged |
-| `/pd set center here` / `/pd set center 100 -40 world` / `/pd set center reset` | Pin the middle of the scene |
+| `/pd set center here` / `/pd set center 100 -40 world` / `/pd set center reset` | Pin the middle of the formation |
 | `/pd set staging here` / `/pd set staging clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
 | `/pd set tnt.fuse-seconds 3`, `/pd set entrance.walk-ticks 30` ... | Every other option; `/pd settings all` lists them |
 | `/pd list` | The id and coordinates of every portal |
@@ -242,7 +213,7 @@ portal when they return. To hide staged players, `/pd set entrance.staging-invis
 ## Permissions
 
 Operators have everything by default. `portaldirector.admin` is all of it, or give people the pieces:
-`portaldirector.generate`, `.group`, `.tnt`, `.scene`.
+`portaldirector.generate` (build, set, list), `.group`, `.tnt` and `.scene` (`/pd clear`).
 
 ## Supported versions
 
@@ -272,5 +243,5 @@ The jar is in `build/libs/`. `gradlew test` runs the unit tests.
 
 `scripts/setup-test-server.ps1 -AcceptEula` creates an offline-mode Paper test server bound to 127.0.0.1 next to
 the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node ux-test.js` or `node square-test.js`)
-that drives 30 bots through the whole flow. Read `bot-test/README.md` before trusting it: bots cannot see
-the scene.
+that drives a few bots through the whole flow. Read `bot-test/README.md` before trusting it: bots cannot see
+the portals.

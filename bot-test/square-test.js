@@ -438,7 +438,6 @@ async function main () {
 
   // 4. persistence
   log('Persistence')
-  await run('pd scene save arena')
   for (const b of bots.values()) { try { b.end() } catch {} }
   bots.clear()
   await sleep(2000)
@@ -450,19 +449,13 @@ async function main () {
   await sleep(6000)
   out = await run('pd square info', 800)
   check('square survives a restart', /4 portals per side/.test(out) && /facing inward/.test(out), out.trim().split('\n').slice(-3).join(' | '))
-  sc = readScene('arena')
+  sc = readScene('default')
   check('portal blocks intact after restart', (await badBlocks(sc.portals)) === 0)
-  const victim = sc.portals[5]
-  await run(`setblock ${victim.axis === 'X' ? victim.x : victim.x} ${victim.y + 1} ${victim.z} minecraft:air`, 300)
-  await run(`setblock ${victim.x} ${victim.y} ${victim.z} minecraft:air`, 300)
-  check('breaking a square portal is detected', (await badBlocks(sc.portals)) > 0)
-  await runUntil('pd scene rebuild', /Rebuilt \d+ portals/, 60000)
-  check('scene rebuild repairs the square', (await badBlocks(sc.portals)) === 0)
-  recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'arena.blocks'))
+  recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
   const mark = { x: sc.portals[0].x, y: sc.portals[0].y, z: sc.portals[0].z }
   await run(`setblock ${mark.x} ${mark.y} ${mark.z} minecraft:diamond_block`, 300)
-  out = await runUntil('pd clear', /cleared: \d+ blocks restored/, 180000)
-  check('scene clear removes the square and leaves a changed block alone', /left alone/.test(out), out.replace(/^\[[^\]]*\] /, ''))
+  out = await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 180000)
+  check('clear removes the square and leaves a changed block alone', /left alone/.test(out), out.replace(/^\[[^\]]*\] /, ''))
   check('everything else was restored', (await wrongRestored(recs, [mark])) === 0, recs.length + ' blocks')
   check('square info is gone after clear', /no square/.test(await run('pd square info')))
 }

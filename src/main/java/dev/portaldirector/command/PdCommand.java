@@ -39,10 +39,8 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         subs.put("list", new Entry(scene.portals(), g));
         subs.put("portal", new Entry(portal.portal(), g));
         subs.put("clear", new Entry(scene.clearShortcut(), "portaldirector.scene"));
-        subs.put("scene", new Entry(scene.scene(), "portaldirector.scene"));
         subs.put("group", new Entry(group.group(), "portaldirector.group"));
         subs.put("tnt", new Entry(tnt.tnt(), "portaldirector.tnt"));
-        subs.put("preset", new Entry(gen.preset(), g));
         subs.put("square", new Entry(square.square(), g));
         subs.put("stop", new Entry(scene.stop(), g));
         subs.put("help", new Entry((s, a) -> help(s, a.isEmpty() ? "" : a.get(0)), null));
@@ -197,7 +195,6 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd set center here|<x> <z> [world]|reset", "where portals are built around");
                 Msg.cmd(s, "/pd portal create here north", "one portal exactly where you stand");
                 Msg.cmd(s, "/pd portal remove 3", "take one portal down");
-                Msg.cmd(s, "/pd preset list", "ready-made looks");
                 Msg.line(s, "  If you cannot see portals that exist, the server's view distance is probably smaller than the radius.");
             }
             case "players", "group", "groups", "entrance" -> {
@@ -224,14 +221,6 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd tnt clear", "stop and remove every TNT minecart");
                 Msg.line(s, "  /pd tnt shows the full list. Nothing ever launches unless you type a launch command.");
             }
-            case "scene", "scenes" -> {
-                Msg.head(s, "Scenes");
-                Msg.line(s, "  A scene is one set of portals. Commands work on the selected scene.");
-                Msg.cmd(s, "/pd scene list", "all scenes, the selected one is marked");
-                Msg.cmd(s, "/pd scene new heist", "start an empty scene");
-                Msg.cmd(s, "/pd scene select invasion", "switch to another scene");
-                Msg.cmd(s, "/pd clear", "remove the selected scene's portals and put the terrain back");
-            }
             case "square" -> {
                 Msg.head(s, "Square formation");
                 Msg.cmd(s, "/pd square preview 60", "see how many portals fit, build nothing");
@@ -247,7 +236,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.line(s, " 3. players: /pd group create team, /pd group block set emerald_block, then /pd group prepare team and /pd group release team");
                 Msg.line(s, "    TNT: /pd tnt launch all   (/pd tnt mode real makes them explode)");
                 Msg.line(s, " 4. /pd clear               remove everything and restore the ground, then generate something new");
-                Msg.line(s, "More help: /pd help portals | players | tnt | scene | square");
+                Msg.line(s, "More help: /pd help portals | players | tnt | square");
             }
         }
     }

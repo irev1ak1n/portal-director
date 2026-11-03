@@ -112,7 +112,7 @@ final class GenerateCommands {
                 if (add && replace) throw new IllegalArgumentException("Choose either add (keep the existing portals) or replace (remove them first), not both.");
                 Settings st = pl.settings();
                 if (count != null && (count < 1 || count > st.maxPortals)) {
-                    throw new IllegalArgumentException("A scene can hold 1 to " + st.maxPortals + " portals, so " + count + " is out of range.");
+                    throw new IllegalArgumentException("Between 1 and " + st.maxPortals + " portals can exist at once, so " + count + " is out of range.");
                 }
                 if (count != null) st.gen.count = count;
                 if (placement != null) st.gen.placement = placement;
@@ -121,17 +121,16 @@ final class GenerateCommands {
                 Scene scene = pl.scenes().currentOrCreate(c.world());
                 if (pl.activeJob() != null) throw pl.busy();
                 if (!scene.portals().isEmpty() && !scene.worldName().equals(c.world().getName())) {
-                    throw new IllegalArgumentException("Scene " + scene.name() + " is in the world " + scene.worldName() + ", and you are in " + c.world().getName()
-                            + ". Use /pd scene new <name> to start a separate scene here.");
+                    throw new IllegalArgumentException("The existing portals are in the world " + scene.worldName() + ", and you are in " + c.world().getName()
+                            + ". Run /pd clear first, then generate here.");
                 }
                 if (!scene.portals().isEmpty() && !add && !replace) {
-                    throw new IllegalArgumentException("Scene " + scene.name() + " already has " + scene.portals().size() + " portals (/pd list shows where they are). "
+                    throw new IllegalArgumentException("There are already " + scene.portals().size() + " portals (/pd list shows where they are). "
                             + "To keep them and build " + st.gen.count + " more: /pd generate " + st.gen.count + " add. "
-                            + "To remove them and build new ones: /pd generate " + st.gen.count + " replace. "
-                            + "To keep them and start a separate scene: /pd scene new <name>.");
+                            + "To remove them and build new ones: /pd generate " + st.gen.count + " replace.");
                 }
                 if (replace && !scene.portals().isEmpty()) {
-                    Msg.info(s, "Removing the " + scene.portals().size() + " portals of scene " + scene.name() + " first...");
+                    Msg.info(s, "Removing the " + scene.portals().size() + " existing portals first...");
                     scenes.clear(s, scene, () -> startGeneration(s, scene, c, false));
                     return;
                 }
@@ -150,7 +149,7 @@ final class GenerateCommands {
         if (pl.activeJob() != null) throw pl.busy();
         Settings st = pl.settings();
         if (scene.portals().size() + st.gen.count > st.maxPortals) {
-            throw new IllegalArgumentException("That would make " + (scene.portals().size() + st.gen.count) + " portals, and a scene can hold at most " + st.maxPortals
+            throw new IllegalArgumentException("That would make " + (scene.portals().size() + st.gen.count) + " portals, and at most " + st.maxPortals + " can exist at once"
                     + ". Build fewer, or change the limit with /pd set max-portals.");
         }
         scene.worldName(c.world().getName());
@@ -161,11 +160,11 @@ final class GenerateCommands {
             pl.scenes().save(scene);
             pl.groups().fillAll(scene);
             if (result.failed()) {
-                Msg.err(s, "Something went wrong while building (" + result.error() + "). The portals that were finished are kept in scene " + scene.name() + ".");
+                Msg.err(s, "Something went wrong while building (" + result.error() + "). The portals that were finished are kept.");
             } else if (result.cancelled()) {
                 Msg.info(s, "Cancelled. " + result.placed() + " portals were finished and kept.");
             } else {
-                Msg.ok(s, "Built " + result.placed() + " of " + result.requested() + " portals in scene " + scene.name()
+                Msg.ok(s, "Built " + result.placed() + " of " + result.requested() + " portals"
                         + (before > 0 ? " (" + scene.portals().size() + " in total)" : "") + ".");
                 if (result.placed() < result.requested()) {
                     Msg.info(s, "Only " + result.placed() + " fit in this area. " + shortfall(result.reasons()) + " Make room with /pd set radius " + Math.min(400, st.gen.radius * 3 / 2)
@@ -193,49 +192,6 @@ final class GenerateCommands {
                 .forEach(e -> sb.append(e.getValue()).append(" (").append(e.getKey()).append("), "));
         sb.setLength(sb.length() - 2);
         return sb.append('.').toString();
-    }
-
-    // Presets
-
-    Sub preset() {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                if (a.isEmpty() || a.get(0).equalsIgnoreCase("list")) {
-                    Msg.head(s, "Ready-made scenes");
-                    for (Map.Entry<String, Presets.Preset> e : Presets.ALL.entrySet()) {
-                        Msg.cmd(s, "/pd preset " + e.getKey(), e.getValue().description());
-                    }
-                    Msg.line(s, "Add a number to change the portal count, for example /pd preset invasion 60.");
-                    return;
-                }
-                Presets.Preset preset = Presets.ALL.get(a.get(0).toLowerCase(Locale.ROOT));
-                if (preset == null) throw new IllegalArgumentException("There is no preset called " + a.get(0) + ". /pd preset list shows them.");
-                Center c = center(s);
-                String name = a.get(0).toLowerCase(Locale.ROOT);
-                Scene scene = pl.scenes().get(name);
-                if (scene != null && !scene.portals().isEmpty()) {
-                    throw new IllegalArgumentException("A scene called " + name + " already exists with " + scene.portals().size()
-                            + " portals. /pd scene select " + name + " switches to it; then /pd clear removes it so you can build the preset again.");
-                }
-                if (pl.activeJob() != null) throw pl.busy();
-                if (scene == null) scene = pl.scenes().create(name, c.world());
-                preset.apply().accept(pl.settings());
-                if (a.size() > 1) {
-                    try {
-                        pl.settings().gen.count = Math.max(1, Math.min(pl.settings().maxPortals, Integer.parseInt(a.get(1))));
-                    } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("'" + a.get(1) + "' is not a number of portals. Example: /pd preset " + name + " 40");
-                    }
-                }
-                startGeneration(s, scene, c, false);
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                return a.size() == 1 ? new ArrayList<>(Presets.ALL.keySet()) : List.of();
-            }
-        };
     }
 
     // Settings
@@ -325,7 +281,7 @@ final class GenerateCommands {
                 String which = a.isEmpty() ? "generate" : a.get(0).toLowerCase(Locale.ROOT);
                 Scene sc = pl.scenes().current();
                 Msg.head(s, "Portal Director settings");
-                Msg.line(s, "  Selected scene: " + (sc == null ? "none yet (the first /pd generate creates one)" : sc.name() + ", " + sc.portals().size() + " portals")
+                Msg.line(s, "  Portals: " + (sc == null ? "none yet" : sc.portals().size())
                         + "    Center: " + (st.centerPinned ? (int) st.centerX + ", " + (int) st.centerZ + " in " + st.centerWorld + " (pinned)" : "wherever you stand"));
                 if (which.equals("generate") || which.equals("generation") || which.equals("portals")) {
                     Msg.line(s, "  Portal generation - change with /pd set <name> <value>:");
