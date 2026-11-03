@@ -41,6 +41,31 @@ Want waves instead? `/pd group release NULL staggered 10` releases 5 players eve
 
 Extra portals stay empty. Extra players simply have no portal (`/pd group assignments` shows who is where).
 
+## Single portals at exact coordinates
+
+```
+/pd portal create 150 80 -200 north        x y z, then the direction players and minecarts come out
+/pd portal create 150 80 -200 south
+/pd portal create 150 80 -200 east
+/pd portal create 150 80 -200 west
+/pd portal create here north               at your feet
+/pd portal create ~ ~10 ~ east             relative to you
+/pd portal remove 7                        take portal 7 down and restore the blocks
+/pd portal list
+```
+
+**What the coordinates mean:** `x y z` is the lower of the two bottom blocks inside the portal, the block a
+player's feet are in when standing in the doorway (the smaller x for north/south portals, the smaller z for
+east/west ones). The obsidian floor is the block directly below it, so the frame spans `y-1` to `y+3`. North and
+south portals are 4 blocks wide along x, east and west portals along z. The direction is the way people walk
+out of the portal.
+
+Manual portals get the next free id in the current scene and behave exactly like generated ones: they can be
+assigned to players, used for entrances and TNT, saved, rebuilt and cleared. They can float at any valid height
+or stand on the ground. A portal is refused when it is closer than one empty block to another portal, outside the
+build height or world border, or would replace blocks that look player-built (add `force` at the end to override
+that last check). From the console add the world name: `/pd portal create 0 100 0 north world`.
+
 ## Ready-made scenes
 
 ```
@@ -147,6 +172,23 @@ portal when they return. To hide staged players, `/pd set entrance.staging-invis
 
 Operators have everything by default. `portaldirector.admin` is all of it, or give people the pieces:
 `portaldirector.generate`, `.group`, `.tnt`, `.scene`.
+
+## Supported versions
+
+Built and tested against **Paper 26.3 (build 231) on Java 25**. Other versions are untested.
+
+## Limitations
+
+* Entrances move players with teleports plus a short walk (a velocity push every tick). It is not the
+  player's own input, so a player can interrupt it, and how smooth it looks on a camera depends on their ping.
+* Players staged at their portals are visible to everyone unless `entrance.staging-invisible` is on
+  or a staging area is set.
+* Terrain checks recognise common natural blocks; unusual modded or custom-world blocks may be treated as
+  structures and avoided.
+* Generating very large areas loads many chunks; the limit is `generate.max-chunks`.
+* Minecarts that never hit anything may not explode on their own; they are removed after 60 seconds, or set
+  `tnt.fuse-ticks` to light them after launch.
+* Folia is not supported.
 
 ## Building from source
 

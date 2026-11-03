@@ -19,7 +19,7 @@ function findJava () {
 
 /** Runs the isolated Paper server and gives the harness its console. */
 class TestServer extends EventEmitter {
-  constructor ({ dir, jar, memory = '2G' }) {
+  constructor ({ dir, jar, memory = '1200M' }) {
     super()
     Object.assign(this, { dir, jar, memory })
     this.lines = []
@@ -29,7 +29,7 @@ class TestServer extends EventEmitter {
 
   start () {
     this.exitCode = null
-    this.proc = spawn(findJava(), ['-Xms512M', `-Xmx${this.memory}`, '-XX:+UseG1GC', '-jar', this.jar, '--nogui'], {
+    this.proc = spawn(findJava(), ['-Xms256M', `-Xmx${this.memory}`, '-XX:+UseSerialGC', '-XX:TieredStopAtLevel=1', '-jar', this.jar, '--nogui'], {
       cwd: this.dir,
       stdio: ['pipe', 'pipe', 'pipe']
     })

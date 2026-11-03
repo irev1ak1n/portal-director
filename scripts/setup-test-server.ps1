@@ -69,7 +69,7 @@ rem Starts the test server on Java 25 and keeps the console open. Type "stop" to
 set JAVA=java
 for /d %%d in ("%USERPROFILE%\.gradle\jdks\eclipse_adoptium-25*") do set JAVA=%%d\bin\java.exe
 if defined JAVA25_HOME set JAVA=%JAVA25_HOME%\bin\java.exe
-"%JAVA%" -Xms512M -Xmx2G -XX:+UseG1GC -jar paper-26.3-231.jar --nogui
+"%JAVA%" -Xms256M -Xmx1200M -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -jar paper-26.3-231.jar --nogui
 '@ | Set-Content "$Dir\start.bat"
 
 Write-Host "Test server ready in $Dir"
