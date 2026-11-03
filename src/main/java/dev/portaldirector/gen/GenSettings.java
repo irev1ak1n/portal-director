@@ -19,6 +19,12 @@ public final class GenSettings {
     public Layout layout = Layout.RANDOM;
     public FacingMode facing = FacingMode.AUTO;
     public int maxSlope = 3;
+    public int gridRows = 4;
+    public int gridColumns = 5;
+    public int squarePerSide = 5;
+    public int squareLayers = 1;
+    public int waveRows = 4;
+    public int wavePerRow = 5;
     public int minY = -64;
     public int maxY = 320;
 
@@ -36,6 +42,12 @@ public final class GenSettings {
         c.layout = layout;
         c.facing = facing;
         c.maxSlope = maxSlope;
+        c.gridRows = gridRows;
+        c.gridColumns = gridColumns;
+        c.squarePerSide = squarePerSide;
+        c.squareLayers = squareLayers;
+        c.waveRows = waveRows;
+        c.wavePerRow = wavePerRow;
         c.minY = minY;
         c.maxY = maxY;
         return c;

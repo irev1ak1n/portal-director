@@ -30,7 +30,6 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         GroupCommands group = new GroupCommands(pl);
         TntCommands tnt = new TntCommands(pl);
         PortalCommands portal = new PortalCommands(pl);
-        SquareCommands square = new SquareCommands(pl);
         String g = "portaldirector.generate";
 
         subs.put("generate", new Entry(gen.generate(), g));
@@ -41,7 +40,6 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         subs.put("clear", new Entry(scene.clearShortcut(), "portaldirector.scene"));
         subs.put("group", new Entry(group.group(), "portaldirector.group"));
         subs.put("tnt", new Entry(tnt.tnt(), "portaldirector.tnt"));
-        subs.put("square", new Entry(square.square(), g));
         subs.put("stop", new Entry(scene.stop(), g));
         subs.put("help", new Entry((s, a) -> help(s, a.isEmpty() ? "" : a.get(0)), null));
         subs.put("reload", new Entry((s, a) -> {
@@ -179,23 +177,34 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         switch (topic.toLowerCase(Locale.ROOT)) {
             case "portals", "generate", "settings" -> {
                 Msg.head(s, "Building portals");
-                Msg.cmd(s, "/pd generate 30", "build 30 portals around you (add ground, air or mixed)");
-                Msg.cmd(s, "/pd generate 30 add", "build 30 more and keep the ones you have");
-                Msg.cmd(s, "/pd generate 30 replace", "remove the old ones and build new ones");
+                Msg.cmd(s, "/pd generate", "build the current layout around you (/pd settings shows it)");
+                Msg.cmd(s, "/pd generate add", "build another set and keep the portals you have");
+                Msg.cmd(s, "/pd generate replace", "remove the old portals and build new ones");
                 Msg.cmd(s, "/pd list", "the id and coordinates of every portal");
                 Msg.cmd(s, "/pd settings", "see every setting and its value");
-                Msg.cmd(s, "/pd set radius 50", "how far from you portals may be");
-                Msg.cmd(s, "/pd set spacing horizontal 10", "least empty blocks between portals, measured across the ground");
-                Msg.cmd(s, "/pd set spacing vertical 5", "least empty blocks between floating portals above each other");
-                Msg.cmd(s, "/pd set mode ground|air|mixed", "on the ground, floating, or both");
-                Msg.cmd(s, "/pd set layout random|grid|circle|wave", "arrangement");
-                Msg.cmd(s, "/pd set height min 10  /pd set height max 40", "floating portals hang this far above the ground");
-                Msg.cmd(s, "/pd set orientation x|z|random", "which way the frame runs");
-                Msg.cmd(s, "/pd set facing auto|inward|outward|north|...", "which way players and minecarts leave");
-                Msg.cmd(s, "/pd set center here|<x> <z> [world]|reset", "where portals are built around");
+                Msg.cmd(s, "/pd set layout random|grid|square|wave", "pick the formation (/pd help layouts)");
+                Msg.cmd(s, "/pd set mode ground|air", "stand on the terrain, or float around the center height");
+                Msg.cmd(s, "/pd set spacing horizontal 10", "least empty blocks between portals side by side");
+                Msg.cmd(s, "/pd set spacing vertical 5", "least empty blocks between rows and layers above each other");
+                Msg.cmd(s, "/pd set facing north|south|east|west|random", "which way portals face and where players and minecarts come out");
+                Msg.cmd(s, "/pd set center here|<x> <y> <z>|reset", "where the formation is centered");
                 Msg.cmd(s, "/pd portal create here north", "one portal exactly where you stand");
                 Msg.cmd(s, "/pd portal remove 3", "take one portal down");
-                Msg.line(s, "  If you cannot see portals that exist, the server's view distance is probably smaller than the radius.");
+                Msg.line(s, "  If you cannot see portals that exist, the server's view distance is probably smaller than the formation.");
+            }
+            case "layouts", "layout" -> {
+                Msg.head(s, "Layouts");
+                Msg.line(s, "  Pick one with /pd set layout <name>, set its numbers, then run /pd generate. The number of portals is worked out for you.");
+                Msg.cmd(s, "random", "portals scattered within /pd set radius; /pd set count 50 or /pd generate 50");
+                Msg.cmd(s, "grid", "a vertical wall: /pd set grid rows 4, /pd set grid columns 5 = 20 portals");
+                Msg.cmd(s, "square", "a square perimeter: /pd set square per-side 5, /pd set square layers 3 = 60 portals");
+                Msg.cmd(s, "wave", "rows that rise and fall: /pd set wave rows 4, /pd set wave per-row 5 = 20 portals");
+                Msg.line(s, "  Rows and layers go UP, columns and sides go sideways. Horizontal spacing is the gap between portals side by side,");
+                Msg.line(s, "  vertical spacing is the gap between rows or layers. Facing north|south|east|west turns a grid or wave wall; random");
+                Msg.line(s, "  turns each portal but keeps the positions. A square faces inward (default) or outward.");
+                Msg.line(s, "  Center: /pd set center here (your position) or /pd set center 150 100 -200. With an odd number of rows or layers the middle one is");
+                Msg.line(s, "  at the center height; with an even number, the lower of the two middle ones is, and the extra goes above.");
+                Msg.line(s, "  /pd set mode ground makes the lowest row stand on the terrain. /pd set mode air floats the formation around the center height.");
             }
             case "players", "group", "groups", "entrance" -> {
                 Msg.head(s, "Players walking out of portals");
@@ -208,7 +217,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd group release team staggered 10", "a few players every 10 seconds");
                 Msg.cmd(s, "/pd group reset team", "cancel and send everybody back");
                 Msg.cmd(s, "/pd set staging here", "hold prepared players at your position instead of in their portals");
-                Msg.line(s, "  Square formations can also release clockwise, opposite-sides or side-by-side.");
+                Msg.line(s, "  Square layouts can also release clockwise, opposite-sides or side-by-side.");
                 Msg.line(s, "  Everyone else can still use the portals normally to travel to the Nether.");
             }
             case "tnt" -> {
@@ -221,22 +230,14 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd tnt clear", "stop and remove every TNT minecart");
                 Msg.line(s, "  /pd tnt shows the full list. Nothing ever launches unless you type a launch command.");
             }
-            case "square" -> {
-                Msg.head(s, "Square formation");
-                Msg.cmd(s, "/pd square preview 60", "see how many portals fit, build nothing");
-                Msg.cmd(s, "/pd square create 60", "portals along four sides of a square around you");
-                Msg.cmd(s, "/pd square create 8 portals-per-side", "choose the number per side");
-                Msg.cmd(s, "/pd square facing inward|outward", "toward the middle or away from it");
-                Msg.cmd(s, "/pd square remove", "take it down");
-            }
             default -> {
                 Msg.head(s, "Portal Director - quick start");
-                Msg.line(s, " 1. /pd generate 30         build 30 portals around you (optional first: /pd settings, /pd set radius 50)");
+                Msg.line(s, " 1. /pd set layout grid, /pd set grid rows 4, /pd set grid columns 5, then /pd generate   (or just /pd generate 30 for scattered portals)");
                 Msg.line(s, " 2. /pd list                the id and coordinates of every portal");
                 Msg.line(s, " 3. players: /pd group create team, /pd group block set emerald_block, then /pd group prepare team and /pd group release team");
                 Msg.line(s, "    TNT: /pd tnt launch all   (/pd tnt mode real makes them explode)");
                 Msg.line(s, " 4. /pd clear               remove everything and restore the ground, then generate something new");
-                Msg.line(s, "More help: /pd help portals | players | tnt | square");
+                Msg.line(s, "More help: /pd help portals | layouts | players | tnt");
             }
         }
     }

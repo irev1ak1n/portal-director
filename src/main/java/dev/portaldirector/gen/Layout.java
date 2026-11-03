@@ -1,3 +1,4 @@
 package dev.portaldirector.gen;
 
-public enum Layout { RANDOM, GRID, CIRCLE, WAVE }
+/** How portals are arranged: scattered, a vertical grid wall, square perimeters, or a wave wall. */
+public enum Layout { RANDOM, GRID, SQUARE, WAVE }

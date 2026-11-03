@@ -67,6 +67,7 @@ public final class SceneStore {
             y.set("square.center-z", sq.centerZ());
             y.set("square.size", sq.size());
             y.set("square.per-side", sq.perSide());
+            y.set("square.layers", sq.layers());
             y.set("square.spacing", sq.spacing());
             y.set("square.facing", sq.facing().name());
             y.set("square.ids", sq.ids());
@@ -99,7 +100,7 @@ public final class SceneStore {
         }
         if (y.contains("square.size")) {
             scene.square(new SquareInfo(y.getInt("square.center-x"), y.getInt("square.center-z"), y.getInt("square.size"),
-                    y.getInt("square.per-side"), y.getInt("square.spacing"),
+                    y.getInt("square.per-side"), y.getInt("square.layers", 1), y.getInt("square.spacing"),
                     SquareFacing.valueOf(y.getString("square.facing", "INWARD")), new ArrayList<>(y.getIntegerList("square.ids"))));
         }
         ConfigurationSection a = y.getConfigurationSection("assignments");

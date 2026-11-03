@@ -54,7 +54,7 @@ final class TargetParser {
     }
 
     private static List<PortalSpec> squarePortals(Scene scene, Integer side) {
-        if (scene.square() == null) throw new IllegalArgumentException("There is no square. /pd square create 60 builds one.");
+        if (scene.square() == null) throw new IllegalArgumentException("There is no square. /pd set layout square and /pd generate build one.");
         List<Integer> ids = side == null ? scene.square().ids() : scene.square().side(side);
         return ids.stream().map(id -> scene.portals().get(id)).filter(p -> p != null).toList();
     }

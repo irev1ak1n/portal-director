@@ -5,7 +5,6 @@ import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.random.RandomGenerator;
@@ -97,7 +96,7 @@ public final class PortalPlanner {
             this.nextId = firstId;
             this.rnd = rnd;
             this.candidates = candidates();
-            this.attemptsLeft = s.layout == Layout.RANDOM ? s.count * 60 + 300 : Integer.MAX_VALUE;
+            this.attemptsLeft = s.count * 60 + 300;
         }
 
         public boolean done() {
@@ -149,10 +148,6 @@ public final class PortalPlanner {
 
         private int gapV() {
             return Math.max(1, s.spacingV);
-        }
-
-        private int pitch() {
-            return 5 + gapH();
         }
 
         private PortalSpec tryPlace(int px, int pz) {
@@ -232,10 +227,7 @@ public final class PortalPlanner {
         /** Desired leaving direction at a position, as a vector. */
         private double[] direction(int px, int pz) {
             FacingMode mode = s.facing;
-            if (mode == FacingMode.AUTO) {
-                if (s.layout == Layout.GRID || s.layout == Layout.WAVE) return new double[]{defaultDx, defaultDz};
-                mode = FacingMode.INWARD;
-            }
+            if (mode == FacingMode.AUTO) mode = FacingMode.INWARD;
             return switch (mode) {
                 case INWARD -> centerOr(cx - px, cz - pz);
                 case OUTWARD -> centerOr(px - cx, pz - cz);
@@ -258,77 +250,19 @@ public final class PortalPlanner {
         }
 
         private Iterator<int[]> candidates() {
-            return switch (s.layout) {
-                case RANDOM -> new Iterator<>() {
-                    @Override
-                    public boolean hasNext() {
-                        return true;
-                    }
+            return new Iterator<>() {
+                @Override
+                public boolean hasNext() {
+                    return true;
+                }
 
-                    @Override
-                    public int[] next() {
-                        double a = rnd.nextDouble() * Math.PI * 2;
-                        double r = s.radius * Math.sqrt(rnd.nextDouble());
-                        return new int[]{cx + (int) Math.round(Math.cos(a) * r), cz + (int) Math.round(Math.sin(a) * r)};
-                    }
-                };
-                case GRID -> gridCandidates().iterator();
-                case CIRCLE -> circleCandidates().iterator();
-                case WAVE -> waveCandidates().iterator();
+                @Override
+                public int[] next() {
+                    double a = rnd.nextDouble() * Math.PI * 2;
+                    double r = s.radius * Math.sqrt(rnd.nextDouble());
+                    return new int[]{cx + (int) Math.round(Math.cos(a) * r), cz + (int) Math.round(Math.sin(a) * r)};
+                }
             };
-        }
-
-        private List<int[]> gridCandidates() {
-            int p = pitch();
-            int n = s.radius / p;
-            List<int[]> out = new ArrayList<>();
-            for (int gx = -n; gx <= n; gx++) {
-                for (int gz = -n; gz <= n; gz++) {
-                    if (Math.hypot(gx * p, gz * p) <= s.radius) out.add(new int[]{cx + gx * p, cz + gz * p});
-                }
-            }
-            out.sort(Comparator.comparingDouble((int[] c) -> Math.hypot(c[0] - cx, c[1] - cz))
-                    .thenComparingInt(c -> c[0]).thenComparingInt(c -> c[1]));
-            return out;
-        }
-
-        private List<int[]> circleCandidates() {
-            int p = pitch();
-            int radius = Math.max(s.radius, p);
-            List<int[]> wanted = new ArrayList<>();
-            List<int[]> spare = new ArrayList<>();
-            int remaining = s.count;
-            for (int r = radius; r >= p; r -= p) {
-                int cap = Math.max(1, (int) (2 * Math.PI * r / p));
-                int n = Math.min(remaining, cap);
-                for (int k = 0; k < n; k++) wanted.add(ringPoint(r, k, n));
-                for (int k = 0; k < cap; k++) spare.add(ringPoint(r, k, cap));
-                remaining -= n;
-            }
-            wanted.addAll(spare);
-            return wanted;
-        }
-
-        private int[] ringPoint(int r, int k, int n) {
-            double a = 2 * Math.PI * k / n;
-            return new int[]{cx + (int) Math.round(Math.cos(a) * r), cz + (int) Math.round(Math.sin(a) * r)};
-        }
-
-        private List<int[]> waveCandidates() {
-            int p = pitch();
-            int perRow = Math.max(1, Math.min(s.count, 2 * s.radius / p + 1));
-            int amplitude = Math.max(2, p / 2);
-            List<int[]> out = new ArrayList<>();
-            int rows = (int) Math.ceil(s.count * 1.5 / perRow) + 1;
-            for (int row = 0; row < rows; row++) {
-                int rowZ = (row % 2 == 0 ? 1 : -1) * ((row + 1) / 2) * (2 * amplitude + p);
-                for (int k = 0; k < perRow; k++) {
-                    int px = cx + Math.round((k - (perRow - 1) / 2f) * p);
-                    int pz = cz + rowZ + (int) Math.round(Math.sin(k * Math.PI / 3) * amplitude);
-                    out.add(new int[]{px, pz});
-                }
-            }
-            return out;
         }
     }
 }

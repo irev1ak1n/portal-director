@@ -22,19 +22,18 @@ public enum ReleasePattern {
 
     /**
      * Groups of portal ids released one after another. {@code sides} are the portal ids of north, east, south
-     * and west; only ids in {@code assigned} are used and empty groups are dropped.
+     * and west, {@code ring} all portals in the order they go around; only ids in {@code assigned} are used and empty groups are dropped.
      */
-    public List<List<Integer>> waves(List<List<Integer>> sides, Set<Integer> assigned, int groupSize) {
+    public List<List<Integer>> waves(List<List<Integer>> sides, List<Integer> ring, Set<Integer> assigned, int groupSize) {
         List<List<Integer>> raw = new ArrayList<>();
         switch (this) {
-            case ALL_AT_ONCE -> raw.add(flatten(sides, 0, 1, 2, 3));
+            case ALL_AT_ONCE -> raw.add(ring);
             case SIDE_BY_SIDE -> raw.addAll(sides);
             case OPPOSITE_SIDES -> {
                 raw.add(flatten(sides, 0, 2));
                 raw.add(flatten(sides, 1, 3));
             }
             case CLOCKWISE -> {
-                List<Integer> ring = flatten(sides, 0, 1, 2, 3);
                 int size = Math.max(1, groupSize);
                 for (int i = 0; i < ring.size(); i += size) raw.add(ring.subList(i, Math.min(ring.size(), i + size)));
             }

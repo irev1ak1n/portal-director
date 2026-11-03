@@ -356,7 +356,7 @@ final class GroupCommands {
     /** Square formations: release by side or around the square. */
     private void releasePattern(CommandSender s, Group g, Scene sc, ReleasePattern pattern, List<String> t) {
         if (pattern != ReleasePattern.ALL_AT_ONCE && sc.square() == null) {
-            throw new IllegalArgumentException("There is no square, so '" + t.get(0) + "' has nothing to go around. /pd square create 60 builds one.");
+            throw new IllegalArgumentException("There is no square, so '" + t.get(0) + "' has nothing to go around. /pd set layout square, then /pd generate builds one.");
         }
         int defaultDelay = pattern == ReleasePattern.CLOCKWISE ? 10 : 60;
         int delay = t.size() > 1 ? Durations.parseTicks(t.get(1)) : defaultDelay;
@@ -370,7 +370,7 @@ final class GroupCommands {
         }
         Set<Integer> assigned = sc.assignmentsOf(g.name()).keySet();
         List<List<Integer>> groups = sc.square() == null ? List.of(new ArrayList<>(assigned))
-                : pattern.waves(sc.square().sides(), assigned, size);
+                : pattern.waves(sc.square().sides(), sc.square().ring(), assigned, size);
         int waves = pl.entrance().release(g, sc, groups, delay);
         Msg.ok(s, pattern == ReleasePattern.ALL_AT_ONCE ? "Release! " + assigned.size() + " players walk out of their portals now."
                 : "Releasing " + assigned.size() + " players " + t.get(0).toLowerCase(Locale.ROOT) + ": " + waves + " steps, " + Durations.format(delay) + " apart.");

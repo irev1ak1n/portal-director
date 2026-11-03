@@ -5,7 +5,6 @@ import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Orientation;
 import dev.portaldirector.gen.Placement;
-import dev.portaldirector.gen.SquareFacing;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -90,12 +89,11 @@ public final class Settings {
     public int tntSpawnsPerTick = 60;
     public double tntFuseSeconds = 3.0;
 
-    public int squareSpacing = 2;
-    public SquareFacing squareFacing = SquareFacing.INWARD;
-
     public String centerWorld;
     public double centerX;
     public double centerZ;
+    public double centerY;
+    public boolean centerHasY;
     public boolean centerPinned;
 
     public Location staging;
@@ -129,6 +127,8 @@ public final class Settings {
         centerWorld = c.getString("center.world");
         centerX = c.getDouble("center.x");
         centerZ = c.getDouble("center.z");
+        centerHasY = c.contains("center.y");
+        centerY = c.getDouble("center.y");
         ConfigurationSection st = c.getConfigurationSection("entrance.staging-location");
         staging = null;
         if (st != null) {
@@ -146,6 +146,7 @@ public final class Settings {
         c.set("center.world", centerWorld);
         c.set("center.x", centerX);
         c.set("center.z", centerZ);
+        c.set("center.y", centerHasY ? centerY : null);
         c.set("entrance.staging-location", null);
         if (staging != null && staging.getWorld() != null) {
             c.set("entrance.staging-location.world", staging.getWorld().getName());
@@ -158,7 +159,7 @@ public final class Settings {
     }
 
     private void register() {
-        intOpt("generate.count", "portals per generate", 1, 1000, () -> gen.count, v -> gen.count = v);
+        intOpt("generate.count", "portals for the random layout", 1, 1000, () -> gen.count, v -> gen.count = v);
         intOpt("generate.radius", "blocks around the center", 8, 400, () -> gen.radius, v -> gen.radius = v);
         intOpt("generate.spacing-horizontal", "least empty blocks between portal frames across the ground (x/z)", 1, 100, () -> gen.spacingH, v -> gen.spacingH = v);
         intOpt("generate.spacing-vertical", "least empty blocks between floating portals above each other", 1, 100, () -> gen.spacingV, v -> gen.spacingV = v);
@@ -168,6 +169,12 @@ public final class Settings {
         intOpt("generate.height-max", "highest floating portal, blocks above ground", 2, 300, () -> gen.heightMax, v -> gen.heightMax = v);
         enumOpt("generate.orientation", Orientation.class, () -> gen.orientation, v -> gen.orientation = v);
         enumOpt("generate.layout", Layout.class, () -> gen.layout, v -> gen.layout = v);
+        intOpt("generate.grid-rows", "grid: rows stacked upward", 1, 20, () -> gen.gridRows, v -> gen.gridRows = v);
+        intOpt("generate.grid-columns", "grid: portals side by side in each row", 1, 40, () -> gen.gridColumns, v -> gen.gridColumns = v);
+        intOpt("generate.square-per-side", "square: portals on each of the four sides", 2, 40, () -> gen.squarePerSide, v -> gen.squarePerSide = v);
+        intOpt("generate.square-layers", "square: identical squares stacked upward", 1, 10, () -> gen.squareLayers, v -> gen.squareLayers = v);
+        intOpt("generate.wave-rows", "wave: rows stacked upward", 1, 20, () -> gen.waveRows, v -> gen.waveRows = v);
+        intOpt("generate.wave-per-row", "wave: portals in each row", 1, 40, () -> gen.wavePerRow, v -> gen.wavePerRow = v);
         enumOpt("generate.facing", FacingMode.class, () -> gen.facing, v -> gen.facing = v);
         intOpt("generate.max-slope", "tallest step in the ground a ground portal may stand on", 0, 10, () -> gen.maxSlope, v -> gen.maxSlope = v);
         intOpt("generate.min-y", "lowest allowed y for any portal frame", -64, 320, () -> gen.minY, v -> gen.minY = v);
@@ -176,8 +183,6 @@ public final class Settings {
         intOpt("generate.max-chunks", "refuse areas needing more chunks than this", 16, 5000, () -> maxChunks, v -> maxChunks = v);
         intOpt("generate.max-portals", "most portals that can exist at once", 1, 5000, () -> maxPortals, v -> maxPortals = v);
 
-        intOpt("square.spacing", "empty blocks between neighbouring portals in a square", 0, 20, () -> squareSpacing, v -> squareSpacing = v);
-        enumOpt("square.facing", SquareFacing.class, () -> squareFacing, v -> squareFacing = v);
 
         boolOpt("groups.auto-assign", "give joining players the next free portal", () -> autoAssignJoiners, v -> autoAssignJoiners = v);
         boolOpt("groups.announce-join", "one action bar line when joining via the join block", () -> announceJoin, v -> announceJoin = v);

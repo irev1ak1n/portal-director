@@ -36,6 +36,11 @@ public record PortalSpec(int id, int x, int y, int z, Axis axis, BlockFace facin
         return new PortalSpec(id, axis == Axis.X ? ax - 1 : ax, ay - 1, axis == Axis.Z ? az - 1 : az, axis, facing, floating);
     }
 
+    /** A portal whose interior is centered on the block column (cx, cz), with the frame floor at {@code floorY}. */
+    public static PortalSpec at(int id, int cx, int floorY, int cz, Axis axis, BlockFace facing, boolean floating) {
+        return new PortalSpec(id, axis == Axis.X ? cx - 2 : cx, floorY, axis == Axis.Z ? cz - 2 : cz, axis, facing, floating);
+    }
+
     /** The coordinates {@link #fromAnchor} takes: the lower bottom interior block. */
     public int anchorX() {
         return axis == Axis.X ? x + 1 : x;
