@@ -2,6 +2,8 @@ package dev.portaldirector;
 
 import dev.portaldirector.gen.FacingMode;
 import dev.portaldirector.gen.GenSettings;
+import dev.portaldirector.gen.GenerationMode;
+import dev.portaldirector.gen.RevealOrder;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Orientation;
 import dev.portaldirector.gen.Placement;
@@ -169,6 +171,10 @@ public final class Settings {
         intOpt("generate.height-max", "highest floating portal, blocks above ground", 2, 300, () -> gen.heightMax, v -> gen.heightMax = v);
         enumOpt("generate.orientation", Orientation.class, () -> gen.orientation, v -> gen.orientation = v);
         enumOpt("generate.layout", Layout.class, () -> gen.layout, v -> gen.layout = v);
+        enumOpt("generate.generation", GenerationMode.class, () -> gen.generation, v -> gen.generation = v);
+        dblOpt("generate.generation-delay", "seconds between portals appearing when generation is delayed (0.05 to 60)", 0.05, 60, () -> gen.delay, v -> gen.delay = v);
+        enumOpt("generate.generation-order", RevealOrder.class, () -> gen.order, v -> gen.order = v);
+        boolOpt("generate.generation-effects", "a soft portal sound and particles as each portal appears (delayed generation)", () -> gen.effects, v -> gen.effects = v);
         intOpt("generate.grid-rows", "grid: rows stacked upward", 1, 20, () -> gen.gridRows, v -> gen.gridRows = v);
         intOpt("generate.grid-columns", "grid: portals side by side in each row", 1, 40, () -> gen.gridColumns, v -> gen.gridColumns = v);
         intOpt("generate.square-per-side", "square: portals on each of the four sides", 2, 40, () -> gen.squarePerSide, v -> gen.squarePerSide = v);
@@ -249,8 +255,8 @@ public final class Settings {
 
     private <E extends Enum<E>> void enumOpt(String key, Class<E> type, Supplier<E> get, Consumer<E> set) {
         List<String> names = new ArrayList<>();
-        for (E e : type.getEnumConstants()) names.add(e.name().toLowerCase(Locale.ROOT));
-        options.put(key, new Option(key, String.join(" | ", names), () -> get.get().name().toLowerCase(Locale.ROOT), s -> {
+        for (E e : type.getEnumConstants()) names.add(e.name().toLowerCase(Locale.ROOT).replace('_', '-'));
+        options.put(key, new Option(key, String.join(" | ", names), () -> get.get().name().toLowerCase(Locale.ROOT).replace('_', '-'), s -> {
             E v = GenSettings.parse(type, s, null);
             if (v == null) throw new IllegalArgumentException("use one of: " + String.join(", ", names));
             set.accept(v);

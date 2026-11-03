@@ -74,6 +74,37 @@ player built is in the way, nothing is built and nothing is changed: you get the
 
 Square layouts also let `/pd group release <name> clockwise|opposite-sides|side-by-side` release players around the square, and `/pd tnt launch square` or `/pd tnt launch side east` pick its portals.
 
+## Cinematic reveal
+
+By default every portal is built at once. For a reveal, make them appear one by one:
+
+```
+/pd set generation delayed        portals appear one at a time
+/pd set generation delay 0.5      seconds between portals (0.2, 0.5, 1, 2 ... down to 0.05)
+/pd set generation order left-to-right
+/pd set generation effects on     a soft portal sound and particles as each appears (off by default)
+/pd generate
+/pd set generation instant        back to building everything at once
+```
+
+Every portal is planned and checked before the first one appears, then built whole (complete frame and purple interior) on its turn, so you never get half a portal. The
+first portal appears right away and the delay is the time between portals. Progress shows on the action bar while it runs (for example `12/50 portals created`), and
+`/pd stop` cancels it: the portals that already exist stay tracked, keep their ids and any assigned players, and `/pd clear` removes them and restores the ground. If the
+server restarts in the middle, the portals created so far are saved and can be cleared the same way. Only one generation or clearing runs at a time.
+
+Orders follow the real shape of the formation. `auto` (the default) picks a natural one: grid bottom-to-top, wave left-to-right, square clockwise, random scattered.
+
+| Order | Grid and wave | Square | Random layout |
+|---|---|---|---|
+| `left-to-right` | column by column, as seen from in front of the wall | not available (use clockwise) | west to east |
+| `bottom-to-top` | row by row from the bottom | layer by layer from the bottom, clockwise inside each layer | lowest first |
+| `top-to-bottom` | row by row from the top | layer by layer from the top | highest first |
+| `clockwise` | not available (a wall has no clockwise) | around the perimeter from the north-west corner, layer by layer | around the center from north |
+| `counterclockwise` | not available | the other way around each layer | the other way |
+| `random` | shuffled | shuffled | shuffled |
+
+If you pick an order that does not fit the layout, `/pd generate` tells you why and which orders do. Single portals from `/pd portal create` are built at once.
+
 ## Two ways to use the portals
 
 **Normal mode (default).** Walk into a generated portal, wait a few seconds, and you travel to the Nether. Walk into the
@@ -162,6 +193,7 @@ are saved too.
 | `/pd set spacing horizontal 8` / `vertical 5` | Gap between portals side by side / between rows and layers |
 | `/pd set facing north\|south\|east\|west\|random\|inward\|outward\|auto` | Which way portals face and where players and minecarts come out |
 | `/pd set center here` / `150 100 -200` / `reset` | Where the formation is centered |
+| `/pd set generation instant\|delayed` / `delay 0.5` / `order clockwise` / `effects on` | Reveal portals one by one (see "Cinematic reveal") |
 | `/pd set height min 15` / `height max 60` | Random layout: floating portals hang this far above the ground |
 | `/pd set orientation x\|z\|random` | Random layout: which way the frames run |
 | `/pd set min-y 40` / `max-y 250` | Absolute limits for any portal (optional) |

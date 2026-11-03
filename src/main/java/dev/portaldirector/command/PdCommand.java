@@ -188,6 +188,12 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd set spacing vertical 5", "least empty blocks between rows and layers above each other");
                 Msg.cmd(s, "/pd set facing north|south|east|west|random", "which way portals face and where players and minecarts come out");
                 Msg.cmd(s, "/pd set center here|<x> <y> <z>|reset", "where the formation is centered");
+                Msg.cmd(s, "/pd set generation instant|delayed", "build everything at once, or reveal the portals one by one");
+                Msg.cmd(s, "/pd set generation delay 0.5", "seconds between portals when delayed (0.2, 0.5, 1, 2 ...)");
+                Msg.cmd(s, "/pd set generation order left-to-right|bottom-to-top|top-to-bottom|clockwise|counterclockwise|random|auto", "which portal appears next");
+                Msg.cmd(s, "/pd set generation effects on", "a soft sound and particles as each portal appears");
+                Msg.line(s, "  Delayed reveal: every portal is planned and checked first, then built whole, one at a time. /pd stop cancels and keeps the portals that exist.");
+                Msg.line(s, "  Orders: grid and wave use left-to-right, bottom-to-top or top-to-bottom; a square uses clockwise, counterclockwise, bottom-to-top or top-to-bottom (layer by layer).");
                 Msg.cmd(s, "/pd portal create here north", "one portal exactly where you stand");
                 Msg.cmd(s, "/pd portal remove 3", "take one portal down");
                 Msg.line(s, "  If you cannot see portals that exist, the server's view distance is probably smaller than the formation.");

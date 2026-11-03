@@ -19,6 +19,11 @@ public final class GenSettings {
     public Layout layout = Layout.RANDOM;
     public FacingMode facing = FacingMode.AUTO;
     public int maxSlope = 3;
+    public GenerationMode generation = GenerationMode.INSTANT;
+    /** Seconds between portals when generation is delayed. */
+    public double delay = 0.5;
+    public RevealOrder order = RevealOrder.AUTO;
+    public boolean effects = false;
     public int gridRows = 4;
     public int gridColumns = 5;
     public int squarePerSide = 5;
@@ -42,6 +47,10 @@ public final class GenSettings {
         c.layout = layout;
         c.facing = facing;
         c.maxSlope = maxSlope;
+        c.generation = generation;
+        c.delay = delay;
+        c.order = order;
+        c.effects = effects;
         c.gridRows = gridRows;
         c.gridColumns = gridColumns;
         c.squarePerSide = squarePerSide;

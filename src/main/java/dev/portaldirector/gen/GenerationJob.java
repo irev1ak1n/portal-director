@@ -4,7 +4,11 @@ import dev.portaldirector.Settings;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Job;
+import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -13,18 +17,21 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Generates portals in three steps spread over many ticks: load the chunks of the area,
- * pick positions, then place blocks a few hundred at a time.
+ * Generates portals: load the chunks of the area, pick positions (random layout), then build. Instant generation places
+ * blocks a few hundred per tick. Delayed generation builds one complete portal every {@code generation delay} seconds,
+ * in reveal order. A portal joins the scene the moment it is built, so a stopped or interrupted sequence always leaves
+ * exactly the portals that exist tracked, with their blocks logged for removal.
  */
 public final class GenerationJob implements Job {
 
     public record Result(int requested, int placed, int rejected, boolean cancelled, boolean failed, String error,
-                         java.util.Map<String, Integer> reasons) {
+                         Map<String, Integer> reasons) {
     }
 
     private enum Phase { LOAD, PLAN, BUILD, DONE }
@@ -35,7 +42,8 @@ public final class GenerationJob implements Job {
     private final Settings settings;
     private final PortalPlanner.Session planner;
     private final List<PortalSpec> fixed;
-    private final boolean dropOnCancel;
+    private final int centerX;
+    private final int centerZ;
     private final Consumer<Result> onDone;
     private final Deque<long[]> chunksToLoad = new ArrayDeque<>();
     private final Set<Long> ticketed = new HashSet<>();
@@ -45,8 +53,13 @@ public final class GenerationJob implements Job {
 
     private Phase phase = Phase.LOAD;
     private BukkitTask task;
-    private List<PortalSpec> toBuild;
+    private List<PortalSpec> toBuild = List.of();
     private int buildIndex;
+    private int completed;
+    private PortalSpec current;
+    private long buildTicks;
+    private long lastSave;
+    private Runnable autosave;
     private final Deque<PortalEdits.Edit> pending = new ArrayDeque<>();
     private boolean cancelled;
     private String error;
@@ -60,7 +73,8 @@ public final class GenerationJob implements Job {
         this.settings = settings;
         this.onDone = onDone;
         this.fixed = null;
-        this.dropOnCancel = true;
+        this.centerX = cx;
+        this.centerZ = cz;
         this.planner = new PortalPlanner.Session(new BukkitTerrain(world), settings.gen, cx, cz, defaultDx, defaultDz,
                 existing, scene.nextId(), new Random());
         int r = settings.gen.radius + 12;
@@ -70,25 +84,17 @@ public final class GenerationJob implements Job {
         this.totalChunks = chunksToLoad.size();
     }
 
-    /** Places the blocks of portals a scene already has, for example after the world was restored. */
-    public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, Consumer<Result> onDone) {
-        this(plugin, world, scene, settings, new ArrayList<>(scene.portals().values()), false, onDone);
-    }
-
-    /**
-     * Places the blocks of the given portals. With {@code dropOnCancel} the portals that were not finished are
-     * removed from the scene again when the job is cancelled (for portals that were just added).
-     */
-    public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, List<PortalSpec> specs,
-                         boolean dropOnCancel, Consumer<Result> onDone) {
+    /** Builds portals that were already planned and checked, in the order given. */
+    public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, List<PortalSpec> specs, Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
         this.scene = scene;
         this.settings = settings;
         this.onDone = onDone;
         this.fixed = new ArrayList<>(specs);
-        this.dropOnCancel = dropOnCancel;
         this.planner = null;
+        this.centerX = 0;
+        this.centerZ = 0;
         Set<Long> seen = new HashSet<>();
         for (PortalSpec p : fixed) {
             int[] b = p.box();
@@ -106,6 +112,11 @@ public final class GenerationJob implements Job {
         return totalChunks;
     }
 
+    /** Called now and then while a delayed sequence runs, so a crash loses little. */
+    public void autosave(Runnable saver) {
+        this.autosave = saver;
+    }
+
     public void start() {
         task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
     }
@@ -115,7 +126,7 @@ public final class GenerationJob implements Job {
         return switch (phase) {
             case LOAD -> "loading the area: " + loaded + " of " + totalChunks + " chunks";
             case PLAN -> "finding spots: " + (planner == null ? 0 : planner.placed().size()) + " portals so far";
-            case BUILD -> "building portals: " + buildIndex + " of " + (toBuild == null ? 0 : toBuild.size());
+            case BUILD -> completed + "/" + toBuild.size() + " portals created";
             case DONE -> "finished";
         };
     }
@@ -123,6 +134,8 @@ public final class GenerationJob implements Job {
     @Override
     public void cancel() {
         cancelled = true;
+        // A server that is shutting down never runs another tick, so finish the bookkeeping right away.
+        if (plugin.getServer().isStopping()) finish();
     }
 
     private void tick() {
@@ -172,53 +185,84 @@ public final class GenerationJob implements Job {
     private void planStep() {
         planner.step(settings.plannerBudget);
         if (!planner.done()) return;
-        toBuild = new ArrayList<>(planner.placed());
-        for (PortalSpec p : toBuild) scene.portals().put(p.id(), p);
+        List<PortalSpec> placed = new ArrayList<>(planner.placed());
+        if (settings.gen.generation == GenerationMode.DELAYED) {
+            RevealOrder.Info info = new RevealOrder.Info(BlockFace.SOUTH, 1, 0, 1, centerX, centerZ);
+            placed = RevealOrder.arrange(Layout.RANDOM, settings.gen.order, placed, info, new Random());
+        }
+        toBuild = placed;
         phase = Phase.BUILD;
     }
 
     private void buildStep() {
+        if (settings.gen.generation == GenerationMode.DELAYED) delayedStep();
+        else instantStep();
+    }
+
+    /** Portal number k appears k delays after the first one, which appears at once. */
+    private void delayedStep() {
+        double delayTicks = Math.max(1.0, settings.gen.delay * 20.0);
+        while (buildIndex < toBuild.size() && buildTicks >= (long) Math.floor(buildIndex * delayTicks)) {
+            PortalSpec p = toBuild.get(buildIndex++);
+            for (PortalEdits.Edit e : PortalEdits.forPortal(world, p, settings.gen.maxSlope + 1)) PortalEdits.apply(world, scene.blocks(), e);
+            scene.portals().put(p.id(), p);
+            completed++;
+            if (settings.gen.effects) reveal(p);
+            break;
+        }
+        buildTicks++;
+        if (autosave != null && buildTicks - lastSave >= 40) {
+            lastSave = buildTicks;
+            autosave.run();
+        }
+        if (buildIndex >= toBuild.size()) finish();
+    }
+
+    private void reveal(PortalSpec p) {
+        Location at = new Location(world, p.centerX(), p.standY() + 1.5, p.centerZ());
+        world.playSound(at, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.6f);
+        world.spawnParticle(Particle.PORTAL, at, 40, 0.6, 1.0, 0.6, 0.4);
+    }
+
+    private void instantStep() {
         int budget = settings.blocksPerTick;
         while (budget > 0) {
             if (pending.isEmpty()) {
+                if (current != null) {
+                    completed++;
+                    current = null;
+                }
                 if (buildIndex >= toBuild.size()) {
                     finish();
                     return;
                 }
-                pending.addAll(PortalEdits.forPortal(world, toBuild.get(buildIndex), settings.gen.maxSlope + 1));
-                buildIndex++;
+                current = toBuild.get(buildIndex++);
+                scene.portals().put(current.id(), current);
+                pending.addAll(PortalEdits.forPortal(world, current, settings.gen.maxSlope + 1));
             }
             PortalEdits.Edit e = pending.poll();
             if (e == null) continue;
-            apply(e);
+            PortalEdits.apply(world, scene.blocks(), e);
             budget--;
         }
     }
 
-    private void apply(PortalEdits.Edit e) {
-        PortalEdits.apply(world, scene.blocks(), e);
-    }
-
     private void finish() {
         if (phase == Phase.DONE) return;
-        boolean wasBuilding = phase == Phase.BUILD;
         phase = Phase.DONE;
         if (task != null) task.cancel();
-        int built = toBuild == null ? 0 : toBuild.size();
-        if (cancelled && wasBuilding && toBuild != null && dropOnCancel) {
-            // The portal being built when cancelled may be half done; keep only the finished ones.
-            int keep = Math.max(0, buildIndex - 1);
-            for (int i = keep; i < toBuild.size(); i++) scene.dropPortal(toBuild.get(i).id());
-            built = keep;
-        } else if (cancelled && toBuild != null && dropOnCancel) {
-            for (PortalSpec p : toBuild) scene.dropPortal(p.id());
-            built = 0;
+        if (current != null && !pending.isEmpty()) {
+            // The portal being built when the job stopped is only partly there; leave it out of the scene. Its blocks stay
+            // in the log, so clearing still puts the ground back.
+            scene.dropPortal(current.id());
+        } else if (current != null) {
+            completed++;
         }
+        current = null;
         for (long k : ticketed) world.removePluginChunkTicket((int) (k >> 32), (int) k, plugin);
         ticketed.clear();
-        int requested = planner == null ? built : planner.requested();
-        onDone.accept(new Result(requested, built, planner == null ? 0 : planner.rejected(), cancelled, error != null, error,
-                planner == null ? java.util.Map.of() : planner.reasons()));
+        onDone.accept(new Result(planner != null ? planner.requested() : toBuild.size(), completed, planner == null ? 0 : planner.rejected(), cancelled, error != null, error,
+                planner == null ? Map.of() : planner.reasons()));
     }
 
     private static long key(int x, int z) {

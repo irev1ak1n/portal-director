@@ -6,6 +6,8 @@ import dev.portaldirector.gen.BukkitTerrain;
 import dev.portaldirector.gen.FacingMode;
 import dev.portaldirector.gen.FormationPlanner;
 import dev.portaldirector.gen.GenSettings;
+import dev.portaldirector.gen.GenerationMode;
+import dev.portaldirector.gen.RevealOrder;
 import dev.portaldirector.gen.GenerationJob;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Placement;
@@ -42,6 +44,7 @@ final class GenerateCommands {
         ALIASES.put("count", "generate.count");
         ALIASES.put("radius", "generate.radius");
         ALIASES.put("layout", "generate.layout");
+        ALIASES.put("generation", "generate.generation");
         ALIASES.put("orientation", "generate.orientation");
         ALIASES.put("facing", "generate.facing");
         ALIASES.put("air-ratio", "generate.air-ratio");
@@ -140,6 +143,10 @@ final class GenerateCommands {
                 if (count != null && (count < 1 || count > st.maxPortals)) {
                     throw new IllegalArgumentException("Between 1 and " + st.maxPortals + " portals can exist at once, so " + count + " is out of range.");
                 }
+                if (st.gen.generation == GenerationMode.DELAYED) {
+                    String problem = RevealOrder.problem(layout, st.gen.order);
+                    if (problem != null) throw new IllegalArgumentException(problem);
+                }
                 if (count != null) st.gen.count = count;
                 if (placement != null) st.gen.placement = placement;
                 pl.saveSettings();
@@ -213,7 +220,7 @@ final class GenerateCommands {
             if (result.failed()) {
                 Msg.err(s, "Something went wrong while building (" + result.error() + "). The portals that were finished are kept.");
             } else if (result.cancelled()) {
-                Msg.info(s, "Cancelled. " + result.placed() + " portals were finished and kept.");
+                Msg.info(s, "Stopped. " + result.placed() + " of " + result.requested() + " portals were created and are kept; /pd clear removes them.");
             } else {
                 Msg.ok(s, "Built " + result.placed() + " of " + result.requested() + " portals"
                         + (before > 0 ? " (" + scene.portals().size() + " in total)" : "") + ".");
@@ -228,11 +235,12 @@ final class GenerateCommands {
             throw new IllegalArgumentException("A radius of " + st.gen.radius + " blocks covers " + job.chunkCount() + " chunks, more than the limit of " + st.maxChunks
                     + ". Use a smaller radius, for example /pd set radius " + Math.max(8, st.gen.radius / 2) + ".");
         }
+        job.autosave(() -> pl.scenes().save(scene));
         pl.activeJob(job);
         pl.scenes().select(scene);
         pl.saveSettings();
         Msg.ok(s, "Building " + st.gen.count + " " + st.gen.placement.name().toLowerCase(Locale.ROOT) + " portals (random layout) within " + st.gen.radius
-                + " blocks of " + (c.pinned() ? "the pinned center " : "") + c.x() + ", " + c.z() + ". This takes a few seconds...");
+                + " blocks of " + (c.pinned() ? "the pinned center " : "") + c.x() + ", " + c.z() + ". " + revealNote(st.gen));
         job.start();
     }
 
@@ -335,7 +343,6 @@ final class GenerateCommands {
             }
         }
         if (fit.usable().isEmpty()) throw new IllegalArgumentException("Nothing fits here.");
-        for (PortalSpec p : fit.usable()) scene.portals().put(p.id(), p);
         scene.worldName(c.world().getName());
         if (g.layout == Layout.SQUARE) {
             SquareFacing sf = g.facing == FacingMode.OUTWARD ? SquareFacing.OUTWARD : SquareFacing.INWARD;
@@ -344,20 +351,46 @@ final class GenerateCommands {
         }
         pl.scenes().select(scene);
         pl.saveSettings();
-        Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals (ids " + fit.usable().get(0).id() + "-" + fit.usable().get(fit.usable().size() - 1).id() + "). This takes a few seconds...");
-        GenerationJob job = new GenerationJob(pl, c.world(), scene, st, fit.usable(), true, result -> {
+        List<PortalSpec> ordered = fit.usable();
+        if (g.generation == GenerationMode.DELAYED) {
+            boolean randomFacing = g.facing == FacingMode.RANDOM;
+            BlockFace wall = randomFacing ? BlockFace.SOUTH : FormationPlanner.wallFacing(g.facing, c.facingAuto());
+            RevealOrder.Info info = new RevealOrder.Info(wall, g.layout == Layout.WAVE ? g.wavePerRow : g.gridColumns, g.squarePerSide, g.squareLayers, c.x(), c.z());
+            java.util.Set<Integer> keep = new java.util.HashSet<>();
+            fit.usable().forEach(p -> keep.add(p.id()));
+            ordered = RevealOrder.arrange(g.layout, g.order, specs, info, new Random()).stream().filter(p -> keep.contains(p.id())).toList();
+            Map<Integer, PortalSpec> byId = new java.util.HashMap<>();
+            fit.usable().forEach(p -> byId.put(p.id(), p));
+            ordered = ordered.stream().map(p -> byId.get(p.id())).toList();
+        }
+        Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals (ids " + fit.usable().get(0).id() + "-" + fit.usable().get(fit.usable().size() - 1).id() + "). " + revealNote(g));
+        GenerationJob job = new GenerationJob(pl, c.world(), scene, st, ordered, result -> {
             pl.activeJob(null);
             pl.groups().fillAll(scene);
             pl.scenes().save(scene);
             if (result.cancelled()) {
-                Msg.info(s, "Stopped. " + result.placed() + " portals were finished.");
+                if (result.placed() == 0) scene.square(null);
+                pl.scenes().save(scene);
+                Msg.info(s, "Stopped. " + result.placed() + " of " + total + " portals were created and are kept; /pd clear removes them.");
             } else {
                 Msg.ok(s, "Built " + result.placed() + " of " + total + " expected portals.");
                 Report.formation(s, pl, scene);
             }
         });
+        job.autosave(() -> pl.scenes().save(scene));
         pl.activeJob(job);
         job.start();
+    }
+
+    /** One sentence about how the portals will appear. */
+    private static String revealNote(GenSettings g) {
+        if (g.generation != GenerationMode.DELAYED) return "This takes a few seconds...";
+        return "They appear one by one, a new one every " + trimSeconds(g.delay) + " s, " + g.order.resolve(g.layout).name().toLowerCase(Locale.ROOT).replace('_', '-')
+                + (g.effects ? ", with sound and particles" : "") + ". /pd stop cancels and keeps what exists.";
+    }
+
+    private static String trimSeconds(double v) {
+        return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
     // Settings
@@ -414,6 +447,14 @@ final class GenerateCommands {
                 f.option().set(value);
                 pl.saveSettings();
                 Msg.ok(s, shortName(f.option()) + " is now " + f.option().get() + ".");
+                if (f.option().key.equals("generate.generation") && pl.settings().gen.generation == GenerationMode.DELAYED) {
+                    GenSettings gg = pl.settings().gen;
+                    Msg.info(s, "Portals will now appear one by one, every " + trimSeconds(gg.delay) + " s, order " + gg.order.resolve(gg.layout).name().toLowerCase(Locale.ROOT).replace('_', '-') + ". Change the pace with /pd set generation delay 0.5.");
+                }
+                if (f.option().key.equals("generate.generation-order") || f.option().key.equals("generate.layout")) {
+                    String problem = RevealOrder.problem(pl.settings().gen.layout, pl.settings().gen.order);
+                    if (problem != null) Msg.info(s, "Note: " + problem);
+                }
                 if (f.option().key.equals("generate.layout") || f.option().key.startsWith("generate.grid-") || f.option().key.startsWith("generate.square-")
                         || f.option().key.startsWith("generate.wave-")) {
                     Msg.info(s, "/pd generate will now build a " + describeLayout(pl.settings().gen) + ".");
@@ -423,7 +464,7 @@ final class GenerateCommands {
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
                 if (a.size() == 1) {
-                    List<String> names = new ArrayList<>(List.of("layout", "grid", "square", "wave", "count", "mode", "radius", "spacing", "orientation", "facing", "height", "air-ratio", "min-y", "max-y", "slope"));
+                    List<String> names = new ArrayList<>(List.of("layout", "generation", "grid", "square", "wave", "count", "mode", "radius", "spacing", "orientation", "facing", "height", "air-ratio", "min-y", "max-y", "slope"));
                     for (Settings.Option o : pl.settings().options().values()) {
                         if (!o.key.startsWith("generate.")) names.add(o.key);
                     }
@@ -442,9 +483,12 @@ final class GenerateCommands {
                             return List.of("per-side", "layers");
                         case "wave":
                             return List.of("rows", "per-row");
+                        case "generation":
+                            return List.of("instant", "delayed", "delay", "order", "effects");
                         default:
                     }
                 }
+                if (first.equals("generation") && a.size() == 3 && a.get(1).equalsIgnoreCase("delay")) return List.of("0.2", "0.5", "1", "2");
                 Found f = find(a.subList(0, a.size() - 1));
                 if (f == null || f.used() != a.size() - 1) return List.of();
                 List<String> sug = new ArrayList<>(f.option().suggestions());
@@ -459,7 +503,7 @@ final class GenerateCommands {
         for (Map.Entry<String, String> e : ALIASES.entrySet()) {
             if (e.getValue().equals(o.key) && !e.getKey().equals("placement") && !e.getKey().startsWith("height-")) return e.getKey();
         }
-        for (String prefix : new String[]{"spacing-", "height-", "grid-", "square-", "wave-"}) {
+        for (String prefix : new String[]{"spacing-", "height-", "grid-", "square-", "wave-", "generation-"}) {
             if (o.key.startsWith("generate." + prefix)) return o.key.replace("generate.", "").replaceFirst("-", " ");
         }
         return o.key;
@@ -511,6 +555,12 @@ final class GenerateCommands {
                     }
                     rows.add(new String[]{LIMITS[0], LIMITS[1]});
                     rows.add(new String[]{LIMITS[2], LIMITS[3]});
+                    rows.add(new String[]{"generation", "generate.generation"});
+                    if (g.generation == GenerationMode.DELAYED) {
+                        rows.add(new String[]{"generation delay", "generate.generation-delay"});
+                        rows.add(new String[]{"generation order", "generate.generation-order"});
+                        rows.add(new String[]{"generation effects", "generate.generation-effects"});
+                    }
                     Msg.line(s, "  Change with /pd set <name> <value>:");
                     for (String[] row : rows) {
                         Settings.Option o = st.options().get(row[1]);
@@ -522,7 +572,7 @@ final class GenerateCommands {
                         case WAVE -> Msg.line(s, "  Rows that rise and fall like a wave, every other row shifted. facing north|south|east|west.");
                         default -> Msg.line(s, "  Height min/max are blocks ABOVE the ground for floating portals.");
                     }
-                    Msg.line(s, "  Spacing: horizontal is the gap side by side, vertical the gap between rows and layers. Other layouts: /pd help layouts.");
+                    Msg.line(s, "  Spacing: horizontal is the gap side by side, vertical the gap between rows and layers. Other layouts: /pd help layouts. Reveal one by one: /pd set generation delayed.");
                     Msg.line(s, "  More: /pd settings tnt | players | all");
                     return;
                 }
