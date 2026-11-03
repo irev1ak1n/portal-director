@@ -29,6 +29,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         GroupCommands group = new GroupCommands(pl);
         TntCommands tnt = new TntCommands(pl);
         PortalCommands portal = new PortalCommands(pl);
+        SquareCommands square = new SquareCommands(pl);
         String g = "portaldirector.generate";
         subs.put("generate", new Entry(gen.generate(), g));
         subs.put("preset", new Entry(gen.preset(), g));
@@ -49,6 +50,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         subs.put("list", new Entry(scene.portals(), g));
         subs.put("tp", new Entry(scene.tp(), g));
         subs.put("portal", new Entry(portal.portal(), g));
+        subs.put("square", new Entry(square.square(), g));
         subs.put("group", new Entry(group.group(), "portaldirector.group"));
         subs.put("tnt", new Entry(tnt.tnt(), "portaldirector.tnt"));
         subs.put("staging", new Entry(staging(), "portaldirector.group"));
@@ -159,6 +161,8 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.cmd(s, "/pd list [page]  /pd tp <id>  /pd stop", "browse, visit, cancel");
                 Msg.cmd(s, "/pd portal create <x y z|here> <north|south|east|west>", "one portal at exact coordinates");
                 Msg.cmd(s, "/pd portal remove <id>  /pd portal list", "single portals");
+                Msg.cmd(s, "/pd square create <size> [portals-per-side] [spacing n] [elevation n]", "portals along the 4 sides of a square");
+                Msg.cmd(s, "/pd square preview|facing|remove|info", "plan it, turn it, take it down");
             }
             case "group", "groups", "entrance" -> {
                 Msg.head(s, "Groups and entrances");

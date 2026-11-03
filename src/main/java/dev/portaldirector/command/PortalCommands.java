@@ -221,15 +221,7 @@ final class PortalCommands {
         if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
-        List<BlockLog.Rec> mine = new ArrayList<>();
-        int[] box = p.box();
-        for (BlockLog.Rec r : sc.blocks().all()) {
-            BlockLog.Pos q = r.pos();
-            boolean inBox = p.contains(q.x(), q.y(), q.z());
-            boolean support = q.y() < p.y() && q.y() >= p.y() - 5 && q.x() >= box[0] && q.x() <= box[3] && q.z() >= box[2] && q.z() <= box[5]
-                    && onFrameColumn(p, q.x(), q.z());
-            if (inBox || support) mine.add(r);
-        }
+        List<BlockLog.Rec> mine = recordsOf(sc, p);
         RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, mine, result -> {
             pl.activeJob(null);
             sc.dropPortal(id);
@@ -239,6 +231,20 @@ final class PortalCommands {
         });
         pl.activeJob(job);
         job.start();
+    }
+
+    /** The logged block changes that belong to one portal: its volume plus the support under its frame. */
+    static List<BlockLog.Rec> recordsOf(Scene sc, PortalSpec p) {
+        List<BlockLog.Rec> mine = new ArrayList<>();
+        int[] box = p.box();
+        for (BlockLog.Rec r : sc.blocks().all()) {
+            BlockLog.Pos q = r.pos();
+            boolean inBox = p.contains(q.x(), q.y(), q.z());
+            boolean support = q.y() < p.y() && q.y() >= p.y() - 5 && q.x() >= box[0] && q.x() <= box[3] && q.z() >= box[2] && q.z() <= box[5]
+                    && onFrameColumn(p, q.x(), q.z());
+            if (inBox || support) mine.add(r);
+        }
+        return mine;
     }
 
     private static boolean onFrameColumn(PortalSpec p, int x, int z) {

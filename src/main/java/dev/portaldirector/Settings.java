@@ -5,6 +5,7 @@ import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Orientation;
 import dev.portaldirector.gen.Placement;
+import dev.portaldirector.gen.SquareFacing;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -89,6 +90,9 @@ public final class Settings {
     public int tntSpawnsPerTick = 60;
     public int tntFuseTicks = -1;
 
+    public int squareSpacing = 2;
+    public SquareFacing squareFacing = SquareFacing.INWARD;
+
     public String centerWorld;
     public double centerX;
     public double centerZ;
@@ -163,6 +167,9 @@ public final class Settings {
         intOpt("generate.blocks-per-tick", "blocks placed per tick", 20, 5000, () -> blocksPerTick, v -> blocksPerTick = v);
         intOpt("generate.max-chunks", "refuse areas needing more chunks than this", 16, 5000, () -> maxChunks, v -> maxChunks = v);
         intOpt("generate.max-portals", "portals allowed in one scene", 1, 5000, () -> maxPortals, v -> maxPortals = v);
+
+        intOpt("square.spacing", "empty blocks between neighbouring portals in a square", 0, 20, () -> squareSpacing, v -> squareSpacing = v);
+        enumOpt("square.facing", SquareFacing.class, () -> squareFacing, v -> squareFacing = v);
 
         boolOpt("groups.auto-assign", "give joining players the next free portal", () -> autoAssignJoiners, v -> autoAssignJoiners = v);
         boolOpt("groups.announce-join", "one action bar line when joining via the join block", () -> announceJoin, v -> announceJoin = v);

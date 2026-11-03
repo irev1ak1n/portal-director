@@ -34,6 +34,7 @@ public final class GenerationJob implements Job {
     private final Settings settings;
     private final PortalPlanner.Session planner;
     private final List<PortalSpec> fixed;
+    private final boolean dropOnCancel;
     private final Consumer<Result> onDone;
     private final Deque<long[]> chunksToLoad = new ArrayDeque<>();
     private final Set<Long> ticketed = new HashSet<>();
@@ -58,6 +59,7 @@ public final class GenerationJob implements Job {
         this.settings = settings;
         this.onDone = onDone;
         this.fixed = null;
+        this.dropOnCancel = true;
         this.planner = new PortalPlanner.Session(new BukkitTerrain(world), settings.gen, cx, cz, defaultDx, defaultDz,
                 existing, scene.nextId(), new Random());
         int r = settings.gen.radius + 12;
@@ -69,12 +71,22 @@ public final class GenerationJob implements Job {
 
     /** Places the blocks of portals a scene already has, for example after the world was restored. */
     public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, Consumer<Result> onDone) {
+        this(plugin, world, scene, settings, new ArrayList<>(scene.portals().values()), false, onDone);
+    }
+
+    /**
+     * Places the blocks of the given portals. With {@code dropOnCancel} the portals that were not finished are
+     * removed from the scene again when the job is cancelled (for portals that were just added).
+     */
+    public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, List<PortalSpec> specs,
+                         boolean dropOnCancel, Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
         this.scene = scene;
         this.settings = settings;
         this.onDone = onDone;
-        this.fixed = new ArrayList<>(scene.portals().values());
+        this.fixed = new ArrayList<>(specs);
+        this.dropOnCancel = dropOnCancel;
         this.planner = null;
         Set<Long> seen = new HashSet<>();
         for (PortalSpec p : fixed) {
@@ -192,12 +204,12 @@ public final class GenerationJob implements Job {
         phase = Phase.DONE;
         if (task != null) task.cancel();
         int built = toBuild == null ? 0 : toBuild.size();
-        if (cancelled && wasBuilding && toBuild != null) {
+        if (cancelled && wasBuilding && toBuild != null && dropOnCancel) {
             // The portal being built when cancelled may be half done; keep only the finished ones.
             int keep = Math.max(0, buildIndex - 1);
             for (int i = keep; i < toBuild.size(); i++) scene.dropPortal(toBuild.get(i).id());
             built = keep;
-        } else if (cancelled && toBuild != null) {
+        } else if (cancelled && toBuild != null && dropOnCancel) {
             for (PortalSpec p : toBuild) scene.dropPortal(p.id());
             built = 0;
         }

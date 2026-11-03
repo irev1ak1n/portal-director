@@ -18,6 +18,7 @@ public final class Scene {
     /** group name (lower case) to portal id to player. */
     private final Map<String, TreeMap<Integer, UUID>> assignments = new LinkedHashMap<>();
     private final BlockLog blocks = new BlockLog();
+    private SquareInfo square;
 
     public Scene(String name, String worldName) {
         this.name = name;
@@ -50,6 +51,14 @@ public final class Scene {
 
     public int nextId() {
         return portals.isEmpty() ? 1 : portals.lastKey() + 1;
+    }
+
+    public SquareInfo square() {
+        return square;
+    }
+
+    public void square(SquareInfo square) {
+        this.square = square;
     }
 
     public BlockLog blocks() {

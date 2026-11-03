@@ -47,7 +47,7 @@ final class TntCommands {
                 if (a.size() == 1) return List.of("launch", "wave", "stop", "clear", "preview", "status");
                 String sub = a.get(0).toLowerCase(Locale.ROOT);
                 if (a.size() == 2 && sub.equals("preview")) return List.of("on", "off");
-                if (sub.equals("launch") && a.size() == 2) return List.of("all", "floating", "ground", "group", "1-10");
+                if (sub.equals("launch") && a.size() == 2) return List.of("all", "floating", "ground", "square", "side", "group", "1-10");
                 if (sub.equals("launch") && a.size() == 3 && a.get(1).equalsIgnoreCase("group")) {
                     return pl.groups().all().stream().map(g -> g.name()).toList();
                 }

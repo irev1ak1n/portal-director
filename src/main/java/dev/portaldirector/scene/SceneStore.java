@@ -1,5 +1,6 @@
 package dev.portaldirector.scene;
 
+import dev.portaldirector.gen.SquareFacing;
 import dev.portaldirector.model.PortalSpec;
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
@@ -60,6 +61,16 @@ public final class SceneStore {
             list.add(m);
         }
         y.set("portals", list);
+        SquareInfo sq = scene.square();
+        if (sq != null) {
+            y.set("square.center-x", sq.centerX());
+            y.set("square.center-z", sq.centerZ());
+            y.set("square.size", sq.size());
+            y.set("square.per-side", sq.perSide());
+            y.set("square.spacing", sq.spacing());
+            y.set("square.facing", sq.facing().name());
+            y.set("square.ids", sq.ids());
+        }
         for (Map.Entry<String, TreeMap<Integer, UUID>> e : scene.assignments().entrySet()) {
             for (Map.Entry<Integer, UUID> a : e.getValue().entrySet()) {
                 y.set("assignments." + e.getKey() + "." + a.getKey(), a.getValue().toString());
@@ -85,6 +96,11 @@ public final class SceneStore {
                     Axis.valueOf(String.valueOf(m.get("axis"))), BlockFace.valueOf(String.valueOf(m.get("facing"))),
                     Boolean.parseBoolean(String.valueOf(m.get("floating"))));
             scene.portals().put(p.id(), p);
+        }
+        if (y.contains("square.size")) {
+            scene.square(new SquareInfo(y.getInt("square.center-x"), y.getInt("square.center-z"), y.getInt("square.size"),
+                    y.getInt("square.per-side"), y.getInt("square.spacing"),
+                    SquareFacing.valueOf(y.getString("square.facing", "INWARD")), new ArrayList<>(y.getIntegerList("square.ids"))));
         }
         ConfigurationSection a = y.getConfigurationSection("assignments");
         if (a != null) {

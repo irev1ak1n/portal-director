@@ -2,6 +2,7 @@ package dev.portaldirector.command;
 
 import dev.portaldirector.PortalDirectorPlugin;
 import dev.portaldirector.entrance.EntranceDirector;
+import dev.portaldirector.entrance.ReleasePattern;
 import dev.portaldirector.group.Assigner;
 import dev.portaldirector.group.Group;
 import dev.portaldirector.scene.Scene;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -112,6 +114,7 @@ final class GroupCommands {
         Msg.cmd(s, "/pd group assignments", "who is at which portal");
         Msg.cmd(s, "/pd group prepare <name>", "stage everyone at their portal");
         Msg.cmd(s, "/pd group release <name> [staggered <secs> [size]]", "everyone walks out");
+        Msg.cmd(s, "/pd group release <name> clockwise|opposite-sides|side-by-side [secs]", "square formations");
         Msg.cmd(s, "/pd group reset <name>", "cancel and send players back");
         Msg.cmd(s, "/pd group disband <name>", "delete the group");
     }
@@ -321,6 +324,11 @@ final class GroupCommands {
         List<String> t = a.subList(r.next(), a.size());
         int waveSize = 0;
         int delay = 0;
+        ReleasePattern pattern = t.isEmpty() ? null : ReleasePattern.parse(t.get(0));
+        if (pattern != null) {
+            releasePattern(s, g, sc, pattern, t);
+            return;
+        }
         if (!t.isEmpty()) {
             if (!t.get(0).equalsIgnoreCase("staggered") && !t.get(0).equalsIgnoreCase("waves")) {
                 throw new IllegalArgumentException("Use /pd group release " + g.name() + " or /pd group release " + g.name() + " staggered <seconds> [players per wave].");
@@ -343,6 +351,29 @@ final class GroupCommands {
         } else {
             Msg.ok(s, "Releasing " + assigned + " players in " + waves + " waves of " + waveSize + ", one every " + Durations.format(delay) + ".");
         }
+    }
+
+    /** Square formations: release by side or around the square. */
+    private void releasePattern(CommandSender s, Group g, Scene sc, ReleasePattern pattern, List<String> t) {
+        if (pattern != ReleasePattern.ALL_AT_ONCE && sc.square() == null) {
+            throw new IllegalArgumentException("Scene " + sc.name() + " has no square, so '" + t.get(0) + "' has nothing to go around. /pd square create 60 builds one.");
+        }
+        int defaultDelay = pattern == ReleasePattern.CLOCKWISE ? 10 : 60;
+        int delay = t.size() > 1 ? Durations.parseTicks(t.get(1)) : defaultDelay;
+        int size = 1;
+        if (t.size() > 2) {
+            try {
+                size = Integer.parseInt(t.get(2));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("'" + t.get(2) + "' is not a number of portals.");
+            }
+        }
+        Set<Integer> assigned = sc.assignmentsOf(g.name()).keySet();
+        List<List<Integer>> groups = sc.square() == null ? List.of(new ArrayList<>(assigned))
+                : pattern.waves(sc.square().sides(), assigned, size);
+        int waves = pl.entrance().release(g, sc, groups, delay);
+        Msg.ok(s, pattern == ReleasePattern.ALL_AT_ONCE ? "Release! " + assigned.size() + " players walk out of their portals now."
+                : "Releasing " + assigned.size() + " players " + t.get(0).toLowerCase(Locale.ROOT) + ": " + waves + " steps, " + Durations.format(delay) + " apart.");
     }
 
     private void reset(CommandSender s, List<String> a) {
@@ -382,7 +413,7 @@ final class GroupCommands {
                 case "add" -> g != null ? onlineNames() : List.of();
                 case "remove", "kick" -> g != null ? memberNames(g) : List.of();
                 case "assign" -> g != null ? List.of("auto", "clear", "swap") : portalNumbers(selectedGroup(s) != null ? a.get(2) : "");
-                case "release" -> g != null ? List.of("staggered") : List.of();
+                case "release" -> g != null ? List.of("staggered", "all-at-once", "clockwise", "opposite-sides", "side-by-side") : List.of();
                 default -> List.of();
             };
         }
@@ -393,7 +424,7 @@ final class GroupCommands {
             }
             if (sub.equals("assign")) return memberNames(selectedGroup(s));
             if (sub.equals("block") && a.get(1).equalsIgnoreCase("set")) return groups;
-            if (sub.equals("release") && g != null) return List.of("5", "10", "20");
+            if (sub.equals("release") && g != null) return List.of("1", "2", "5", "10");
         }
         if (a.size() == 5 && sub.equals("assign") && pl.groups().get(a.get(1)) != null) return memberNames(pl.groups().get(a.get(1)));
         return List.of();

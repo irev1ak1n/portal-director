@@ -16,6 +16,35 @@ public final class PortalPlanner {
     private PortalPlanner() {
     }
 
+    /** The y of the frame floor for a ground portal here, or {@code Integer.MIN_VALUE} when the ground is unsuitable. */
+    public static int groundY(Terrain terrain, PortalSpec p, int maxSlope) {
+        int lo = Integer.MAX_VALUE;
+        int hi = Integer.MIN_VALUE;
+        for (int i = 0; i < PortalSpec.WIDTH; i++) {
+            int x = p.cellX(i);
+            int z = p.cellZ(i);
+            int top = terrain.topY(x, z);
+            if (top < terrain.minY() || terrain.isLiquid(x, top, z) || !terrain.isNatural(x, top, z)) {
+                return Integer.MIN_VALUE;
+            }
+            lo = Math.min(lo, top);
+            hi = Math.max(hi, top);
+        }
+        if (hi - lo > maxSlope) return Integer.MIN_VALUE;
+        return hi + 1;
+    }
+
+    /** True when everything the portal and its walkway would change is air (floating) or natural (ground). */
+    public static boolean volumeFree(Terrain terrain, PortalSpec p, boolean air) {
+        List<int[]> cells = new ArrayList<>(p.frameBlocks());
+        cells.addAll(p.interiorBlocks());
+        cells.addAll(p.corridorBlocks());
+        for (int[] c : cells) {
+            if (air ? !terrain.isAir(c[0], c[1], c[2]) : !terrain.isNatural(c[0], c[1], c[2])) return false;
+        }
+        return true;
+    }
+
     /**
      * An incremental placement run. {@code defaultDx/defaultDz} is the leaving direction used by the
      * automatic facing of grid and wave layouts.
@@ -126,20 +155,7 @@ public final class PortalPlanner {
         }
 
         private int groundY(PortalSpec p) {
-            int lo = Integer.MAX_VALUE;
-            int hi = Integer.MIN_VALUE;
-            for (int i = 0; i < PortalSpec.WIDTH; i++) {
-                int x = p.cellX(i);
-                int z = p.cellZ(i);
-                int top = terrain.topY(x, z);
-                if (top < terrain.minY() || terrain.isLiquid(x, top, z) || !terrain.isNatural(x, top, z)) {
-                    return Integer.MIN_VALUE;
-                }
-                lo = Math.min(lo, top);
-                hi = Math.max(hi, top);
-            }
-            if (hi - lo > s.maxSlope) return Integer.MIN_VALUE;
-            return hi + 1;
+            return PortalPlanner.groundY(terrain, p, s.maxSlope);
         }
 
         private int airY(PortalSpec p) {
@@ -154,13 +170,7 @@ public final class PortalPlanner {
         }
 
         private boolean volumeFree(PortalSpec p, boolean air) {
-            List<int[]> cells = new ArrayList<>(p.frameBlocks());
-            cells.addAll(p.interiorBlocks());
-            cells.addAll(p.corridorBlocks());
-            for (int[] c : cells) {
-                if (air ? !terrain.isAir(c[0], c[1], c[2]) : !terrain.isNatural(c[0], c[1], c[2])) return false;
-            }
-            return true;
+            return PortalPlanner.volumeFree(terrain, p, air);
         }
 
         private Axis chooseAxis() {

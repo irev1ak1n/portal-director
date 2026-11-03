@@ -23,7 +23,7 @@ final class TargetParser {
     }
 
     static Result parse(PortalDirectorPlugin pl, Scene scene, List<String> args, int from) {
-        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, group <name> or ids like 1,4,10-15.");
+        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, square, side <north|east|south|west>, group <name> or ids like 1,4,10-15.");
         String t = args.get(from).toLowerCase(Locale.ROOT);
         List<PortalSpec> all = new ArrayList<>(scene.portals().values());
         switch (t) {
@@ -33,6 +33,14 @@ final class TargetParser {
                 return new Result(all.stream().filter(PortalSpec::floating).toList(), 1);
             case "ground":
                 return new Result(all.stream().filter(p -> !p.floating()).toList(), 1);
+            case "square":
+                return new Result(squarePortals(scene, null), 1);
+            case "side": {
+                if (from + 1 >= args.size()) throw new IllegalArgumentException("Which side? north, east, south or west.");
+                int side = java.util.Arrays.asList(dev.portaldirector.gen.SquarePlanner.SIDE_NAMES).indexOf(args.get(from + 1).toLowerCase(Locale.ROOT));
+                if (side < 0) throw new IllegalArgumentException("A side is north, east, south or west.");
+                return new Result(squarePortals(scene, side), 2);
+            }
             case "group": {
                 if (from + 1 >= args.size()) throw new IllegalArgumentException("Which group? /pd tnt launch group <name>");
                 Group g = pl.groups().get(args.get(from + 1));
@@ -43,6 +51,12 @@ final class TargetParser {
             default:
                 return new Result(ids(scene, t), 1);
         }
+    }
+
+    private static List<PortalSpec> squarePortals(Scene scene, Integer side) {
+        if (scene.square() == null) throw new IllegalArgumentException("Scene " + scene.name() + " has no square. /pd square create 60 builds one.");
+        List<Integer> ids = side == null ? scene.square().ids() : scene.square().side(side);
+        return ids.stream().map(id -> scene.portals().get(id)).filter(p -> p != null).toList();
     }
 
     private static List<PortalSpec> ids(Scene scene, String text) {

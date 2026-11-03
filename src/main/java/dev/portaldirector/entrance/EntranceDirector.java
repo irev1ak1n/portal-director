@@ -180,6 +180,16 @@ public final class EntranceDirector implements Listener {
 
     /** Releases everyone at once, or in waves when {@code waveSize > 0}. Returns the number of waves. */
     public int release(Group g, Scene scene, int waveSize, int delayTicks) {
+        List<Integer> slots = new ArrayList<>(scene.assignmentsOf(g.name()).keySet());
+        List<List<Integer>> groups = new ArrayList<>();
+        for (WavePlan.Wave w : waveSize <= 0 ? WavePlan.synchronous(slots.size()) : WavePlan.staggered(slots.size(), waveSize, delayTicks)) {
+            groups.add(slots.subList(w.from(), w.to()));
+        }
+        return release(g, scene, groups, delayTicks);
+    }
+
+    /** Releases the given groups of portal ids one after another, {@code delayTicks} apart. Returns the group count. */
+    public int release(Group g, Scene scene, List<List<Integer>> groups, int delayTicks) {
         Run run = runs.get(key(g));
         if (run == null || run.phase == Phase.IDLE) {
             run = new Run(g, scene);
@@ -190,27 +200,24 @@ public final class EntranceDirector implements Listener {
         World world = Bukkit.getWorld(scene.worldName());
         if (world == null) throw new IllegalStateException("World " + scene.worldName() + " is not loaded.");
         final Run active = run;
-        List<Integer> slots = new ArrayList<>(scene.assignmentsOf(g.name()).keySet());
-        for (int id : slots) {
+        for (int id : scene.assignmentsOf(g.name()).keySet()) {
             PortalSpec spec = scene.portals().get(id);
             if (spec != null) holdChunk(active, world, spec);
         }
-        List<WavePlan.Wave> waves = waveSize <= 0 ? WavePlan.synchronous(slots.size())
-                : WavePlan.staggered(slots.size(), waveSize, delayTicks);
         active.phase = Phase.RELEASING;
-        for (int i = 0; i < waves.size(); i++) {
-            WavePlan.Wave w = waves.get(i);
-            List<Integer> ids = slots.subList(w.from(), w.to());
-            boolean last = i == waves.size() - 1;
-            if (w.tick() == 0) {
+        for (int i = 0; i < groups.size(); i++) {
+            List<Integer> ids = groups.get(i);
+            boolean last = i == groups.size() - 1;
+            int tick = i * delayTicks;
+            if (tick == 0) {
                 releaseWave(active, world, ids, last);
             } else {
                 active.tasks.add(plugin.getServer().getScheduler().runTaskLater(plugin,
-                        () -> releaseWave(active, world, ids, last), w.tick()));
+                        () -> releaseWave(active, world, ids, last), tick));
             }
         }
-        if (waves.isEmpty()) active.phase = Phase.RELEASED;
-        return waves.size();
+        if (groups.isEmpty()) active.phase = Phase.RELEASED;
+        return groups.size();
     }
 
     private void releaseWave(Run run, World world, List<Integer> portalIds, boolean last) {
