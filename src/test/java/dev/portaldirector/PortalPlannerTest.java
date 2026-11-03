@@ -117,6 +117,19 @@ class PortalPlannerTest {
     }
 
     @Test
+    void groundPortalsDoNotRunIntoAHillside() {
+        FakeTerrain hill = new FakeTerrain((x, z) -> z >= 10 ? 90 : 64);
+        GenSettings s = settings(30, Placement.GROUND, Layout.RANDOM);
+        s.radius = 40;
+        s.orientation = Orientation.X;
+        for (PortalSpec p : run(hill, s, List.of(), 1, 12)) {
+            for (int[] c : p.corridorBlocks()) {
+                if (c[1] == p.y() + 1) assertTrue(hill.topY(c[0], c[2]) <= p.y() + 1, "walkway of portal " + p.id() + " is inside the hill");
+            }
+        }
+    }
+
+    @Test
     void floatingPortalsHangInTheHeightRangeAboveTheGround() {
         GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
         s.heightMin = 25;

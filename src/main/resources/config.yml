@@ -2,7 +2,8 @@
 # and saved here automatically. Edit while the server is stopped, or use /pd reload.
 #
 # generate.height-min / height-max are blocks ABOVE THE GROUND for floating portals.
-# tnt.protect-terrain: explosions hurt entities but destroy no blocks.
+# tnt.protect-terrain: explosions hurt entities but destroy no blocks. tnt.fuse-seconds: 0 means minecarts explode only when they crash.
+# entrance.block-vanilla-travel: true turns generated portals into decoration (no Nether travel).
 # TNT minecarts are never launched unless an admin runs /pd tnt launch or /pd tnt wave.
 generate:
   count: 30
@@ -16,6 +17,8 @@ generate:
   layout: random
   facing: auto
   max-slope: 3
+  min-y: -64
+  max-y: 320
   blocks-per-tick: 400
   max-chunks: 900
   max-portals: 500
@@ -23,7 +26,7 @@ groups:
   auto-assign: true
   announce-join: true
 entrance:
-  block-vanilla-travel: true
+  block-vanilla-travel: false
   staging-invisible: false
   freeze-staged: true
   walk-ticks: 26
@@ -45,4 +48,7 @@ tnt:
   max-active: 300
   lifetime-seconds: 60
   spawns-per-tick: 60
-  fuse-ticks: -1
+  fuse-seconds: 3.0
+square:
+  spacing: 2
+  facing: inward

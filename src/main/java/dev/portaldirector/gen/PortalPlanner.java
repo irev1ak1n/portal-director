@@ -31,6 +31,12 @@ public final class PortalPlanner {
             hi = Math.max(hi, top);
         }
         if (hi - lo > maxSlope) return Integer.MIN_VALUE;
+        // The walkway in front and behind is cleared, so ground that rises more than a block there means a hillside.
+        for (int[] c : p.corridorBlocks()) {
+            if (c[1] != p.y() + 1) continue;
+            int top = terrain.topY(c[0], c[2]);
+            if (top > hi + 1) return Integer.MIN_VALUE;
+        }
         return hi;
     }
 

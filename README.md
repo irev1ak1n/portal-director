@@ -5,41 +5,88 @@ Then, if you want to, send TNT minecarts out of the same portals. Made for video
 portal scenes from Minecraft invasion videos without building them by hand.
 
 * **Paper 26.3, Java 25.** Server side only. Nobody needs a mod.
-* Portals look and glow like real ones (4x5 obsidian frame, purple 2x3 interior), but they are decoration:
-  nothing sends anyone to the Nether. Entrances are done by moving players, not by vanilla portal linking.
+* The portals are real Nether portals (4x5 obsidian frame, purple 2x3 interior). Anyone can walk into one and travel
+  to the Nether and back like normal. Separately, **cinematic mode** lets you stage chosen players and release them
+  all at once. The two do not get in each other's way (see "Two ways to use the portals").
 
 ## Install
 
 1. Download `PortalDirector-1.0.0.jar` and put it in your server's `plugins` folder.
 2. Start the server. Operators can use everything straight away (permission `portaldirector.admin`).
 
-## Five minute tour: 30 players, 30 portals, one command
+## Quick start (about two minutes)
 
-Stand where you want the scene to be, then:
-
-```
-/pd generate 30 mixed            30 portals around you, on the ground and floating
-/pd group create NULL            a group for the players who will take part
-/pd group block set emerald_block    players who step on an emerald block join automatically
-```
-
-Place an emerald block (or a path of them) and have everybody walk over it. They are added once, with a single
-action bar line and no chat spam, and each one gets the next free portal. When everybody is in:
+Stand somewhere open with grass and a bit of space, then type:
 
 ```
-/pd group assign NULL auto       portal 1 -> first player, portal 2 -> second, ... (optional, it already happened)
-/pd group prepare NULL           everybody is moved into their own portal and held there
-/pd group release NULL           all of them walk out into the Overworld at the same moment
-/pd group reset NULL             cancel and send everyone back to where they were
+/pd generate 30        build 30 portals around you (on the ground and floating)
+/pd view               float above the middle of them and look around
+/pd portal tp 1        stand in front of portal 1 (also: nearest, farthest)
+/pd clear              remove everything and put the ground back
 ```
 
-Players walk out of the purple portal in the direction it faces, for a second or so. Players coming out of
-floating portals are protected from fall damage for 20 seconds (`/pd set entrance.fall-protection-seconds 30`).
+That is all you need to start. `/pd help` explains the rest in plain words, and pressing Tab after `/pd` shows
+every command. Not sure where your portals went? `/pd where` tells you how many there are and which direction the
+nearest and farthest ones are, and `/pd portal list` lists them all, nearest first.
 
-Want waves instead? `/pd group release NULL staggered 10` releases 5 players every 10 seconds;
-`/pd group release NULL staggered 10 8` makes the waves 8 players.
+Change how they are built with `/pd set`, then generate again (`/pd generate 30 replace` removes the old ones first):
 
-Extra portals stay empty. Extra players simply have no portal (`/pd group assignments` shows who is where).
+```
+/pd settings               every setting and its current value
+/pd set radius 50          how far from you portals may be
+/pd set spacing 5          empty blocks between portals
+/pd set mode air           ground, air or mixed
+/pd set layout circle      random, grid, circle or wave
+/pd set height min 10      floating portals hang at least 10 blocks above the ground ...
+/pd set height max 40      ... and at most 40 blocks above it
+```
+
+If a scene already has portals, `/pd generate 30` tells you your options instead of just refusing:
+`/pd generate 30 add` keeps them and builds 30 more, `/pd generate 30 replace` swaps them for new ones, and
+`/pd scene new heist` starts a separate scene.
+
+**Can't see them?** The server only sends the land around you up to its view distance. If your view distance is
+smaller than the radius, far portals are invisible until you get closer. `/pd view` and `/pd portal tp` take you to them,
+and after generating Portal Director warns you when this might be the problem.
+
+## Two ways to use the portals
+
+**Normal mode (default).** Walk into a generated portal, wait a few seconds, and you travel to the Nether. Walk into the
+portal there to come back, exactly like a vanilla portal. Players have to jump onto the obsidian floor only if the ground
+in front of it is lower. To make them decoration only: `/pd set entrance.block-vanilla-travel on`.
+
+**Cinematic mode.** Players who are in a group are moved around by Portal Director instead. Prepared players wait inside
+their portal and cannot be sent through it, and on release they walk out into the Overworld together:
+
+```
+/pd group create team                  a group for the players taking part
+/pd group block set emerald_block      players who step on an emerald block join and get the next free portal
+/pd group prepare team                 everybody waits in their own portal
+/pd group release team                 all of them walk out at the same moment
+/pd group reset team                   cancel and send everybody back to where they were
+```
+
+Players walk out in the direction their portal faces, for a second or so. Players coming out of floating portals are
+protected from fall damage for 20 seconds. Want waves? `/pd group release team staggered 10` releases 5 players every 10 seconds
+and `/pd group release team staggered 10 8` makes the waves 8 players. Extra portals stay empty, extra players have no portal
+(`/pd group info` shows who is where). Players who leave during `prepare` are put back in their portal when they return.
+
+## TNT minecarts
+
+```
+/pd tnt launch all         one minecart out of every portal
+/pd tnt wave 5 20          5 waves, 20 seconds apart
+/pd tnt status             are explosions on? how many minecarts? what is the limit?
+/pd tnt mode safe|real     safe: minecarts fly but never explode. real: they explode
+/pd tnt fuse 3             they explode 3 seconds after launch (off: only when they crash)
+/pd tnt terrain-damage on  explosions break blocks (off: they only hurt, the default)
+/pd tnt limit 300          most minecarts alive at once
+/pd tnt stop               stop launching; minecarts already out keep going
+/pd tnt clear              stop and remove every TNT minecart
+```
+
+Real explosions are on by default with a 3 second fuse and no block damage. Nothing is ever launched unless you
+type a launch command, and every launch tells you whether safe mode or real explosions are on.
 
 ## Single portals at exact coordinates
 
@@ -116,29 +163,6 @@ TNT from the square: `/pd tnt launch square`, `/pd tnt launch side east`, `/pd t
 
 A preset sets the generator options, builds the scene (named after the preset) around you and leaves
 everything else alone. Run `/pd scene clear invasion` to take it down again.
-
-## TNT minecart attacks
-
-Nothing is ever launched unless you type a command.
-
-```
-/pd tnt preview on                 safe mode: minecarts fly and land but never explode
-/pd tnt launch all                 one minecart out of every portal, all at the same moment
-/pd tnt launch all 3               three per portal
-/pd tnt launch 1,4,10-15 2         only these portals
-/pd tnt launch floating            or ground, or: group NULL
-/pd tnt launch all 2 stagger 0.5   half a second between portals
-/pd tnt wave 5 20                  5 waves, 20 seconds apart (add a count and portals: /pd tnt wave 5 20 2 ground)
-/pd tnt stop                       stop sending more
-/pd tnt clear                      remove every minecart that is still around
-/pd tnt preview off                real explosions again
-```
-
-By default explosions hurt players and mobs but do not break any blocks (`tnt.protect-terrain`), and
-the portals themselves are always protected (`tnt.protect-portals`). At most 300 minecarts exist at once
-(`tnt.max-active`) and leftovers disappear after 60 seconds.
-
-Minecarts leave through the portal in the direction it faces and then follow normal Minecraft physics.
 
 ## Scenes
 

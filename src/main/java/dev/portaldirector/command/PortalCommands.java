@@ -385,13 +385,13 @@ final class PortalCommands {
             if (!player.isOnline()) return;
             BukkitTerrain t = new BukkitTerrain(w);
             int top = t.topY(bx, bz);
-            if (top < w.getMinHeight() || t.isLiquid(bx, top, bz)) {
+            if (!high && (top < w.getMinHeight() || t.isLiquid(bx, top, bz))) {
                 PortalSpec fallback = sc.portals().values().iterator().next();
                 player.teleportAsync(viewSpot(w, fallback));
                 Msg.ok(player, "The middle of the formation is water, so you are at portal " + fallback.id() + " instead.");
                 return;
             }
-            int y = top + 1 + (high ? 40 : 0);
+            int y = Math.max(top, w.getSeaLevel()) + 1 + (high ? 40 : 0);
             player.teleportAsync(new Location(w, bx + 0.5, y, bz + 0.5, player.getLocation().getYaw(), high ? 35f : 0f));
             if (high) {
                 player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW_FALLING, 20 * 45, 0, false, false, true));

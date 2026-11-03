@@ -9,6 +9,11 @@ listens on 127.0.0.1. Never copy these settings to a server other people can rea
 param(
     [string]$Dir = (Join-Path $PSScriptRoot '..\..\portal-director-server'),
     [int]$Port = 25590,
+    [int]$ViewDistance = 10,
+    [int]$SimulationDistance = 6,
+    [string]$Memory = '2G',
+    [string[]]$Ops = @(),
+    [string]$Seed = 'portaltest',
     [switch]$AcceptEula
 )
 $ErrorActionPreference = 'Stop'
@@ -53,9 +58,9 @@ spawn-monsters=false
 spawn-animals=false
 spawn-npcs=false
 spawn-protection=0
-view-distance=2
-simulation-distance=2
-level-seed=portaltest
+view-distance=$ViewDistance
+simulation-distance=$SimulationDistance
+level-seed=$Seed
 generate-structures=false
 enable-rcon=false
 enable-query=false
@@ -69,8 +74,20 @@ rem Starts the test server on Java 25 and keeps the console open. Type "stop" to
 set JAVA=java
 for /d %%d in ("%USERPROFILE%\.gradle\jdks\eclipse_adoptium-25*") do set JAVA=%%d\bin\java.exe
 if defined JAVA25_HOME set JAVA=%JAVA25_HOME%\bin\java.exe
-"%JAVA%" -Xms256M -Xmx1200M -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -jar paper-26.3-231.jar --nogui
+"%JAVA%" -Xms512M -Xmx$Memory -XX:+UseG1GC -jar paper-26.3-231.jar --nogui
 '@ | Set-Content "$Dir\start.bat"
+
+if ($Ops.Count -gt 0) {
+    $entries = foreach ($name in $Ops) {
+        $md5 = [System.Security.Cryptography.MD5]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes("OfflinePlayer:$name"))
+        $md5[6] = ($md5[6] -band 0x0f) -bor 0x30
+        $md5[8] = ($md5[8] -band 0x3f) -bor 0x80
+        $h = ($md5 | ForEach-Object { $_.ToString('x2') }) -join ''
+        $uuid = "$($h.Substring(0,8))-$($h.Substring(8,4))-$($h.Substring(12,4))-$($h.Substring(16,4))-$($h.Substring(20))"
+        [ordered]@{ uuid = $uuid; name = $name; level = 4; bypassesPlayerLimit = $false }
+    }
+    ConvertTo-Json -InputObject @($entries) | Set-Content "$Dir\ops.json"
+}
 
 Write-Host "Test server ready in $Dir"
 Write-Host "Start it with: $Dir\start.bat   (connect to 127.0.0.1:$Port, then run /op yourself in the console)"
