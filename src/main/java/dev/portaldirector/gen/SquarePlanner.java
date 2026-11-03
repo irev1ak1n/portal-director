@@ -71,7 +71,7 @@ public final class SquarePlanner {
                 int[] b = p.box();
                 for (int x = b[0]; x <= b[3]; x++) {
                     for (int z = b[2]; z <= b[5]; z++) {
-                        if (terrain.isReady(x, z)) top = Math.max(top, terrain.topY(x, z));
+                        if (terrain.isReady(x, z)) top = Math.max(top, terrain.highestY(x, z));
                     }
                 }
             }

@@ -11,7 +11,8 @@ gradlew build
 powershell -File scripts\setup-test-server.ps1 -AcceptEula
 cd bot-test
 npm install --ignore-scripts
-node run.js
+node ux-test.js      # commands, plains generation, Nether travel, TNT explosions
+node square-test.js  # square formation, release patterns
 ```
 
 Results go to `reports/latest.json` and the server console to `reports/server-console.log`.

@@ -163,7 +163,7 @@ final class TntCommands {
     }
 
     private void start(CommandSender s, Scene sc, TargetParser.Result t, int per, int waves, int delay, int stagger) {
-        if (t.portals().isEmpty()) throw new IllegalArgumentException("That selection has no portals in scene " + sc.name() + ". /pd portal list shows what exists.");
+        if (t.portals().isEmpty()) throw new IllegalArgumentException("That selection has no portals in scene " + sc.name() + ". /pd list shows what exists.");
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("The world " + sc.worldName() + " is not loaded.");
         if (per < 1 || per > 50) throw new IllegalArgumentException("Minecarts per portal must be between 1 and 50.");

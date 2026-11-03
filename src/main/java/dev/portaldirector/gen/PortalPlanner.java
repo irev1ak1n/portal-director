@@ -197,7 +197,7 @@ public final class PortalPlanner {
             int[] box = p.box();
             int top = terrain.minY();
             for (int bx = box[0]; bx <= box[3]; bx++) {
-                for (int bz = box[2]; bz <= box[5]; bz++) top = Math.max(top, terrain.topY(bx, bz));
+                for (int bz = box[2]; bz <= box[5]; bz++) top = Math.max(top, terrain.highestY(bx, bz));
             }
             int lo = Math.max(2, Math.min(s.heightMin, s.heightMax));
             int hi = Math.max(lo, Math.max(s.heightMin, s.heightMax));

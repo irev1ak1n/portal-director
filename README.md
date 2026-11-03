@@ -20,16 +20,15 @@ Stand somewhere open with grass and a bit of space, then type:
 
 ```
 /pd generate 30        build 30 portals around you (on the ground and floating)
-/pd view               float above the middle of them and look around
-/pd portal tp 1        stand in front of portal 1 (also: nearest, farthest)
+/pd list               the id and coordinates of every portal
 /pd clear              remove everything and put the ground back
 ```
 
 That is all you need to start. `/pd help` explains the rest in plain words, and pressing Tab after `/pd` shows
-every command. Not sure where your portals went? `/pd where` tells you how many there are and which direction the
-nearest and farthest ones are, and `/pd portal list` lists them all, nearest first.
+every command. To go to a portal, use Minecraft's own `/tp` with the coordinates from `/pd list`.
 
-Change how they are built with `/pd set`, then generate again (`/pd generate 30 replace` removes the old ones first):
+All configuration goes through `/pd set`. Change how portals are built, then generate again
+(`/pd generate 30 replace` removes the old ones first):
 
 ```
 /pd settings               every setting and its current value
@@ -45,9 +44,9 @@ If a scene already has portals, `/pd generate 30` tells you your options instead
 `/pd generate 30 add` keeps them and builds 30 more, `/pd generate 30 replace` swaps them for new ones, and
 `/pd scene new heist` starts a separate scene.
 
-**Can't see them?** The server only sends the land around you up to its view distance. If your view distance is
-smaller than the radius, far portals are invisible until you get closer. `/pd view` and `/pd portal tp` take you to them,
-and after generating Portal Director warns you when this might be the problem.
+**Can't see them?** The server only sends the land around you up to its view distance. If the view distance is
+smaller than the radius, far portals are invisible until you get closer, and Portal Director warns you after generating when
+this might be the problem. Raise `view-distance` in `server.properties` or use a smaller `/pd set radius`.
 
 ## Two ways to use the portals
 
@@ -98,7 +97,7 @@ type a launch command, and every launch tells you whether safe mode or real expl
 /pd portal create here north               at your feet
 /pd portal create ~ ~10 ~ east             relative to you
 /pd portal remove 7                        take portal 7 down and restore the blocks
-/pd portal list
+/pd list                                   ids and coordinates of all portals
 ```
 
 **What the coordinates mean:** `x y z` is the lower of the two bottom blocks inside the portal, the block a
@@ -185,27 +184,31 @@ portal, or mined the frame, those blocks are left exactly as they are.
 
 Scenes, groups, assignments and all settings survive restarts.
 
-## Generator settings
+## Settings
 
-Everything is also editable with `/pd settings` and `/pd set <name> <value>`. Tab completion helps everywhere.
+`/pd settings` shows every value, `/pd set <name> <value>` changes one, and Tab completion fills in names and values.
+`/pd set` is the only way to configure Portal Director.
 
 | Command | What it does |
 |---|---|
-| `/pd generate [count] [ground\|air\|mixed] [add]` | Build portals. `add` keeps the portals already in the scene |
-| `/pd count 50` | Portals per generate |
-| `/pd radius 100` | How far from the center portals may go (up to 400) |
-| `/pd spacing 10` | Empty blocks kept between portals (minimum 1) |
-| `/pd height 25 80` | Floating portals hang this many blocks above the ground, a different height each |
-| `/pd placement ground\|air\|mixed` | Ground, floating, or both (`generate.air-ratio` sets the share) |
-| `/pd orientation x\|z\|random` | Which way the frame runs. Always upright |
-| `/pd facing auto\|inward\|outward\|random\|north\|south\|east\|west` | The way players and minecarts leave |
-| `/pd layout random\|grid\|circle\|wave` | How portals are arranged |
-| `/pd center here` / `/pd center 100 -40 world` / `/pd center reset` | Pin the middle of the scene |
-| `/pd list`, `/pd tp <id>` | Browse portals and visit one |
+| `/pd generate [count] [ground\|air\|mixed] [add\|replace]` | Build portals. `add` keeps existing ones, `replace` removes them first |
+| `/pd set count 50` | Portals per generate (default 30) |
+| `/pd set radius 100` | How far from the center portals may go (up to 400) |
+| `/pd set spacing 8` | Empty blocks kept between portals |
+| `/pd set mode ground\|air\|mixed` | On the ground, floating, or both (`/pd set air-ratio 0.5` is the share that floats) |
+| `/pd set height min 15` / `/pd set height max 60` | Floating portals hang this many blocks above the ground, a different height each |
+| `/pd set min-y 40` / `/pd set max-y 250` | Absolute limits for any portal (optional) |
+| `/pd set orientation x\|z\|random` | Which way the frame runs. Always upright |
+| `/pd set facing auto\|inward\|outward\|random\|north\|south\|east\|west` | The way players and minecarts leave |
+| `/pd set layout random\|grid\|circle\|wave` | How portals are arranged |
+| `/pd set center here` / `/pd set center 100 -40 world` / `/pd set center reset` | Pin the middle of the scene |
+| `/pd set staging here` / `/pd set staging clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
+| `/pd set tnt.fuse-seconds 3`, `/pd set entrance.walk-ticks 30` ... | Every other option; `/pd settings all` lists them |
+| `/pd list` | The id and coordinates of every portal |
 | `/pd stop` | Cancel a generation or removal that is running |
 
 Portals avoid water, steep ground and anything that looks built by a player (chests, houses, farms...);
-they only replace ground, plants and trees. Ground portals get support underneath on uneven terrain. Building
+they only replace ground, plants and trees. Ground portals are set level with the ground, never buried, never under a hill or a tree canopy, and get support underneath on uneven terrain. Building
 is spread over many ticks and chunks in the area are loaded a few at a time, so the server does not freeze.
 
 ## Groups and entrances
@@ -224,7 +227,6 @@ is spread over many ticks and chunks in the area are loaded a few at a time, so 
 | `/pd group release <name> [staggered <secs> [players per wave]]` | Everybody walks out |
 | `/pd group reset <name>` | Cancel and send players back |
 | `/pd group disband <name>` | Delete the group |
-| `/pd staging set` / `/pd staging clear` | Hold prepared players at your position (for example in the Nether) instead of at their portals |
 
 With only one group you can leave its name out. Players who disconnect while prepared are placed back in their
 portal when they return. To hide staged players, `/pd set entrance.staging-invisible on`.
@@ -247,8 +249,7 @@ Built and tested against **Paper 26.3 (build 231) on Java 25**. Other versions a
 * Terrain checks recognise common natural blocks; unusual modded or custom-world blocks may be treated as
   structures and avoided.
 * Generating very large areas loads many chunks; the limit is `generate.max-chunks`.
-* Minecarts that never hit anything may not explode on their own; they are removed after 60 seconds, or set
-  `tnt.fuse-ticks` to light them after launch.
+* With `/pd tnt fuse off`, minecarts that never crash may not explode; they are removed after 60 seconds.
 * Folia is not supported.
 
 ## Building from source
@@ -262,6 +263,6 @@ The jar is in `build/libs/`. `gradlew test` runs the unit tests.
 ## Testing it yourself
 
 `scripts/setup-test-server.ps1 -AcceptEula` creates an offline-mode Paper test server bound to 127.0.0.1 next to
-the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node run.js`)
+the repository and installs the jar. `bot-test/` holds the Mineflayer harness (`npm install`, then `node ux-test.js` or `node square-test.js`)
 that drives 30 bots through the whole flow. Read `bot-test/README.md` before trusting it: bots cannot see
 the scene.

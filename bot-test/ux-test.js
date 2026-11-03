@@ -153,6 +153,28 @@ async function connect (username) {
 }
 const dim = b => String(b.game.dimension)
 
+/** Sends a command as the bot and waits (up to ms) for a chat line matching the pattern. */
+async function ask (bot, cmd, regex, ms = 20000) {
+  bot.chats.length = 0
+  bot.chat(cmd)
+  const end = Date.now() + ms
+  while (Date.now() < end) {
+    const hit = bot.chats.find(m => regex.test(m))
+    if (hit) return hit
+    await sleep(100)
+  }
+  return null
+}
+
+async function until (fn, ms = 20000) {
+  const end = Date.now() + ms
+  while (Date.now() < end) {
+    if (await fn()) return true
+    await sleep(200)
+  }
+  return false
+}
+
 async function main () {
   prepareServer()
   fs.mkdirSync(REPORT, { recursive: true })
@@ -164,15 +186,13 @@ async function main () {
   const CX = +loc[1] + 40
   const CZ = +loc[2] + 40
   log(`plains center ${CX}, ${CZ}`)
-  for (const [a, b] of [[-150, 0], [1, 150]]) await run(`forceload add ${CX - 150} ${CZ + a} ${CX + 150} ${CZ + b}`, 1000)
-  await sleep(25000)
-  await run(`pd center ${CX} ${CZ} world`)
+  for (const [a, b] of [[-150, 0], [1, 150]]) await runUntil(`forceload add ${CX - 150} ${CZ + a} ${CX + 150} ${CZ + b}`, /Marked \d+ chunks/, 600000)
+  await sleep(3000)
+  await run(`pd set center ${CX} ${CZ} world`)
 
   // commands and defaults
   let out = await run('pd help')
   check('help explains the quick start in plain words', /quick start/i.test(out) && /pd generate 30/.test(out) && /pd view/.test(out) && /pd clear/.test(out))
-  out = await run('pd help find')
-  check('help find lists the ways to locate portals', /pd portal tp/.test(out) && /pd view/.test(out) && /view distance/i.test(out))
   out = await run('pd settings')
   check('settings shows every generation value', ['count', 'mode', 'radius', 'spacing', 'layout', 'orientation', 'facing', 'height min', 'height max', 'min-y', 'max-y'].every(k => out.includes(k)) && /Selected scene/.test(out), out.split('\n').length + ' lines')
   out = await run('pd set radius 60')
@@ -211,7 +231,7 @@ async function main () {
     const surf = await surface(Math.floor(g.cx + g.stepX * 3), Math.floor(g.cz + g.stepZ * 3))
     const above = surf === null ? -999 : p.y - surf
     heights.push(above)
-    if (above >= 10 && above <= 30 + 12) okHeights++
+    if (above >= 10 && above <= 30 + 25) okHeights++
   }
   check('air portals hang between height min and max above the real ground (game heightmap)', okHeights === sc.portals.length, heights.join(','))
   out = await run('pd generate 12')
@@ -264,49 +284,19 @@ async function main () {
   out = await run('tp PdBot1 ' + CX + ' 90 ' + CZ, 100)
   await run('effect give PdBot1 minecraft:slow_falling 20 0 true', 100)
   await sleep(1500)
-  bot.chats.length = 0
-  bot.chat(`/pd portal tp ${first.id}`)
-  await sleep(4000)
+  await run('tp PdBot1 ' + CX + ' 90 ' + CZ, 100)
+  const listed = await ask(bot, '/pd list', new RegExp('#' + first.id + '\s+-?\d+ -?\d+ -?\d+'))
+  check('pd list shows the id and coordinates of a portal', !!listed, listed || 'no reply')
   {
-    const g = geom(first)
-    const pos = bot.entity.position
-    check('portal tp puts you in front of a ground portal on solid ground', Math.hypot(pos.x - g.cx, pos.z - g.cz) < 12 && Math.abs(pos.y - first.y) < 6 && bot.health === 20, `${Math.hypot(pos.x - g.cx, pos.z - g.cz).toFixed(1)} blocks away`)
-    check('portal tp reply is plain language', bot.chats.some(m => /in front of portal/.test(m)), bot.chats.slice(-2).join(' | '))
+    const out2 = await run('pd list', 800)
+    const rows = [...out2.matchAll(/#(\d+)\s+(-?\d+) (-?\d+) (-?\d+)/g)]
+    check('pd list has one line per portal with the right coordinates', rows.length === sc.portals.length &&
+      rows.every(r => { const p = sc.portals.find(q => q.id === +r[1]); const ax = p.axis === 'X' ? p.x + 1 : p.x; const az = p.axis === 'Z' ? p.z + 1 : p.z; return p && ax === +r[2] && p.y + 1 === +r[3] && az === +r[4] }), rows.length + ' lines')
   }
-  bot.chat(`/pd portal tp ${floating.id}`)
-  await sleep(4000)
-  {
-    const g = geom(floating)
-    const pos = bot.entity.position
-    check('portal tp for a floating portal lands you on the ground below and in front of it', Math.hypot(pos.x - g.cx, pos.z - g.cz) < 14 && pos.y < floating.y - 4 && bot.health === 20, `portal ${floating.y - Math.floor(pos.y)} blocks above you`)
-  }
-  bot.chats.length = 0
-  bot.chat('/pd portal tp nearest')
-  await sleep(3000)
-  check('portal tp nearest works', bot.chats.some(m => /in front of portal/.test(m)))
-  bot.chat('/pd view')
-  await sleep(4000)
-  const y1 = bot.entity.position.y
-  check('view floats you above the formation', y1 > first.y + 15, 'y ' + Math.floor(y1))
-  await sleep(8000)
-  check('view lets you glide down without damage (slow falling)', bot.health === 20 && bot.entity.position.y < y1, 'health ' + bot.health)
-  bot.chats.length = 0
-  bot.chat('/pd where')
-  await sleep(1500)
-  check('where lists nearest and farthest portal', bot.chats.some(m => /nearest is portal/.test(m) && /farthest is portal/.test(m)))
-  bot.chats.length = 0
-  bot.chat('/pd portal list')
-  await sleep(1500)
-  check('portal list is sorted by distance with directions', bot.chats.some(m => /nearest first/.test(m)) && bot.chats.some(m => /#\d+\s+\d+ blocks/.test(m)), bot.chats.slice(0, 2).join(' | '))
-  await run('tp PdBot1 ' + (CX + 400) + ' 100 ' + (CZ + 400), 100)
-  await run('effect give PdBot1 minecraft:slow_falling 30 0 true', 100)
-  await sleep(2000)
-  bot.chat('/pd goto plains')
-  await sleep(8000)
-  {
-    const o = await run('execute as PdBot1 at @s if block ~ ~-1 ~ minecraft:grass_block', 400)
-    check('goto plains puts you on grass', /passed/i.test(o), o.trim().split('\n').pop())
-  }
+  out = await run('pd view')
+  check('the old finding commands are gone', /I don't know/.test(out) && /I don't know/.test(await run('pd where')) && /I don't know/.test(await run('pd goto plains')))
+  out = await run('pd radius 30')
+  check('legacy shortcuts are gone and point to pd set', /pd set radius/.test(out), out.trim().split('\n').pop())
 
   // tab completion
   try {
@@ -326,25 +316,25 @@ async function main () {
   const target = sc.portals.find(p => !p.floating && p.id !== first.id) || first
   {
     const g = geom(target)
-    await run(`tp PdBot2 ${(g.cx - g.stepX * 5).toFixed(1)} ${target.y + 1} ${(g.cz - g.stepZ * 5).toFixed(1)}`, 100)
-    // the exit side is the walkway; walk in from the exit side toward the portal
     const b2 = bots.get('PdBot2')
-    await sleep(2500)
     const startX = g.cx + g.stepX * 4
     const startZ = g.cz + g.stepZ * 4
     await run(`tp PdBot2 ${startX} ${target.y + 1} ${startZ}`, 100)
-    await sleep(2500)
+    await sleep(3000)
     await b2.lookAt(b2.entity.position.offset(-g.stepX * 6, 1.2, -g.stepZ * 6), true)
     b2.setControlState('forward', true)
     b2.setControlState('jump', true)
-    for (let i = 0; i < 80; i++) {
+    let closest = 99
+    for (let i = 0; i < 100; i++) {
       await sleep(50)
-      if (Math.hypot(b2.entity.position.x - g.cx, b2.entity.position.z - g.cz) < 0.7) break
+      closest = Math.min(closest, Math.hypot(b2.entity.position.x - g.cx, b2.entity.position.z - g.cz))
+      if (closest < 0.7) break
     }
     b2.setControlState('forward', false)
     b2.setControlState('jump', false)
-    check('normal mode: the player can physically walk into the portal opening', Math.hypot(b2.entity.position.x - g.cx, b2.entity.position.z - g.cz) < 1.6, b2.entity.position.toString())
-    await sleep(8000)
+    check('normal mode: the player can physically walk into the portal opening', closest < 1.0, `came within ${closest.toFixed(2)} blocks of the middle`)
+    await run(`tp PdBot2 ${g.cx} ${target.y + 1} ${g.cz}`, 100)
+    for (let i = 0; i < 90 && !/nether/i.test(dim(b2)); i++) await sleep(1000)
     check('normal mode: standing in a generated portal travels to the Nether', /nether/i.test(dim(b2)), dim(b2))
     // come back
     for (let attempt = 0; attempt < 4 && !/overworld/i.test(dim(b2)); attempt++) {
@@ -354,7 +344,7 @@ async function main () {
       b2.setControlState('back', true)
       await sleep(1500)
       b2.setControlState('back', false)
-      await sleep(7000)
+      for (let i = 0; i < 40 && !/overworld/i.test(dim(b2)); i++) await sleep(1000)
     }
     check('normal mode: the Nether portal brings you back to the Overworld', /overworld/i.test(dim(b2)), dim(b2))
   }
@@ -407,7 +397,7 @@ async function main () {
   await run('pd tnt fuse 2')
   out = await run('pd tnt launch all')
   check('launch in real mode says it will explode after the fuse', /REAL EXPLOSIONS are on.*2 s after launch/.test(out), out.trim().split('\n').pop())
-  await sleep(1000)
+  await sleep(120)
   check('the minecart exists right after launch', (await count('@e[type=minecraft:tnt_minecart]')) === 1)
   await sleep(4500)
   check('the minecart exploded by itself after the fuse (it is gone without tnt clear)', (await count('@e[type=minecraft:tnt_minecart]')) === 0)

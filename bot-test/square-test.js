@@ -215,9 +215,9 @@ async function main () {
   const CX = +loc[1] + 40
   const CZ = +loc[2] + 40
   log(`center ${CX}, ${CZ}`)
-  for (const [a, b] of [[-150, 0], [1, 150]]) await run(`forceload add ${CX - 150} ${CZ + a} ${CX + 150} ${CZ + b}`, 1000)
-  await sleep(25000)
-  await run(`pd center ${CX} ${CZ} world`)
+  for (const [a, b] of [[-150, 0], [1, 150]]) await runUntil(`forceload add ${CX - 150} ${CZ + a} ${CX + 150} ${CZ + b}`, /Marked \d+ chunks/, 600000)
+  await sleep(3000)
+  await run(`pd set center ${CX} ${CZ} world`)
 
   /** Natural terrain is rarely open enough, so the test flattens an arena: grass at y 71, air above, dirt below. */
   async function terraform (cx, cz, r) {
@@ -297,7 +297,8 @@ async function main () {
   check('large square: blocks verified', (await badBlocks(sc.portals)) === 0, sc.portals.length * 20 + ' blocks')
   recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
   await runUntil('pd square remove', /Square removed/, 240000)
-  check('large square: removal restores everything', (await wrongRestored(recs)) === 0, recs.length + ' blocks')
+  const wrongLarge = await wrongRestored(recs)
+  check('large square: removal restores everything', wrongLarge === 0, recs.length + ' blocks, ' + wrongLarge + ' differ')
 
   // 2. bots on four sides
   log('Bots')
@@ -339,15 +340,17 @@ async function main () {
     const fits = times.every((t, i) => Math.abs(t - expectOffsets[i]) < 0.6)
     check(`${label}: release times ${expectOffsets.join('/')}s`, fits && !/Exception|went wrong/.test(o), times.map(t => t.toFixed(2)).join('/') + 's')
     let ok = 0
+    const detail = []
     for (let i = 0; i < 4; i++) {
       const p = portalById[SIDE_FIRST[i]]
       const g = geom(p)
       const end = traj[NAMES[i]][traj[NAMES[i]].length - 1]
       const fwd = (end.x - g.cx) * g.stepX + (end.z - g.cz) * g.stepZ
       const towardMiddle = Math.hypot(g.cx - midX, g.cz - midZ) - Math.hypot(end.x - midX, end.z - midZ)
+      detail.push(`${NAMES[i]}:${fwd.toFixed(1)}/${towardMiddle.toFixed(1)}`)
       if (fwd >= 3 && (direction === 'inward' ? towardMiddle > 2 : towardMiddle < -2)) ok++
     }
-    check(`${label}: all four came out of their side's portal and walked ${direction} (>= 3 blocks)`, ok === 4, ok + '/4')
+    check(`${label}: all four came out of their side's portal and walked ${direction} (>= 3 blocks)`, ok === 4, ok + '/4 ' + detail.join(' '))
     return times
   }
 

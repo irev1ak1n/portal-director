@@ -45,6 +45,11 @@ public final class BukkitTerrain implements Terrain {
     }
 
     @Override
+    public int highestY(int x, int z) {
+        return Math.max(topY(x, z), world.getHighestBlockYAt(x, z, HeightMap.WORLD_SURFACE));
+    }
+
+    @Override
     public boolean isLiquid(int x, int y, int z) {
         return world.getBlockAt(x, y, z).isLiquid();
     }

@@ -2,23 +2,18 @@ package dev.portaldirector.command;
 
 import dev.portaldirector.PortalDirectorPlugin;
 import dev.portaldirector.Settings;
-import dev.portaldirector.gen.BukkitTerrain;
 import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.GenerationJob;
 import dev.portaldirector.gen.Placement;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
-import dev.portaldirector.util.Compass;
 import dev.portaldirector.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Biome;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.util.BiomeSearchResult;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -81,10 +76,10 @@ final class GenerateCommands {
         }
         if (st.centerPinned) {
             World w = Bukkit.getWorld(st.centerWorld == null ? "" : st.centerWorld);
-            if (w == null) throw new IllegalArgumentException("The pinned center is in a world that is not loaded. Use /pd center reset to build around yourself again.");
+            if (w == null) throw new IllegalArgumentException("The pinned center is in a world that is not loaded. Use /pd set center reset to build around yourself again.");
             return new Center(w, (int) Math.floor(st.centerX), (int) Math.floor(st.centerZ), dx, dz, true);
         }
-        if (p == null) throw new IllegalArgumentException("The console has no position. Pin a center first: /pd center <x> <z> <world>");
+        if (p == null) throw new IllegalArgumentException("The console has no position. Pin a center first: /pd set center <x> <z> <world>");
         Location l = p.getLocation();
         return new Center(l.getWorld(), l.getBlockX(), l.getBlockZ(), dx, dz, false);
     }
@@ -131,11 +126,7 @@ final class GenerateCommands {
                             + ". Use /pd scene new <name> to start a separate scene here.");
                 }
                 if (!scene.portals().isEmpty() && !add && !replace) {
-                    double[] from = Report.reference(s, scene);
-                    PortalSpec nearest = scene.portals().values().stream()
-                            .min(java.util.Comparator.comparingDouble(p -> Math.hypot(p.centerX() - from[0], p.centerZ() - from[1]))).orElseThrow();
-                    throw new IllegalArgumentException("Scene " + scene.name() + " already has " + scene.portals().size() + " portals (the nearest is "
-                            + Report.where(from, nearest) + " from " + (s instanceof Player ? "you" : "the middle") + "; /pd portal list shows them all, /pd portal tp nearest takes you there). "
+                    throw new IllegalArgumentException("Scene " + scene.name() + " already has " + scene.portals().size() + " portals (/pd list shows where they are). "
                             + "To keep them and build " + st.gen.count + " more: /pd generate " + st.gen.count + " add. "
                             + "To remove them and build new ones: /pd generate " + st.gen.count + " replace. "
                             + "To keep them and start a separate scene: /pd scene new <name>.");
@@ -363,35 +354,35 @@ final class GenerateCommands {
 
     // Center
 
-    Sub centerCmd() {
+    Sub centerCmd() {  // used by /pd set center
         return new Sub() {
             @Override
             public void run(CommandSender s, List<String> a) {
                 Settings st = pl.settings();
                 if (a.isEmpty() || a.get(0).equalsIgnoreCase("show")) {
                     Msg.info(s, st.centerPinned
-                            ? "The center is pinned at " + (int) st.centerX + ", " + (int) st.centerZ + " in " + st.centerWorld + ". /pd center reset goes back to building around you."
-                            : "Portals are built around wherever you stand when you run /pd generate. /pd center here pins the spot you are on now, /pd center <x> <z> pins coordinates.");
+                            ? "The center is pinned at " + (int) st.centerX + ", " + (int) st.centerZ + " in " + st.centerWorld + ". /pd set center reset goes back to building around you."
+                            : "Portals are built around wherever you stand when you run /pd generate. /pd set center here pins the spot you are on now, /pd set center <x> <z> pins coordinates.");
                     return;
                 }
                 String first = a.get(0).toLowerCase(Locale.ROOT);
                 if (first.equals("reset") || first.equals("clear")) {
                     st.centerPinned = false;
                 } else if (first.equals("here")) {
-                    if (!(s instanceof Player p)) throw new IllegalArgumentException("Only players can use 'here'. From the console give coordinates: /pd center <x> <z> <world>");
+                    if (!(s instanceof Player p)) throw new IllegalArgumentException("Only players can use 'here'. From the console give coordinates: /pd set center <x> <z> <world>");
                     pin(st, p.getWorld(), p.getLocation().getX(), p.getLocation().getZ());
                 } else {
-                    if (a.size() < 2) throw new IllegalArgumentException("Use /pd center here, /pd center <x> <z> [world], or /pd center reset.");
+                    if (a.size() < 2) throw new IllegalArgumentException("Use /pd set center here, /pd set center <x> <z> [world], or /pd set center reset.");
                     double x;
                     double z;
                     try {
                         x = Double.parseDouble(a.get(0));
                         z = Double.parseDouble(a.get(1));
                     } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Coordinates are numbers, like /pd center 100 -250.");
+                        throw new IllegalArgumentException("Coordinates are numbers, like /pd set center 100 -250.");
                     }
                     World w = a.size() > 2 ? Bukkit.getWorld(a.get(2)) : s instanceof Player p ? p.getWorld() : null;
-                    if (w == null) throw new IllegalArgumentException("Say which world: /pd center " + a.get(0) + " " + a.get(1) + " <world>");
+                    if (w == null) throw new IllegalArgumentException("Say which world: /pd set center " + a.get(0) + " " + a.get(1) + " <world>");
                     pin(st, w, x, z);
                 }
                 pl.saveSettings();
@@ -410,139 +401,6 @@ final class GenerateCommands {
                 if (a.size() == 1) return List.of("here", "reset", "show");
                 if (a.size() == 3) return Bukkit.getWorlds().stream().map(World::getName).toList();
                 return List.of();
-            }
-        };
-    }
-
-    // Finding things
-
-    Sub where() {
-        return (s, a) -> {
-            Scene sc = pl.scenes().current();
-            if (sc == null) throw new IllegalArgumentException("There is no scene yet. /pd generate 30 builds portals around you.");
-            Report.formation(s, pl, sc);
-        };
-    }
-
-    /** /pd goto plains: a green, open place to test in. */
-    Sub gotoCmd() {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                if (!(s instanceof Player player)) throw new IllegalArgumentException("Only players can teleport.");
-                if (a.isEmpty() || !a.get(0).equalsIgnoreCase("plains")) {
-                    throw new IllegalArgumentException("Use /pd goto plains to be taken to the nearest grassy plains area.");
-                }
-                World w = player.getWorld();
-                if (w.getEnvironment() != World.Environment.NORMAL) throw new IllegalArgumentException("Plains only exist in the overworld. Go there first.");
-                Msg.info(s, "Looking for the nearest plains...");
-                BiomeSearchResult r = w.locateNearestBiome(player.getLocation(), 6400, Biome.PLAINS, Biome.SUNFLOWER_PLAINS);
-                if (r == null) throw new IllegalArgumentException("No plains within 6400 blocks. Try another spot with /tp first.");
-                Location at = r.getLocation();
-                int cx = at.getBlockX();
-                int cz = at.getBlockZ();
-                double fromX = player.getLocation().getX();
-                double fromZ = player.getLocation().getZ();
-                w.getChunkAtAsync(cx >> 4, cz >> 4, true).whenComplete((c, err) -> pl.getServer().getScheduler().runTask(pl, () -> {
-                    if (!player.isOnline()) return;
-                    BukkitTerrain t = new BukkitTerrain(w);
-                    for (int ring = 0; ring <= 6; ring++) {
-                        for (int dx = -ring; dx <= ring; dx++) {
-                            for (int dz = -ring; dz <= ring; dz++) {
-                                if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
-                                int x = cx + dx * 6;
-                                int z = cz + dz * 6;
-                                if (!w.isChunkLoaded(x >> 4, z >> 4)) continue;
-                                int top = t.topY(x, z);
-                                if (top < w.getMinHeight() || t.isLiquid(x, top, z) || w.getBlockAt(x, top, z).getType() != Material.GRASS_BLOCK) continue;
-                                player.teleportAsync(new Location(w, x + 0.5, top + 1, z + 0.5));
-                                Msg.ok(player, "You are on grass in a plains area " + Compass.describe(x - fromX, z - fromZ) + " from where you were. Try /pd generate 30.");
-                                return;
-                            }
-                        }
-                    }
-                    Msg.err(player, "I found plains near " + cx + ", " + cz + " but no dry grass to stand on. Try /tp " + cx + " 100 " + cz + " and look around.");
-                }));
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                return a.size() == 1 ? List.of("plains") : List.of();
-            }
-        };
-    }
-
-    // Older one-value commands, kept as shortcuts for /pd set
-
-    Sub numeric(String key, String what, String example) {
-        return shortcut(key, what);
-    }
-
-    Sub choice(String key, String what) {
-        return shortcut(key, what);
-    }
-
-    private Sub shortcut(String key, String what) {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                Settings.Option o = pl.settings().options().get(key);
-                if (a.isEmpty()) {
-                    Msg.info(s, what + " is " + o.get() + " (" + o.hint + "). Change it with /pd set " + shortName(o) + " <value>.");
-                    return;
-                }
-                o.set(a.get(0));
-                pl.saveSettings();
-                Msg.ok(s, what + " is now " + o.get() + ".");
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                if (a.size() != 1) return List.of();
-                Settings.Option o = pl.settings().options().get(key);
-                return o.suggestions().isEmpty() ? List.of(String.valueOf(o.get())) : o.suggestions();
-            }
-        };
-    }
-
-    Sub height() {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                Settings st = pl.settings();
-                if (a.size() == 2 && (a.get(0).equalsIgnoreCase("min") || a.get(0).equalsIgnoreCase("max"))) {
-                    st.options().get("generate.height-" + a.get(0).toLowerCase(Locale.ROOT)).set(a.get(1));
-                    if (st.gen.heightMin > st.gen.heightMax) {
-                        int tmp = st.gen.heightMin;
-                        st.gen.heightMin = st.gen.heightMax;
-                        st.gen.heightMax = tmp;
-                    }
-                    pl.saveSettings();
-                    Msg.ok(s, "Floating portals now hang " + st.gen.heightMin + " to " + st.gen.heightMax + " blocks above the ground.");
-                    return;
-                }
-                if (a.size() < 2) {
-                    Msg.info(s, "Floating portals hang " + st.gen.heightMin + " to " + st.gen.heightMax + " blocks above the ground. Change it with /pd set height min 10 and /pd set height max 40.");
-                    return;
-                }
-                int lo;
-                int hi;
-                try {
-                    lo = Integer.parseInt(a.get(0));
-                    hi = Integer.parseInt(a.get(1));
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Heights are whole numbers, for example /pd height 25 80 or /pd set height max 40.");
-                }
-                st.options().get("generate.height-min").set(String.valueOf(Math.min(lo, hi)));
-                st.options().get("generate.height-max").set(String.valueOf(Math.max(lo, hi)));
-                pl.saveSettings();
-                Msg.ok(s, "Floating portals now hang " + st.gen.heightMin + " to " + st.gen.heightMax + " blocks above the ground.");
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                if (a.size() == 1) return List.of("min", "max", "10", "25");
-                return a.size() == 2 ? List.of("20", "40", "80") : List.of();
             }
         };
     }

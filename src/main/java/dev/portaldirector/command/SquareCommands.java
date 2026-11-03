@@ -147,7 +147,7 @@ final class SquareCommands {
         if (cx == null) {
             if (st.centerPinned) {
                 World w = Bukkit.getWorld(st.centerWorld == null ? "" : st.centerWorld);
-                if (w == null) throw new IllegalArgumentException("The pinned center is in a world that is not loaded. Use /pd center reset.");
+                if (w == null) throw new IllegalArgumentException("The pinned center is in a world that is not loaded. Use /pd set center reset.");
                 world = w;
                 cx = (int) Math.floor(st.centerX);
                 cz = (int) Math.floor(st.centerZ);
@@ -351,11 +351,12 @@ final class SquareCommands {
         List<BlockLog.Rec> mine = new ArrayList<>();
         for (int id : ids) {
             PortalSpec p = sc.portals().get(id);
-            if (p != null) mine.addAll(PortalCommands.recordsOf(sc, p));
+            if (p != null) mine.addAll(PortalCommands.recordsOf(sc, p, true));
         }
         pl.tnt().stop();
         pl.entrance().resetScene(sc);
-        RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, mine, result -> {
+        List<BlockLog.Rec> unique = new ArrayList<>(new java.util.LinkedHashSet<>(mine));
+        RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, unique, result -> {
             pl.activeJob(null);
             if (!result.cancelled()) {
                 for (int id : ids) sc.dropPortal(id);

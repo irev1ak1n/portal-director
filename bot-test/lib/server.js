@@ -22,6 +22,7 @@ class TestServer extends EventEmitter {
   constructor ({ dir, jar, memory = '1200M' }) {
     super()
     Object.assign(this, { dir, jar, memory })
+    this.logFile = process.env.PD_LOG || null
     this.lines = []
     this.proc = null
     this.exitCode = null
@@ -41,6 +42,8 @@ class TestServer extends EventEmitter {
         const line = buffer.slice(0, i).replace(/\r$/, '').replace(ANSI, '')
         buffer = buffer.slice(i + 1)
         this.lines.push(line)
+        if (this.logFile) fs.appendFileSync(this.logFile, line + '
+')
         this.emit('line', line)
       }
     }

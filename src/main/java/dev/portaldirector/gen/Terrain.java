@@ -14,6 +14,11 @@ public interface Terrain {
     /** Highest non-air block in the column, liquids included. {@code minY() - 1} when empty. */
     int topY(int x, int z);
 
+    /** Highest block of any kind, trees and leaves included. Floating portals stay above this. */
+    default int highestY(int x, int z) {
+        return topY(x, z);
+    }
+
     boolean isLiquid(int x, int y, int z);
 
     boolean isAir(int x, int y, int z);

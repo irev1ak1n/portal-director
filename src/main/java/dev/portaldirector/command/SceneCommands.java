@@ -254,66 +254,29 @@ final class SceneCommands {
         };
     }
 
-    Sub tp() {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                if (!(s instanceof Player p)) throw new IllegalArgumentException("Only players can teleport.");
-                Scene sc = requireCurrent();
-                if (a.isEmpty()) throw new IllegalArgumentException("Which portal? /pd tp <id>");
-                int id;
-                try {
-                    id = Integer.parseInt(a.get(0));
-                } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Portal ids are numbers, like /pd tp 7.");
-                }
-                PortalSpec spec = sc.portals().get(id);
-                World w = Bukkit.getWorld(sc.worldName());
-                if (spec == null || w == null) throw new IllegalArgumentException("No portal " + id + " in scene " + sc.name() + ".");
-                Location target = new Location(w, spec.centerX() + spec.stepX() * 3.5, spec.standY(), spec.centerZ() + spec.stepZ() * 3.5,
-                        spec.yaw() + 180f, 0f);
-                p.teleportAsync(target);
-                Msg.ok(s, "Teleporting to portal " + id + ".");
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                Scene sc = pl.scenes().current();
-                if (sc == null || a.size() != 1) return List.of();
-                return sc.portals().keySet().stream().limit(50).map(String::valueOf).toList();
-            }
-        };
-    }
-
+    /** /pd list: the id and coordinates of every portal in the selected scene. */
     Sub portals() {
         return (s, a) -> {
-            Scene sc = requireCurrent();
+            Scene sc = pl.scenes().current();
+            if (sc == null || sc.portals().isEmpty()) {
+                Msg.info(s, "There are no portals yet" + (sc == null ? "" : " in scene " + sc.name()) + ". /pd generate 30 builds some.");
+                return;
+            }
             int page = 1;
             if (!a.isEmpty()) {
                 try {
                     page = Math.max(1, Integer.parseInt(a.get(0)));
                 } catch (NumberFormatException e) {
-                    throw new IllegalArgumentException("Use /pd list [page].");
+                    throw new IllegalArgumentException("Use /pd list for the first page or /pd list 2 for the second.");
                 }
             }
-            int per = 15;
+            int per = 25;
             List<PortalSpec> all = new ArrayList<>(sc.portals().values());
             int pages = Math.max(1, (all.size() + per - 1) / per);
             page = Math.min(page, pages);
-            Msg.head(s, "Portals in " + sc.name() + " (page " + page + "/" + pages + ")");
+            Msg.head(s, "Scene " + sc.name() + ": " + all.size() + " portals" + (pages > 1 ? " (page " + page + " of " + pages + ", /pd list " + Math.min(pages, page + 1) + " for more)" : ""));
             for (PortalSpec p : all.subList((page - 1) * per, Math.min(all.size(), page * per))) {
-                UUID holder = null;
-                String group = "";
-                for (Map.Entry<String, TreeMap<Integer, UUID>> e : sc.assignments().entrySet()) {
-                    holder = e.getValue().get(p.id());
-                    if (holder != null) {
-                        Group g = pl.groups().get(e.getKey());
-                        group = g == null ? "" : " <- " + g.members().getOrDefault(holder, "?");
-                        break;
-                    }
-                }
-                Msg.line(s, "  #" + p.id() + "  " + p.x() + ", " + p.y() + ", " + p.z() + "  " + p.axis().name().toLowerCase(Locale.ROOT)
-                        + " facing " + p.facing().name().toLowerCase(Locale.ROOT) + (p.floating() ? " floating" : " ground") + group);
+                Msg.line(s, "  #" + p.id() + "   " + p.anchorX() + " " + p.anchorY() + " " + p.anchorZ());
             }
         };
     }
