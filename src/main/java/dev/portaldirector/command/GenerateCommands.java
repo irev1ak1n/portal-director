@@ -297,7 +297,7 @@ final class GenerateCommands {
         if (chunks > st.maxChunks) {
             throw new IllegalArgumentException("That formation covers about " + chunks + " chunks, more than the limit of " + st.maxChunks + ". Use fewer columns, rows or a smaller spacing.");
         }
-        Msg.ok(s, "Planning " + describeLayout(g) + ", spacing " + g.spacingH + " across / " + g.spacingV + " vertical, facing " + g.facing.name().toLowerCase(Locale.ROOT)
+        Msg.ok(s, "Planning " + describeLayout(g) + ", spacing " + g.spacingH + " across / " + g.spacingV + " vertical, facing " + facingLabel(g)
                 + ", " + (ground ? "standing on the ground" : "floating around height " + c.y()) + ", around " + c.x() + ", " + c.z() + ". Checking the area...");
         List<CompletableFuture<?>> loads = new ArrayList<>();
         for (int cx = (minX - 8) >> 4; cx <= (maxX + 8) >> 4; cx++) {
@@ -389,6 +389,14 @@ final class GenerateCommands {
                 + (g.effects ? ", with sound and particles" : "") + ". /pd stop cancels and keeps what exists.";
     }
 
+    private static String facingLabel(GenSettings g) {
+        if (g.layout == Layout.SQUARE) return g.facing == FacingMode.OUTWARD ? "outward" : "inward";
+        return switch (g.facing) {
+            case NORTH, SOUTH, EAST, WEST, RANDOM -> g.facing.name().toLowerCase(Locale.ROOT);
+            default -> "you";
+        };
+    }
+
     private static String trimSeconds(double v) {
         return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
@@ -440,13 +448,13 @@ final class GenerateCommands {
                     throw new IllegalArgumentException("There is no setting called '" + String.join(" ", a) + "'. /pd settings lists the names, and Tab completion after /pd set shows them.");
                 }
                 if (f.used() >= a.size()) {
-                    Msg.info(s, shortName(f.option()) + " is " + f.option().get() + " (" + f.option().hint + "). Change it with /pd set " + shortName(f.option()) + " <value>.");
+                    Msg.info(s, shortName(f.option()) + " is " + f.option().display() + " (" + f.option().hint + "). Change it with /pd set " + shortName(f.option()) + " <value>.");
                     return;
                 }
                 String value = String.join(" ", a.subList(f.used(), a.size()));
                 f.option().set(value);
                 pl.saveSettings();
-                Msg.ok(s, shortName(f.option()) + " is now " + f.option().get() + ".");
+                Msg.ok(s, shortName(f.option()) + " is now " + f.option().display() + ".");
                 if (f.option().key.equals("generate.generation") && pl.settings().gen.generation == GenerationMode.DELAYED) {
                     GenSettings gg = pl.settings().gen;
                     Msg.info(s, "Portals will now appear one by one, every " + trimSeconds(gg.delay) + " s, order " + gg.order.resolve(gg.layout).name().toLowerCase(Locale.ROOT).replace('_', '-') + ". Change the pace with /pd set generation delay 0.5.");
@@ -564,7 +572,7 @@ final class GenerateCommands {
                     Msg.line(s, "  Change with /pd set <name> <value>:");
                     for (String[] row : rows) {
                         Settings.Option o = st.options().get(row[1]);
-                        Msg.line(s, String.format("    %-19s %-8s %s", row[0], o.get(), o.hint));
+                        Msg.line(s, String.format("    %-19s %-8s %s", row[0], o.display(), o.hint));
                     }
                     switch (g.layout) {
                         case GRID -> Msg.line(s, "  A vertical wall: rows go up, columns go sideways. facing north|south|east|west picks the direction it faces (random turns each portal).");
@@ -584,7 +592,7 @@ final class GenerateCommands {
                 };
                 for (Settings.Option o : st.options().values()) {
                     if (o.key.startsWith(prefix) || (which.equals("players") && o.key.startsWith("groups."))) {
-                        Msg.line(s, String.format("    %-34s %-8s %s", o.key, o.get(), o.hint));
+                        Msg.line(s, String.format("    %-34s %-8s %s", o.key, o.display(), o.hint));
                     }
                 }
                 if (which.equals("tnt")) Msg.line(s, "  " + (st.tntPreview ? "SAFE MODE is on (nothing explodes)." : "Real explosions are on.") + " Details: /pd tnt status");

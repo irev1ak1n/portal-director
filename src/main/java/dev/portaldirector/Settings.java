@@ -44,11 +44,19 @@ public final class Settings {
             return getter.get();
         }
 
+        /** The value as shown to admins: on / off for switches, no trailing .0 for whole numbers. */
+        public String display() {
+            Object v = getter.get();
+            if (v instanceof Boolean b) return b ? "on" : "off";
+            if (v instanceof Double d && d == Math.floor(d)) return String.valueOf(d.longValue());
+            return String.valueOf(v);
+        }
+
         public void set(String value) {
             try {
                 setter.accept(value);
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(key.substring(key.indexOf('.') + 1) + ": " + e.getMessage());
+                throw new IllegalArgumentException(key.substring(key.indexOf('.') + 1).replace('-', ' ') + ": " + e.getMessage());
             }
         }
 
@@ -239,9 +247,13 @@ public final class Settings {
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("'" + s + "' is not a number");
             }
-            if (v < min || v > max) throw new IllegalArgumentException("must be between " + min + " and " + max);
+            if (v < min || v > max) throw new IllegalArgumentException("must be between " + shown(min) + " and " + shown(max));
             set.accept(v);
         }, List.of()));
+    }
+
+    private static String shown(double v) {
+        return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
     private void boolOpt(String key, String hint, Supplier<Boolean> get, Consumer<Boolean> set) {
