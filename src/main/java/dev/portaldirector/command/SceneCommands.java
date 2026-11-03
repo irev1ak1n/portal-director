@@ -47,19 +47,32 @@ final class SceneCommands {
                     case "clear" -> clear(s, rest.isEmpty() ? requireCurrent() : named(rest.get(0)));
                     case "rebuild", "regenerate" -> rebuild(s, rest.isEmpty() ? requireCurrent() : named(rest.get(0)));
                     case "delete" -> delete(s, rest);
-                    default -> throw new IllegalArgumentException("Scene commands: list, new, save, load, info, clear, rebuild, delete.");
+                    default -> help(s);
                 }
             }
 
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
-                if (a.size() == 1) return List.of("list", "new", "save", "load", "info", "clear", "rebuild", "delete");
-                if (a.size() == 2 && List.of("load", "info", "clear", "rebuild", "delete", "save").contains(a.get(0).toLowerCase(Locale.ROOT))) {
+                if (a.size() == 1) return List.of("list", "new", "select", "info", "clear", "rebuild", "save", "delete");
+                if (a.size() == 2 && List.of("load", "select", "use", "info", "clear", "rebuild", "delete", "save").contains(a.get(0).toLowerCase(Locale.ROOT))) {
                     return sceneNames();
                 }
                 return List.of();
             }
         };
+    }
+
+    private void help(CommandSender s) {
+        Msg.head(s, "Scenes");
+        Msg.line(s, "A scene is one set of portals. You always work on the selected scene (shown in /pd settings).");
+        Msg.cmd(s, "/pd scene list", "all scenes, the selected one is marked");
+        Msg.cmd(s, "/pd scene new <name>", "start an empty scene and select it");
+        Msg.cmd(s, "/pd scene select <name>", "switch to another scene");
+        Msg.cmd(s, "/pd scene info", "what is in the selected scene");
+        Msg.cmd(s, "/pd clear", "remove the selected scene's portals and put the terrain back");
+        Msg.cmd(s, "/pd scene rebuild", "rebuild portals that were damaged");
+        Msg.cmd(s, "/pd scene save <name>", "rename the selected scene");
+        Msg.cmd(s, "/pd scene delete <name>", "forget an empty scene");
     }
 
     List<String> sceneNames() {
@@ -80,11 +93,12 @@ final class SceneCommands {
 
     private void list(CommandSender s) {
         Msg.head(s, "Scenes");
-        if (pl.scenes().all().isEmpty()) Msg.line(s, "  none yet. /pd generate 30 mixed makes the first one.");
+        if (pl.scenes().all().isEmpty()) Msg.line(s, "  none yet. /pd generate 30 makes the first one, /pd scene new <name> makes an empty one.");
         for (Scene sc : pl.scenes().all()) {
             boolean cur = sc == pl.scenes().current();
-            Msg.line(s, (cur ? " > " : "   ") + sc.name() + "  " + sc.portals().size() + " portals in " + sc.worldName());
+            Msg.line(s, (cur ? " > " : "   ") + sc.name() + "  " + sc.portals().size() + " portals in " + sc.worldName() + (cur ? "   (selected)" : ""));
         }
+        Msg.line(s, "  Switch with /pd scene select <name>.");
     }
 
     private void create(CommandSender s, List<String> a) {
@@ -157,11 +171,17 @@ final class SceneCommands {
     }
 
     void clear(CommandSender s, Scene sc) {
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        clear(s, sc, null);
+    }
+
+    /** Removes the scene's blocks; {@code after} runs once everything has been restored. */
+    void clear(CommandSender s, Scene sc, Runnable after) {
+        if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         if (sc.portals().isEmpty() && sc.blocks().isEmpty()) {
-            Msg.info(s, "Scene " + sc.name() + " is already empty.");
+            Msg.info(s, "Scene " + sc.name() + " has nothing to remove.");
+            if (after != null) after.run();
             return;
         }
         pl.tnt().stop();
@@ -173,18 +193,26 @@ final class SceneCommands {
             } else {
                 sc.portals().clear();
                 sc.assignments().clear();
+                sc.square(null);
                 Msg.ok(s, "Scene " + sc.name() + " cleared: " + result.restored() + " blocks restored"
                         + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : "."));
             }
             pl.scenes().save(sc);
+            if (!result.cancelled() && after != null) {
+                try {
+                    after.run();
+                } catch (IllegalArgumentException | IllegalStateException e) {
+                    Msg.err(s, e.getMessage());
+                }
+            }
         });
         pl.activeJob(job);
-        Msg.ok(s, "Removing scene " + sc.name() + " and restoring the terrain...");
+        Msg.ok(s, "Removing the portals of scene " + sc.name() + " and putting the terrain back (" + sc.blocks().size() + " blocks). Blocks you changed since are left alone.");
         job.start();
     }
 
     private void rebuild(CommandSender s, Scene sc) {
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         if (sc.portals().isEmpty()) throw new IllegalArgumentException("Scene " + sc.name() + " has no portals to rebuild.");

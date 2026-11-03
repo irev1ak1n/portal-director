@@ -66,6 +66,43 @@ or stand on the ground. A portal is refused when it is closer than one empty blo
 build height or world border, or would replace blocks that look player-built (add `force` at the end to override
 that last check). From the console add the world name: `/pd portal create 0 100 0 north world`.
 
+## Square formation
+
+Portals along the four sides of a square with an open middle, like an arena. Players or minecarts come out
+toward the middle (inward, the default) or away from it (outward).
+
+```
+/pd square preview 60                  plan it first: how many fit, outlined with particles, nothing is built
+/pd square create 60                   a square about 60 blocks wide around you
+/pd square create 8 portals-per-side   8 portals on every side, the size is worked out for you
+/pd square create 100 spacing 3        3 empty blocks between neighbouring portals
+/pd square create 60 elevation 25      floating, 25 blocks above the highest ground
+/pd square create 60 facing outward    portals face away from the middle
+/pd square create 60 center 100 -40 world    exact center instead of where you stand
+/pd square facing outward              set the default and turn the existing square around
+/pd square info
+/pd square remove                      take the whole square down and restore the terrain
+```
+
+Before anything is built you see the result: for example "9 portals per side, 36 in all, 2 blocks between
+them. Fits: 36 of 36". If water, steep ground or a building blocks some positions nothing is built unless you add
+`partial`. The sides are identical and each one stops short of the next, so frames never touch at the corners.
+Ids go clockwise from the north-west corner: the north side first, then east, south and west. The square
+is a normal part of its scene, so everything else works on it: group assignment, entrances, TNT, save, rebuild, clear.
+
+Cinematic releases (give each side's portals players with `/pd group assign`, then `prepare`, then):
+
+```
+/pd group release NULL all-at-once            every side at the same moment
+/pd group release NULL clockwise 0.5          one portal after another around the square, 0.5 s apart
+/pd group release NULL clockwise 2 4          four portals at a time, 2 s apart
+/pd group release NULL opposite-sides 3       north and south together, then east and west 3 s later
+/pd group release NULL side-by-side 4         one side at a time, 4 s apart
+```
+
+TNT from the square: `/pd tnt launch square`, `/pd tnt launch side east`, `/pd tnt launch square 2 stagger 0.25`
+(the stagger follows the clockwise order), `/pd tnt wave 5 20 1 square`.
+
 ## Ready-made scenes
 
 ```

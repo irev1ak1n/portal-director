@@ -3,16 +3,19 @@ package dev.portaldirector.tnt;
 import dev.portaldirector.Settings;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.SceneManager;
+import dev.portaldirector.util.Msg;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -36,15 +39,17 @@ public final class TntDirector implements Listener {
         final World world;
         final List<PortalSpec> portals;
         final List<TntSchedule.Launch> launches;
+        final CommandSender sender;
         int index;
         int tick;
         BukkitTask task;
         int skipped;
 
-        Sequence(World world, List<PortalSpec> portals, List<TntSchedule.Launch> launches) {
+        Sequence(World world, List<PortalSpec> portals, List<TntSchedule.Launch> launches, CommandSender sender) {
             this.world = world;
             this.portals = portals;
             this.launches = launches;
+            this.sender = sender;
         }
 
         void run() {
@@ -60,7 +65,13 @@ public final class TntDirector implements Listener {
                 }
             }
             tick++;
-            if (index >= launches.size()) stopSequence(this);
+            if (index >= launches.size()) {
+                if (skipped > 0 && sender != null) {
+                    Msg.info(sender, skipped + " minecarts were not launched because " + settings.tntMaxActive
+                            + " were already alive. Raise the limit with /pd tnt limit " + (settings.tntMaxActive * 2) + ", or use fewer per portal.");
+                }
+                stopSequence(this);
+            }
         }
     }
 
@@ -97,10 +108,11 @@ public final class TntDirector implements Listener {
     }
 
     /** Starts a launch sequence. Nothing is ever launched without this being called from a command. */
-    public Summary launch(World world, List<PortalSpec> portals, int perPortal, int waves, int waveDelayTicks, int staggerTicks) {
+    public Summary launch(World world, List<PortalSpec> portals, int perPortal, int waves, int waveDelayTicks, int staggerTicks,
+                          CommandSender sender) {
         List<TntSchedule.Launch> plan = TntSchedule.plan(portals.size(), perPortal, waves, waveDelayTicks,
                 staggerTicks, settings.tntIntervalTicks);
-        Sequence seq = new Sequence(world, new ArrayList<>(portals), plan);
+        Sequence seq = new Sequence(world, new ArrayList<>(portals), plan, sender);
         sequences.add(seq);
         seq.task = plugin.getServer().getScheduler().runTaskTimer(plugin, seq::run, 0L, 1L);
         int duration = plan.isEmpty() ? 0 : plan.get(plan.size() - 1).tick();
@@ -115,9 +127,9 @@ public final class TntDirector implements Listener {
             c.setMaxSpeed(Math.max(c.getMaxSpeed(), settings.tntSpeed));
         });
         cart.setVelocity(new Vector(p.stepX() * settings.tntSpeed, settings.tntLift, p.stepZ() * settings.tntSpeed));
-        if (settings.tntFuseTicks >= 0) {
-            cart.setFuseTicks(settings.tntFuseTicks);
+        if (settings.tntFuseSeconds > 0 && !settings.tntPreview) {
             cart.ignite();
+            cart.setFuseTicks((int) Math.round(settings.tntFuseSeconds * 20));
         }
         active.put(cart.getUniqueId(), Bukkit.getCurrentTick());
     }
@@ -127,14 +139,14 @@ public final class TntDirector implements Listener {
         sequences.remove(s);
     }
 
-    /** Stops all running sequences. Minecarts already in the world keep going. */
+    /** Stops sending new minecarts. Minecarts already out keep going. */
     public int stop() {
         int n = sequences.size();
         for (Sequence s : new ArrayList<>(sequences)) stopSequence(s);
         return n;
     }
 
-    /** Stops sequences and removes every tracked minecart. */
+    /** Stops sending new minecarts and removes every minecart this plugin launched. */
     public int clear() {
         stop();
         int removed = 0;
@@ -168,6 +180,12 @@ public final class TntDirector implements Listener {
                 it.remove();
             }
         }
+    }
+
+    /** Tracked minecarts must never travel through a vanilla portal. */
+    @EventHandler(ignoreCancelled = true)
+    public void onPortal(EntityPortalEvent e) {
+        if (isOurs(e.getEntity())) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

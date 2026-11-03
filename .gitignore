@@ -30,3 +30,5 @@ server.properties
 bot-test/node_modules/
 bot-test/.run/
 bot-test/reports/
+portal-director-test-server/
+portal-director-server/

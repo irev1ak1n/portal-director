@@ -10,6 +10,7 @@ import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Msg;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
@@ -38,13 +39,17 @@ final class PortalCommands {
                 switch (sub) {
                     case "create", "add" -> create(s, r);
                     case "remove", "delete" -> remove(s, r);
-                    case "list" -> list(s);
+                    case "list" -> list(s, r);
+                    case "tp", "teleport", "go" -> tp(s, r);
+                    case "view" -> view(s, r);
                     default -> {
                         Msg.head(s, "Single portals");
                         Msg.cmd(s, "/pd portal create <x> <y> <z> <north|south|east|west> [world] [force]", "build one portal");
                         Msg.cmd(s, "/pd portal create here <north|south|east|west>", "at your feet");
                         Msg.cmd(s, "/pd portal remove <id>", "take one down and restore the blocks");
-                        Msg.cmd(s, "/pd portal list", "all portals with their coordinates");
+                        Msg.cmd(s, "/pd portal list", "all portals, nearest first, with distance and direction");
+                        Msg.cmd(s, "/pd portal tp <id|nearest|farthest>", "stand safely near a portal and look at it");
+                        Msg.cmd(s, "/pd view", "see the whole formation from above");
                         Msg.line(s, "x y z is the lower of the two bottom portal blocks (the block you stand in). The obsidian floor is the block below it.");
                     }
                 }
@@ -52,12 +57,17 @@ final class PortalCommands {
 
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
-                if (a.size() == 1) return List.of("create", "remove", "list");
+                if (a.size() == 1) return List.of("create", "remove", "list", "tp", "view");
                 String sub = a.get(0).toLowerCase(Locale.ROOT);
-                if (sub.equals("remove") || sub.equals("delete")) {
+                if (sub.equals("remove") || sub.equals("delete") || sub.equals("tp") || sub.equals("teleport") || sub.equals("go")) {
                     Scene sc = pl.scenes().current();
-                    return a.size() == 2 && sc != null ? sc.portals().keySet().stream().limit(60).map(String::valueOf).toList() : List.of();
+                    if (a.size() != 2 || sc == null) return List.of();
+                    List<String> ids = new ArrayList<>(sub.startsWith("t") || sub.equals("go") ? List.of("nearest", "farthest") : List.of());
+                    sc.portals().keySet().stream().limit(60).forEach(id -> ids.add(String.valueOf(id)));
+                    return ids;
                 }
+                if (sub.equals("view")) return a.size() == 2 ? List.of("high", "ground") : List.of();
+                if (sub.equals("list")) return List.of("1", "2", "3");
                 if (!sub.equals("create") && !sub.equals("add")) return List.of();
                 List<String> faces = List.of("north", "south", "east", "west");
                 if (a.size() == 2) return s instanceof Player p
@@ -130,7 +140,7 @@ final class PortalCommands {
             }
         }
         if (world == null) throw new IllegalArgumentException("Name the world: /pd portal create " + x + " " + y + " " + z + " " + facing.name().toLowerCase(Locale.ROOT) + " <world>");
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
 
         Scene scene = pl.scenes().currentOrCreate(world);
         if (!scene.portals().isEmpty() && !scene.worldName().equals(world.getName())) {
@@ -218,7 +228,7 @@ final class PortalCommands {
         }
         PortalSpec p = sc.portals().get(id);
         if (p == null) throw new IllegalArgumentException("There is no portal " + id + " in scene " + sc.name() + ". /pd portal list shows them.");
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         List<BlockLog.Rec> mine = recordsOf(sc, p);
@@ -254,16 +264,141 @@ final class PortalCommands {
         return false;
     }
 
-    private void list(CommandSender s) {
+    private void list(CommandSender s, List<String> args) {
         Scene sc = pl.scenes().current();
         if (sc == null || sc.portals().isEmpty()) {
-            Msg.info(s, "No portals yet. /pd generate 30 mixed, or /pd portal create here north.");
+            Msg.info(s, "There are no portals yet" + (sc == null ? "" : " in scene " + sc.name()) + ". /pd generate 30 builds some, /pd portal create here north builds one.");
             return;
         }
-        Msg.head(s, sc.portals().size() + " portals in " + sc.name());
-        for (PortalSpec p : sc.portals().values()) {
-            Msg.line(s, "  #" + p.id() + "  " + p.anchorX() + " " + p.anchorY() + " " + p.anchorZ() + "  facing "
-                    + p.facing().name().toLowerCase(Locale.ROOT) + (p.floating() ? "  floating" : "  ground"));
+        int page = 1;
+        if (!args.isEmpty()) {
+            try {
+                page = Math.max(1, Integer.parseInt(args.get(0)));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Use /pd portal list or /pd portal list 2 for the second page.");
+            }
         }
+        double[] from = Report.reference(s, sc);
+        List<PortalSpec> sorted = sc.portals().values().stream()
+                .sorted(java.util.Comparator.comparingDouble(p -> Math.hypot(p.centerX() - from[0], p.centerZ() - from[1]))).toList();
+        int per = 12;
+        int pages = Math.max(1, (sorted.size() + per - 1) / per);
+        page = Math.min(page, pages);
+        Msg.head(s, "Scene " + sc.name() + ": " + sorted.size() + " portals, nearest first (page " + page + " of " + pages + ")");
+        for (PortalSpec p : sorted.subList((page - 1) * per, Math.min(sorted.size(), page * per))) {
+            Msg.line(s, "  #" + p.id() + "  " + Report.where(from, p) + "  at " + p.anchorX() + " " + p.anchorY() + " " + p.anchorZ()
+                    + "  " + (p.floating() ? "floating" : "ground") + ", exit " + p.facing().name().toLowerCase(Locale.ROOT));
+        }
+        Msg.line(s, "  Visit one with /pd portal tp <id>. Coordinates are what /pd portal create takes.");
+    }
+
+    // Finding portals
+
+    private PortalSpec pick(Scene sc, String what, CommandSender s) {
+        if (what.equalsIgnoreCase("nearest") || what.equalsIgnoreCase("near") || what.equalsIgnoreCase("farthest") || what.equalsIgnoreCase("far")) {
+            double[] from = Report.reference(s, sc);
+            var cmp = java.util.Comparator.<PortalSpec>comparingDouble(p -> Math.hypot(p.centerX() - from[0], p.centerZ() - from[1]));
+            return what.toLowerCase(Locale.ROOT).startsWith("n") ? sc.portals().values().stream().min(cmp).orElseThrow()
+                    : sc.portals().values().stream().max(cmp).orElseThrow();
+        }
+        int id;
+        try {
+            id = Integer.parseInt(what);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Which portal? Use a number like /pd portal tp 3, or nearest or farthest.");
+        }
+        PortalSpec p = sc.portals().get(id);
+        if (p == null) throw new IllegalArgumentException("There is no portal " + id + " in scene " + sc.name() + ". /pd portal list shows them.");
+        return p;
+    }
+
+    private Scene needScene() {
+        Scene sc = pl.scenes().current();
+        if (sc == null || sc.portals().isEmpty()) {
+            throw new IllegalArgumentException("There are no portals to go to. Build some first: /pd generate 30");
+        }
+        return sc;
+    }
+
+    /** A spot on the ground in front of the portal where you can stand safely and look at it. */
+    static Location viewSpot(World w, PortalSpec p) {
+        BukkitTerrain t = new BukkitTerrain(w);
+        double dist = p.floating() ? 9 : 5;
+        int x = (int) Math.floor(p.centerX() + p.stepX() * dist);
+        int z = (int) Math.floor(p.centerZ() + p.stepZ() * dist);
+        int top = t.topY(x, z);
+        int y;
+        if (top < w.getMinHeight() || t.isLiquid(x, top, z)) {
+            x = (int) Math.floor(p.centerX() + p.stepX() * 3);
+            z = (int) Math.floor(p.centerZ() + p.stepZ() * 3);
+            y = p.floating() ? Math.max(t.topY(x, z), w.getMinHeight()) + 1 : (int) p.standY();
+        } else {
+            y = top + 1;
+        }
+        for (int i = 0; i < 8 && !(t.isAir(x, y, z) && t.isAir(x, y + 1, z)); i++) y++;
+        double eyeToPortal = (p.y() + 2.0) - (y + 1.6);
+        float pitch = (float) -Math.toDegrees(Math.atan2(eyeToPortal, dist));
+        return new Location(w, x + 0.5, y, z + 0.5, p.yaw() + 180f, Math.max(-60f, Math.min(30f, pitch)));
+    }
+
+    private void tp(CommandSender s, List<String> a) {
+        if (!(s instanceof Player player)) throw new IllegalArgumentException("Only players can teleport.");
+        Scene sc = needScene();
+        PortalSpec p = pick(sc, a.isEmpty() ? "nearest" : a.get(0), s);
+        World w = Bukkit.getWorld(sc.worldName());
+        if (w == null) throw new IllegalArgumentException("The world " + sc.worldName() + " is not loaded.");
+        int cx = (int) Math.floor(p.centerX() + p.stepX() * 9) >> 4;
+        int cz = (int) Math.floor(p.centerZ() + p.stepZ() * 9) >> 4;
+        w.getChunkAtAsync(cx, cz, true).thenCompose(c -> w.getChunkAtAsync((int) Math.floor(p.centerX()) >> 4, (int) Math.floor(p.centerZ()) >> 4, true))
+                .whenComplete((c, err) -> pl.getServer().getScheduler().runTask(pl, () -> {
+                    if (!player.isOnline()) return;
+                    Location spot = viewSpot(w, p);
+                    player.teleportAsync(spot);
+                    Msg.ok(player, "Standing " + (p.floating() ? "below and in front of" : "in front of") + " portal " + p.id()
+                            + (p.floating() ? ", which floats " + (p.anchorY() - spot.getBlockY()) + " blocks above you." : ".")
+                            + " Walk through it to use it, or look around.");
+                }));
+    }
+
+    private void view(CommandSender s, List<String> a) {
+        if (!(s instanceof Player player)) throw new IllegalArgumentException("Only players can teleport.");
+        Scene sc = needScene();
+        World w = Bukkit.getWorld(sc.worldName());
+        if (w == null) throw new IllegalArgumentException("The world " + sc.worldName() + " is not loaded.");
+        boolean high = a.isEmpty() || !a.get(0).equalsIgnoreCase("ground");
+        double x = 0;
+        double z = 0;
+        if (sc.square() != null) {
+            x = sc.square().centerX() + 0.5;
+            z = sc.square().centerZ() + 0.5;
+        } else {
+            for (PortalSpec p : sc.portals().values()) {
+                x += p.centerX();
+                z += p.centerZ();
+            }
+            x /= sc.portals().size();
+            z /= sc.portals().size();
+        }
+        final int bx = (int) Math.floor(x);
+        final int bz = (int) Math.floor(z);
+        w.getChunkAtAsync(bx >> 4, bz >> 4, true).whenComplete((c, err) -> pl.getServer().getScheduler().runTask(pl, () -> {
+            if (!player.isOnline()) return;
+            BukkitTerrain t = new BukkitTerrain(w);
+            int top = t.topY(bx, bz);
+            if (top < w.getMinHeight() || t.isLiquid(bx, top, bz)) {
+                PortalSpec fallback = sc.portals().values().iterator().next();
+                player.teleportAsync(viewSpot(w, fallback));
+                Msg.ok(player, "The middle of the formation is water, so you are at portal " + fallback.id() + " instead.");
+                return;
+            }
+            int y = top + 1 + (high ? 40 : 0);
+            player.teleportAsync(new Location(w, bx + 0.5, y, bz + 0.5, player.getLocation().getYaw(), high ? 35f : 0f));
+            if (high) {
+                player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SLOW_FALLING, 20 * 45, 0, false, false, true));
+                Msg.ok(player, "You are 40 blocks above the middle of the formation and float down slowly. Look around; /pd portal tp <id> goes to one portal.");
+            } else {
+                Msg.ok(player, "You are in the middle of the formation.");
+            }
+        }));
     }
 }

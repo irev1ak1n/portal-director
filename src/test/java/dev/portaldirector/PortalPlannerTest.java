@@ -91,7 +91,7 @@ class PortalPlannerTest {
         List<PortalSpec> out = run(FakeTerrain.flat(70), settings(20, Placement.GROUND, Layout.RANDOM), List.of(), 1, 2);
         assertEquals(20, out.size());
         for (PortalSpec p : out) {
-            assertEquals(71, p.y());
+            assertEquals(70, p.y());
             assertFalse(p.floating());
         }
     }
@@ -104,7 +104,7 @@ class PortalPlannerTest {
         for (PortalSpec p : out) {
             int top = 0;
             for (int i = 0; i < 4; i++) top = Math.max(top, hills.topY(p.cellX(i), p.cellZ(i)));
-            assertEquals(top + 1, p.y());
+            assertEquals(top, p.y());
         }
     }
 

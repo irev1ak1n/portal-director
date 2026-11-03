@@ -16,7 +16,7 @@ public final class PortalPlanner {
     private PortalPlanner() {
     }
 
-    /** The y of the frame floor for a ground portal here, or {@code Integer.MIN_VALUE} when the ground is unsuitable. */
+    /** The y of the frame floor for a ground portal here: level with the highest ground under it, so players can walk in, or {@code Integer.MIN_VALUE} when the ground is unsuitable. */
     public static int groundY(Terrain terrain, PortalSpec p, int maxSlope) {
         int lo = Integer.MAX_VALUE;
         int hi = Integer.MIN_VALUE;
@@ -31,7 +31,7 @@ public final class PortalPlanner {
             hi = Math.max(hi, top);
         }
         if (hi - lo > maxSlope) return Integer.MIN_VALUE;
-        return hi + 1;
+        return hi;
     }
 
     /** True when everything the portal and its walkway would change is air (floating) or natural (ground). */
@@ -63,6 +63,8 @@ public final class PortalPlanner {
         private int nextId;
         private int attemptsLeft;
         private int rejected;
+        private final java.util.Map<String, Integer> reasons = new java.util.LinkedHashMap<>();
+        private String lastReason = "";
 
         public Session(Terrain terrain, GenSettings settings, int cx, int cz, int defaultDx, int defaultDz,
                        List<PortalSpec> existing, int firstId, RandomGenerator rnd) {
@@ -91,6 +93,7 @@ public final class PortalPlanner {
                 PortalSpec spec = tryPlace(c[0], c[1]);
                 if (spec == null) {
                     rejected++;
+                    reasons.merge(lastReason, 1, Integer::sum);
                     continue;
                 }
                 placed.add(spec);
@@ -109,6 +112,16 @@ public final class PortalPlanner {
 
         public int rejected() {
             return rejected;
+        }
+
+        /** Why candidate spots were skipped, with counts. */
+        public java.util.Map<String, Integer> reasons() {
+            return reasons;
+        }
+
+        private PortalSpec fail(String reason) {
+            lastReason = reason;
+            return null;
         }
 
         private int gap() {
@@ -140,16 +153,18 @@ public final class PortalPlanner {
             int[] box = probe.box();
             for (int bx = box[0]; bx <= box[3]; bx++) {
                 for (int bz = box[2]; bz <= box[5]; bz++) {
-                    if (!terrain.isReady(bx, bz)) return null;
+                    if (!terrain.isReady(bx, bz)) return fail("the area was not loaded");
                 }
             }
             int y = air ? airY(probe) : groundY(probe);
-            if (y == Integer.MIN_VALUE) return null;
+            if (y == Integer.MIN_VALUE) return fail(air ? "no clear sky" : "water, steep ground or buildings");
             PortalSpec spec = new PortalSpec(nextId, x, y, z, axis, face, air);
-            if (spec.y() < terrain.minY() + 1 || spec.y() + PortalSpec.HEIGHT >= terrain.maxY() - 1) return null;
-            if (!volumeFree(spec, air)) return null;
+            int lowest = Math.max(s.minY, terrain.minY() + 1);
+            int highest = Math.min(s.maxY, terrain.maxY() - 2);
+            if (spec.y() < lowest || spec.y() + PortalSpec.HEIGHT > highest) return fail("outside the height limits");
+            if (!volumeFree(spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
             for (PortalSpec other : blockers) {
-                if (!spec.separatedFrom(other, gap())) return null;
+                if (!spec.separatedFrom(other, gap())) return fail("too close to another portal");
             }
             return spec;
         }

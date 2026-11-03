@@ -64,7 +64,7 @@ public final class Settings {
     public int maxChunks = 900;
     public int maxPortals = 500;
 
-    public boolean blockVanillaTravel = true;
+    public boolean blockVanillaTravel = false;
     public boolean stagingInvisible = false;
     public boolean freezeStaged = true;
     public int walkTicks = 26;
@@ -88,7 +88,7 @@ public final class Settings {
     public int tntMaxActive = 300;
     public int tntLifetimeSeconds = 60;
     public int tntSpawnsPerTick = 60;
-    public int tntFuseTicks = -1;
+    public double tntFuseSeconds = 3.0;
 
     public int squareSpacing = 2;
     public SquareFacing squareFacing = SquareFacing.INWARD;
@@ -164,6 +164,8 @@ public final class Settings {
         enumOpt("generate.layout", Layout.class, () -> gen.layout, v -> gen.layout = v);
         enumOpt("generate.facing", FacingMode.class, () -> gen.facing, v -> gen.facing = v);
         intOpt("generate.max-slope", "tallest step in the ground a ground portal may stand on", 0, 10, () -> gen.maxSlope, v -> gen.maxSlope = v);
+        intOpt("generate.min-y", "lowest allowed y for any portal frame", -64, 320, () -> gen.minY, v -> gen.minY = v);
+        intOpt("generate.max-y", "highest allowed y for the top of any portal frame", -64, 320, () -> gen.maxY, v -> gen.maxY = v);
         intOpt("generate.blocks-per-tick", "blocks placed per tick", 20, 5000, () -> blocksPerTick, v -> blocksPerTick = v);
         intOpt("generate.max-chunks", "refuse areas needing more chunks than this", 16, 5000, () -> maxChunks, v -> maxChunks = v);
         intOpt("generate.max-portals", "portals allowed in one scene", 1, 5000, () -> maxPortals, v -> maxPortals = v);
@@ -174,7 +176,7 @@ public final class Settings {
         boolOpt("groups.auto-assign", "give joining players the next free portal", () -> autoAssignJoiners, v -> autoAssignJoiners = v);
         boolOpt("groups.announce-join", "one action bar line when joining via the join block", () -> announceJoin, v -> announceJoin = v);
 
-        boolOpt("entrance.block-vanilla-travel", "scene portals never send players to the Nether", () -> blockVanillaTravel, v -> blockVanillaTravel = v);
+        boolOpt("entrance.block-vanilla-travel", "turn OFF normal Nether travel through generated portals (decoration only)", () -> blockVanillaTravel, v -> blockVanillaTravel = v);
         boolOpt("entrance.staging-invisible", "staged players are invisible until released", () -> stagingInvisible, v -> stagingInvisible = v);
         boolOpt("entrance.freeze-staged", "staged players cannot move", () -> freezeStaged, v -> freezeStaged = v);
         intOpt("entrance.walk-ticks", "how long players are walked forward after release", 0, 200, () -> walkTicks, v -> walkTicks = v);
@@ -196,7 +198,7 @@ public final class Settings {
         intOpt("tnt.max-active", "most minecarts alive at once", 1, 5000, () -> tntMaxActive, v -> tntMaxActive = v);
         intOpt("tnt.lifetime-seconds", "minecarts that have not exploded are removed after this", 5, 3600, () -> tntLifetimeSeconds, v -> tntLifetimeSeconds = v);
         intOpt("tnt.spawns-per-tick", "most minecarts spawned in a single tick", 1, 500, () -> tntSpawnsPerTick, v -> tntSpawnsPerTick = v);
-        intOpt("tnt.fuse-ticks", "light the minecart after launch (ticks), -1 for vanilla behaviour", -1, 600, () -> tntFuseTicks, v -> tntFuseTicks = v);
+        dblOpt("tnt.fuse-seconds", "seconds after launch until a minecart explodes, 0 for vanilla behaviour (explodes only when it crashes)", 0, 60, () -> tntFuseSeconds, v -> tntFuseSeconds = v);
     }
 
     private void intOpt(String key, String hint, int min, int max, Supplier<Integer> get, Consumer<Integer> set) {

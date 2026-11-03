@@ -23,7 +23,8 @@ import java.util.function.Consumer;
  */
 public final class GenerationJob implements Job {
 
-    public record Result(int requested, int placed, int rejected, boolean cancelled, boolean failed, String error) {
+    public record Result(int requested, int placed, int rejected, boolean cancelled, boolean failed, String error,
+                         java.util.Map<String, Integer> reasons) {
     }
 
     private enum Phase { LOAD, PLAN, BUILD, DONE }
@@ -112,9 +113,9 @@ public final class GenerationJob implements Job {
     @Override
     public String describe() {
         return switch (phase) {
-            case LOAD -> "loading chunks (" + loaded + "/" + totalChunks + ")";
-            case PLAN -> "choosing positions (" + (planner == null ? 0 : planner.placed().size()) + ")";
-            case BUILD -> "building portals (" + buildIndex + "/" + (toBuild == null ? 0 : toBuild.size()) + ")";
+            case LOAD -> "loading the area: " + loaded + " of " + totalChunks + " chunks";
+            case PLAN -> "finding spots: " + (planner == null ? 0 : planner.placed().size()) + " portals so far";
+            case BUILD -> "building portals: " + buildIndex + " of " + (toBuild == null ? 0 : toBuild.size());
             case DONE -> "finished";
         };
     }
@@ -216,7 +217,8 @@ public final class GenerationJob implements Job {
         for (long k : ticketed) world.removePluginChunkTicket((int) (k >> 32), (int) k, plugin);
         ticketed.clear();
         int requested = planner == null ? built : planner.requested();
-        onDone.accept(new Result(requested, built, planner == null ? 0 : planner.rejected(), cancelled, error != null, error));
+        onDone.accept(new Result(requested, built, planner == null ? 0 : planner.rejected(), cancelled, error != null, error,
+                planner == null ? java.util.Map.of() : planner.reasons()));
     }
 
     private static long key(int x, int z) {

@@ -194,7 +194,7 @@ final class SquareCommands {
 
     private void plan(CommandSender s, List<String> a, boolean previewOnly) {
         Request rq = parse(s, a);
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         Scene scene = pl.scenes().currentOrCreate(rq.world());
         if (!scene.portals().isEmpty() && !scene.worldName().equals(rq.world().getName())) {
             throw new IllegalArgumentException("Scene " + scene.name() + " is in world " + scene.worldName() + ". Start a new one with /pd scene new <name>.");
@@ -228,7 +228,7 @@ final class SquareCommands {
     }
 
     private void evaluate(CommandSender s, Request rq, Scene scene, int x0, int z0, boolean previewOnly) {
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         List<PortalSpec> layout = SquarePlanner.layout(scene.nextId(), x0, z0, rq.perSide(), rq.gap(), rq.facing());
         List<PortalSpec> existing = new ArrayList<>(pl.scenes().portalsIn(rq.world().getName()));
         SquarePlanner.Fit fit = SquarePlanner.fit(new BukkitTerrain(rq.world()), layout, rq.perSide(), pl.settings().gen.maxSlope,
@@ -314,7 +314,7 @@ final class SquareCommands {
             Msg.ok(s, "New squares will face " + f.name().toLowerCase(Locale.ROOT) + ".");
             return;
         }
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         BukkitTerrain terrain = new BukkitTerrain(w);
@@ -323,8 +323,10 @@ final class SquareCommands {
             PortalSpec p = sc.portals().get(id);
             if (p == null) continue;
             PortalSpec q = new PortalSpec(p.id(), p.x(), p.y(), p.z(), p.axis(), p.facing().getOppositeFace(), p.floating());
-            if (!PortalPlanner.volumeFree(terrain, q, p.floating()) && !p.floating()) {
-                throw new IllegalArgumentException("Portal " + id + " cannot turn around: something built is in the way on its other side.");
+            for (int[] c : q.corridorBlocks()) {
+                if (!terrain.isNatural(c[0], c[1], c[2])) {
+                    throw new IllegalArgumentException("Portal " + id + " cannot turn around: a building is in the way on its other side. Nothing was changed.");
+                }
             }
             flipped.add(q);
         }
@@ -342,7 +344,7 @@ final class SquareCommands {
     private void remove(CommandSender s) {
         SquareInfo sq = requireSquare();
         Scene sc = pl.scenes().current();
-        if (pl.activeJob() != null) throw new IllegalArgumentException("Busy: " + pl.activeJob().describe() + ".");
+        if (pl.activeJob() != null) throw pl.busy();
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         List<Integer> ids = new ArrayList<>(sq.ids());

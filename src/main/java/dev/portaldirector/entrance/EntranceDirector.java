@@ -94,6 +94,8 @@ public final class EntranceDirector implements Listener {
     private final Map<String, Run> runs = new HashMap<>();
     private final Set<UUID> frozen = new HashSet<>();
     private final Map<UUID, Integer> fallProtectedUntil = new HashMap<>();
+    /** Players in a scripted entrance cannot be sent through a vanilla portal until this tick. */
+    private final Map<UUID, Integer> cinematicUntil = new HashMap<>();
     private final List<Walker> walkers = new ArrayList<>();
     private BukkitTask walkTask;
 
@@ -168,6 +170,7 @@ public final class EntranceDirector implements Listener {
         }
         Location target = settings.staging != null ? settings.staging.clone() : standLocation(world, spec);
         if (settings.freezeStaged) frozen.add(p.getUniqueId());
+        cinematicUntil.put(p.getUniqueId(), Integer.MAX_VALUE);
         p.teleportAsync(target);
         p.playSound(p.getLocation(), Sound.BLOCK_PORTAL_AMBIENT, 0.6f, 1f);
     }
@@ -235,6 +238,7 @@ public final class EntranceDirector implements Listener {
             p.removePotionEffect(PotionEffectType.INVISIBILITY);
             p.getPersistentDataContainer().remove(stagedKey);
             if (settings.fallProtectionSeconds > 0) fallProtectedUntil.put(uuid, expiry);
+            cinematicUntil.put(uuid, Bukkit.getCurrentTick() + settings.walkTicks + 100);
             Location out = standLocation(world, spec);
             teleports.add(p.teleportAsync(out));
             world.spawnParticle(Particle.PORTAL, out.clone().add(0, 1, 0), 40, 0.5, 0.9, 0.5, 0.3);
@@ -276,6 +280,7 @@ public final class EntranceDirector implements Listener {
             UUID id = e.getKey();
             frozen.remove(id);
             fallProtectedUntil.remove(id);
+            cinematicUntil.remove(id);
             walkers.removeIf(w -> w.player.equals(id));
             Player p = Bukkit.getPlayer(id);
             if (p == null) continue;
@@ -361,9 +366,15 @@ public final class EntranceDirector implements Listener {
         }, 10L);
     }
 
+    /**
+     * Normal travel through generated portals works like any Nether portal. It is only blocked for players who are
+     * in a scripted entrance right now, or everywhere when entrance.block-vanilla-travel is on.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onPlayerPortal(PlayerPortalEvent e) {
-        if (settings.blockVanillaTravel && scenes.inPortalArea(e.getFrom())) e.setCancelled(true);
+        Integer until = cinematicUntil.get(e.getPlayer().getUniqueId());
+        boolean inEntrance = until != null && until >= Bukkit.getCurrentTick();
+        if (inEntrance || (settings.blockVanillaTravel && scenes.inPortalArea(e.getFrom()))) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)

@@ -153,7 +153,7 @@ class SquarePlannerTest {
         assertEquals(15, fit.usable().size());
         assertEquals(1, fit.problems().size());
         assertTrue(fit.problems().get(0).startsWith("north side, portal 1"));
-        assertTrue(fit.usable().stream().allMatch(p -> p.y() == 65 && !p.floating()));
+        assertTrue(fit.usable().stream().allMatch(p -> p.y() == 64 && !p.floating()));
     }
 
     @Test

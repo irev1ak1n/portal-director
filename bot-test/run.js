@@ -17,7 +17,7 @@ const crypto = require('node:crypto')
 const mineflayer = require('@wp2508/mineflayer')
 const { TestServer } = require('./lib/server')
 
-const PORT = 25590
+const PORT = +(process.env.PD_PORT || 25590)
 const HOST = '127.0.0.1'
 const SERVER_DIR = path.resolve(process.env.PD_SERVER_DIR || path.join(__dirname, '..', '..', 'portal-director-server'))
 const PLUGIN_DIR = path.join(SERVER_DIR, 'plugins', 'PortalDirector')

@@ -34,6 +34,8 @@ public final class RemovalJob implements Job {
     private List<BlockLog.Rec> current;
     private int currentIndex;
     private boolean loading;
+    private int waited;
+    private final java.util.Set<Long> held = new java.util.HashSet<>();
     private int chunkX;
     private int chunkZ;
     private boolean cancelled;
@@ -72,7 +74,7 @@ public final class RemovalJob implements Job {
 
     @Override
     public String describe() {
-        return "restoring blocks (" + processed + "/" + totalBlocks + ")";
+        return "removing blocks: " + processed + " of " + totalBlocks + " done" + (totalBlocks > 0 ? " (" + (100 * processed / totalBlocks) + "%)" : "");
     }
 
     @Override
@@ -99,17 +101,30 @@ public final class RemovalJob implements Job {
                 chunkZ = current.get(0).pos().z() >> 4;
             }
             if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                if (!loading) {
+                if (!loading || ++waited > 100) {
                     loading = true;
-                    world.getChunkAtAsync(chunkX, chunkZ, true).whenComplete((c, err) ->
-                            plugin.getServer().getScheduler().runTask(plugin, () -> loading = false));
+                    waited = 0;
+                    final int cx = chunkX;
+                    final int cz = chunkZ;
+                    world.getChunkAtAsync(cx, cz, true).whenComplete((c, err) ->
+                            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                                // The ticket keeps the chunk loaded until its blocks are done, so it cannot unload again.
+                                if (err == null && world.addPluginChunkTicket(cx, cz, plugin)) held.add(key(cx, cz));
+                                loading = false;
+                            }));
                 }
                 return;
+            }
+            if (held.contains(key(chunkX, chunkZ))) {
+                // already ticketed
+            } else if (world.addPluginChunkTicket(chunkX, chunkZ, plugin)) {
+                held.add(key(chunkX, chunkZ));
             }
             BlockLog.Rec r = current.get(currentIndex++);
             restoreOne(r);
             budget--;
             processed++;
+            if (currentIndex >= current.size()) release(chunkX, chunkZ);
         }
     }
 
@@ -125,9 +140,19 @@ public final class RemovalJob implements Job {
         scene.blocks().remove(r.pos());
     }
 
+    private static long key(int x, int z) {
+        return ((long) x << 32) | (z & 0xFFFFFFFFL);
+    }
+
+    private void release(int cx, int cz) {
+        if (held.remove(key(cx, cz))) world.removePluginChunkTicket(cx, cz, plugin);
+    }
+
     private void finish() {
         if (done) return;
         done = true;
+        for (long k : new java.util.ArrayList<>(held)) world.removePluginChunkTicket((int) (k >> 32), (int) k, plugin);
+        held.clear();
         if (task != null) task.cancel();
         onDone.accept(new Result(restored, kept, cancelled));
     }

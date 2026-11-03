@@ -16,6 +16,8 @@ public final class GenSettings {
     public Layout layout = Layout.RANDOM;
     public FacingMode facing = FacingMode.AUTO;
     public int maxSlope = 3;
+    public int minY = -64;
+    public int maxY = 320;
 
     public GenSettings copy() {
         GenSettings c = new GenSettings();
@@ -30,6 +32,8 @@ public final class GenSettings {
         c.layout = layout;
         c.facing = facing;
         c.maxSlope = maxSlope;
+        c.minY = minY;
+        c.maxY = maxY;
         return c;
     }
 
