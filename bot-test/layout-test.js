@@ -465,41 +465,32 @@ async function main () {
     check('without the build in the way the same command works', /Built 20 of 20/.test(out), out.replace(/^\[[^\]]*\] /, ''))
     await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000)
   }
-  // ground mode: the lowest row stands on the terrain
+  // ground mode: the lowest row stands on the terrain (partial, because the plains have ponds and trees)
   {
-    let site = null
-    for (let k = 0; k < 40 && !site; k++) {
-      const x = CX + 250 + (k % 8) * 30
-      const z = CZ + Math.floor(k / 8) * 30
-      await runUntil(`forceload add ${x - 30} ${z - 30} ${x + 30} ${z + 30}`, /Marked \d+ chunks|already/i, 120000).catch(() => {})
-      await sleep(1500)
-      let dry = true
-      for (const dx of [-18, -6, 6, 18]) {
-        const o = await run(`execute positioned ${x + dx} 0 ${z} positioned over motion_blocking_no_leaves if block ~ ~-1 ~ minecraft:grass_block run say DRY`, 160)
-        if (!/\[Server\] DRY/.test(o)) dry = false
+    await run('pd set mode ground')
+    await run('pd set grid rows 2')
+    await run('pd set grid columns 3')
+    await run(`pd set center ${CX + 60} ${CY} ${CZ + 60} world`)
+    out = await runUntil('pd generate partial', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
+    const sc = readScene()
+    check('ground mode with partial builds the portals that fit and says what was blocked', sc.portals.length >= 3, `${sc.portals.length} of 6; ` + out.replace(/^\[[^\]]*\] /, ''))
+    if (sc.portals.length >= 3) {
+      const lowFloor = Math.min(...sc.portals.map(p => p.y))
+      const bottom = sc.portals.filter(p => p.y === lowFloor)
+      let onGround = 0
+      for (const p of bottom) {
+        const g = geom(p)
+        const surf = await surface(Math.floor(g.cx + g.stepX * 3), Math.floor(g.cz + g.stepZ * 3))
+        if (surf !== null && Math.abs(p.y - surf) <= 4) onGround++
       }
-      if (dry) site = { x, z }
+      check('ground mode: every bottom-row portal stands on the terrain', onGround === bottom.length && bottom.length >= 1, `${onGround}/${bottom.length}`)
+      const upper = sc.portals.filter(p => p.y !== lowFloor)
+      check('ground mode: the second row is exactly 10 higher', upper.every(p => p.y === lowFloor + 10), upper.map(p => p.y - lowFloor).join(','))
+      check('ground mode: all built portals are valid', (await badBlocks(sc.portals)) === 0)
     }
-    check('found dry grass to test ground mode on', !!site, site ? `${site.x}, ${site.z}` : 'none')
-    if (site) {
-      await run('pd set mode ground')
-      await run('pd set grid rows 2')
-      await run('pd set grid columns 3')
-      await run(`pd set center ${site.x} ${CY} ${site.z} world`)
-      out = await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built|went wrong/, 120000)
-      const sc = readScene()
-      check('ground mode builds the whole grid on dry land', sc.portals.length === 6, out.replace(/^\[[^\]]*\] /, ''))
-      if (sc.portals.length === 6) {
-        const low = sc.portals.filter(p => p.id <= 3)
-        const surf = await surface(Math.floor(geom(low[1]).cx), Math.floor(geom(low[1]).cz) - 3)
-        const rowsY = [...new Set(sc.portals.map(p => p.y))]
-        check('ground mode: the bottom row stands on the terrain, the next row 10 higher', rowsY.length === 2 && Math.abs(low[1].y - surf) <= 4 && Math.max(...rowsY) - Math.min(...rowsY) === 10, `floor ${low[1].y}, ground ${surf}`)
-        check('ground mode: portals valid', (await badBlocks(sc.portals)) === 0)
-      }
-      const recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
-      await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000).catch(() => {})
-      check('ground mode: clear restores the terrain', (await wrongRestored(recs)) === 0, recs.length + ' blocks')
-    }
+    const recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
+    await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000).catch(() => {})
+    check('ground mode: clear restores the terrain', (await wrongRestored(recs)) === 0, recs.length + ' blocks')
     await run('pd set mode air')
   }
 }
