@@ -67,7 +67,7 @@ enable-query=false
 pause-when-empty-seconds=-1
 "@ | Set-Content "$Dir\server.properties"
 
-@'
+@"
 @echo off
 cd /d "%~dp0"
 rem Starts the test server on Java 25 and keeps the console open. Type "stop" to shut down cleanly.
@@ -75,7 +75,7 @@ set JAVA=java
 for /d %%d in ("%USERPROFILE%\.gradle\jdks\eclipse_adoptium-25*") do set JAVA=%%d\bin\java.exe
 if defined JAVA25_HOME set JAVA=%JAVA25_HOME%\bin\java.exe
 "%JAVA%" -Xms512M -Xmx$Memory -XX:+UseG1GC -jar paper-26.3-231.jar --nogui
-'@ | Set-Content "$Dir\start.bat"
+"@ | Set-Content "$Dir\start.bat"
 
 if ($Ops.Count -gt 0) {
     $entries = foreach ($name in $Ops) {

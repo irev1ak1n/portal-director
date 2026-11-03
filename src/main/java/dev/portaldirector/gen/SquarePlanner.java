@@ -99,6 +99,10 @@ public final class SquarePlanner {
                 problems.add(where + ": outside the build height");
                 continue;
             }
+            if (elevation == null && !PortalPlanner.openAbove(terrain, placed)) {
+                problems.add(where + ": under a tree or a ledge");
+                continue;
+            }
             if (!PortalPlanner.volumeFree(terrain, placed, elevation != null)) {
                 problems.add(where + ": " + (elevation != null ? "blocks in the way" : "would replace something built"));
                 continue;

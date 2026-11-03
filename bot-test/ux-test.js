@@ -336,11 +336,13 @@ async function main () {
     await sleep(2500)
     await b2.lookAt(b2.entity.position.offset(-g.stepX * 6, 1.2, -g.stepZ * 6), true)
     b2.setControlState('forward', true)
+    b2.setControlState('jump', true)
     for (let i = 0; i < 80; i++) {
       await sleep(50)
       if (Math.hypot(b2.entity.position.x - g.cx, b2.entity.position.z - g.cz) < 0.7) break
     }
     b2.setControlState('forward', false)
+    b2.setControlState('jump', false)
     check('normal mode: the player can physically walk into the portal opening', Math.hypot(b2.entity.position.x - g.cx, b2.entity.position.z - g.cz) < 1.6, b2.entity.position.toString())
     await sleep(8000)
     check('normal mode: standing in a generated portal travels to the Nether', /nether/i.test(dim(b2)), dim(b2))

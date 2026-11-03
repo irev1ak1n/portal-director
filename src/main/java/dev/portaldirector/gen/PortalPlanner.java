@@ -31,13 +31,26 @@ public final class PortalPlanner {
             hi = Math.max(hi, top);
         }
         if (hi - lo > maxSlope) return Integer.MIN_VALUE;
-        // The walkway in front and behind is cleared, so ground that rises more than a block there means a hillside.
+        // The walkway is cleared: ground that rises more than a block there is a hillside, and ground that falls
+        // away more than a block in front would leave a step too high to walk up.
         for (int[] c : p.corridorBlocks()) {
             if (c[1] != p.y() + 1) continue;
             int top = terrain.topY(c[0], c[2]);
             if (top > hi + 1) return Integer.MIN_VALUE;
+            int ahead = (c[0] - p.cellX(1)) * p.stepX() + (c[2] - p.cellZ(1)) * p.stepZ();
+            if (ahead > 0 && top < hi - 1) return Integer.MIN_VALUE;
         }
         return hi;
+    }
+
+    /** True when the two blocks above a ground portal's frame are open air, so it is not under a tree or a ledge. */
+    public static boolean openAbove(Terrain terrain, PortalSpec p) {
+        for (int i = 1; i < PortalSpec.WIDTH - 1; i++) {
+            for (int dy = PortalSpec.HEIGHT; dy < PortalSpec.HEIGHT + 2; dy++) {
+                if (!terrain.isAir(p.cellX(i), p.y() + dy, p.cellZ(i))) return false;
+            }
+        }
+        return true;
     }
 
     /** True when everything the portal and its walkway would change is air (floating) or natural (ground). */
@@ -169,6 +182,7 @@ public final class PortalPlanner {
             int highest = Math.min(s.maxY, terrain.maxY() - 2);
             if (spec.y() < lowest || spec.y() + PortalSpec.HEIGHT > highest) return fail("outside the height limits");
             if (!volumeFree(spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
+            if (!air && !openAbove(terrain, spec)) return fail("under a tree or a ledge");
             for (PortalSpec other : blockers) {
                 if (!spec.separatedFrom(other, gap())) return fail("too close to another portal");
             }
