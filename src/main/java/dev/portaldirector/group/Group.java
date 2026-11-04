@@ -6,12 +6,23 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** A named set of players. Members keep their join order, which decides automatic portal assignment. */
+/**
+ * A named set of players. Each member may be linked to one portal (by its name), and the group carries the three
+ * cinematic switches: whether its linked members may use Nether travel, whether prepared members are visible, and the
+ * delay between appearance batches.
+ */
 public final class Group {
+
+    public static final double DEFAULT_VISIBILITY_DELAY = 0.35;
 
     private final String name;
     private Material joinBlock;
     private final Map<UUID, String> members = new LinkedHashMap<>();
+    /** Member uuid to the name of the portal they are linked to. Only members appear here. */
+    private final Map<UUID, String> portals = new LinkedHashMap<>();
+    private boolean netherTravel = false;
+    private boolean visibilityInPortal = true;
+    private double visibilityDelay = DEFAULT_VISIBILITY_DELAY;
 
     public Group(String name) {
         this.name = name;
@@ -34,7 +45,35 @@ public final class Group {
         return members;
     }
 
+    public Map<UUID, String> portals() {
+        return portals;
+    }
+
     public boolean has(UUID id) {
         return members.containsKey(id);
+    }
+
+    public boolean netherTravel() {
+        return netherTravel;
+    }
+
+    public void netherTravel(boolean netherTravel) {
+        this.netherTravel = netherTravel;
+    }
+
+    public boolean visibilityInPortal() {
+        return visibilityInPortal;
+    }
+
+    public void visibilityInPortal(boolean visibilityInPortal) {
+        this.visibilityInPortal = visibilityInPortal;
+    }
+
+    public double visibilityDelay() {
+        return visibilityDelay;
+    }
+
+    public void visibilityDelay(double seconds) {
+        this.visibilityDelay = seconds;
     }
 }

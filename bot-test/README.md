@@ -14,6 +14,7 @@ npm install --ignore-scripts
 node layout-test.js  # grid, square and wave layouts: coordinates, spacing, facings, TNT, restore
 node reveal-test.js  # delayed reveal: timing, order, stop, restart in the middle
 node names-test.js   # named portals: create in four directions, remove by name and coordinates, tab order, old scene files
+node groups-test.js   # groups, prepare, hiding and reveal timing, Nether travel and pairing, restart, old group data
 node simplify-test.js # facing, exact radius with its automatic 5% margin, mixed mode, altitude and world-y, removed commands, migration, help, TNT, Nether travel
 ```
 

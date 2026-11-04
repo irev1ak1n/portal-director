@@ -168,9 +168,9 @@ async function main () {
   check('entrance settings are gone', /no setting called/.test(out), last(out))
   out = await run('pd set groups.auto-assign off')
   check('group auto-assign setting is gone', /no setting called/.test(out), last(out))
-  for (const sub of ['assign team auto', 'prepare team', 'release team', 'reset team', 'assignments team', 'status team']) {
+  for (const sub of ['assign team auto', 'release team', 'reset team', 'assignments team', 'status team', 'add x', 'remove x', 'disband x']) {
     out = await run('pd group ' + sub)
-    check(`pd group ${sub.split(' ')[0]} no longer does anything`, /Groups/.test(out) && !/assigned|staged|Release!|reset/i.test(out), last(out))
+    check(`pd group ${sub.split(' ')[0]} no longer exists`, /There is no '\/pd group/.test(out), last(out))
   }
   out = await run('pd set staging here')
   check('staging is gone', /no setting called|There is no/.test(out), last(out))
@@ -180,7 +180,7 @@ async function main () {
     check('/pd set suggests nothing that was removed', !setTabs.some(n => /radius-margin|orientation|air-ratio|slope|height|min-y|max-y|staging|entrance|groups/.test(n)), setTabs.join(' '))
     check('/pd set suggestions are alphabetical', isSorted(setTabs), setTabs.slice(0, 8).join(' '))
     const groupTabs = await tab(bot, '/pd group ')
-    check('/pd group suggests only roster commands', JSON.stringify(groupTabs) === JSON.stringify(['add', 'block', 'create', 'disband', 'info', 'list', 'remove']), groupTabs.join(' '))
+    check('/pd group suggests only the supported group commands', JSON.stringify(groupTabs) === JSON.stringify(['assign-to-group', 'block', 'create', 'delete', 'info', 'link-to-portal', 'list', 'nether-travel', 'prepare', 'remove-from-group', 'unlink-from-portal', 'visibility-in-portal', 'visibility-in-portal-delay']), groupTabs.join(' '))
     const facingTabs = await tab(bot, '/pd set facing ')
     check('/pd set facing suggests compass directions and random for the random layout', JSON.stringify(facingTabs) === JSON.stringify(['east', 'north', 'random', 'south', 'west']), facingTabs.join(' '))
     const fcheck = await tab(bot, '/pd set altitude-')
@@ -227,7 +227,7 @@ async function main () {
     allHelp += o + '\n'
   }
   check('no help page is longer than 18 lines or 58 characters', longest <= 18 && wide <= 58, `${longest} lines, ${wide} chars`)
-  check('help never mentions removed things', !/orientation|air-ratio|slope|height-min|height-max|min-y|max-y|staging|prepare|release|entrance|assign/.test(allHelp.replace(/EntranceA|EntranceB/g, '')))
+  check('help never mentions removed things', !/orientation|air-ratio|slope|height-min|height-max|min-y|max-y|staging|release|entrance|group assign |group add|group disband/.test(allHelp.replace(/EntranceA|EntranceB/g, '')))
   const setHelp = [await run('pd help set', 900)]
   const setStart = +((setHelp[0].match(/Page (\d+)\//) || [])[1])
   for (let i = setStart + 1; i <= setStart + 2; i++) setHelp.push(await run('pd help ' + i, 900))

@@ -47,6 +47,8 @@ final class SceneCommands {
             if (result.cancelled()) {
                 Msg.info(s, "Stopped. " + result.restored() + " blocks restored; run /pd clear again to finish.");
             } else {
+                pl.netherLinks().unlinkScene(sc.name());
+                pl.groups().forgetAllPortals();
                 sc.clearPortals();
                 sc.square(null);
                 Msg.ok(s, "Cleared: " + result.restored() + " blocks restored"

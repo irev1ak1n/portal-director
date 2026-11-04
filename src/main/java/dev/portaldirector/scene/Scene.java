@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /** A named set of portals in one world, with the block log for safe removal. */
@@ -19,6 +20,8 @@ public final class Scene {
     private final TreeMap<Integer, PortalSpec> portals = new TreeMap<>();
     /** portal id to its display name. The id stays the internal key; people use the name. */
     private final Map<Integer, String> names = new LinkedHashMap<>();
+    /** Player assignments read from a scene file written by 1.2.0 or older: group (lower case) to portal id to player. Migrated to groups once. */
+    private final Map<String, TreeMap<Integer, UUID>> legacyAssignments = new LinkedHashMap<>();
     private final BlockLog blocks = new BlockLog();
     private SquareInfo square;
 
@@ -124,6 +127,10 @@ public final class Scene {
 
     public void square(SquareInfo square) {
         this.square = square;
+    }
+
+    public Map<String, TreeMap<Integer, UUID>> legacyAssignments() {
+        return legacyAssignments;
     }
 
     public BlockLog blocks() {

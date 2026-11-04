@@ -2,6 +2,7 @@ package dev.portaldirector.model;
 
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
+import org.bukkit.util.BoundingBox;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -88,6 +89,15 @@ public record PortalSpec(int id, int x, int y, int z, Axis axis, BlockFace facin
             for (int j = 1; j < HEIGHT - 1; j++) out.add(new int[]{cellX(i), y + j, cellZ(i)});
         }
         return out;
+    }
+
+    /** The purple area as a box: what a player standing in the portal overlaps. */
+    public BoundingBox interiorBox() {
+        double x0 = axis == Axis.X ? x + 1 : x;
+        double z0 = axis == Axis.Z ? z + 1 : z;
+        double x1 = axis == Axis.X ? x + WIDTH - 1 : x + 1;
+        double z1 = axis == Axis.Z ? z + WIDTH - 1 : z + 1;
+        return new BoundingBox(x0, y + 1, z0, x1, y + HEIGHT - 1, z1);
     }
 
     public int stepX() {

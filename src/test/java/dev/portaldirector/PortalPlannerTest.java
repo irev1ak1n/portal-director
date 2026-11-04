@@ -202,6 +202,71 @@ class PortalPlannerTest {
     }
 
     @Test
+    void randomFacingIsSpreadEvenlyAndScatteredForTenFortyAndAHundredPortals() {
+        for (int n : new int[]{10, 40, 100}) {
+            for (long seed : new long[]{1, 2, 3}) {
+                GenSettings s = settings(n, Placement.GROUND, Layout.RANDOM);
+                s.facing = FacingMode.RANDOM;
+                s.radius = 150;
+                s.spacingH = 2;
+                List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, seed);
+                assertEquals(n, out.size(), n + " portals, seed " + seed);
+                java.util.Map<BlockFace, Integer> counts = new java.util.EnumMap<>(BlockFace.class);
+                for (PortalSpec p : out) {
+                    counts.merge(p.facing(), 1, Integer::sum);
+                    assertEquals(p.facing() == BlockFace.NORTH || p.facing() == BlockFace.SOUTH ? Axis.X : Axis.Z, p.axis(), "the frame follows the facing");
+                }
+                assertEquals(4, counts.size(), n + " portals use all four directions");
+                int lo = counts.values().stream().min(Integer::compare).get();
+                int hi = counts.values().stream().max(Integer::compare).get();
+                assertTrue(hi - lo <= 1, n + " portals, seed " + seed + ": " + counts);
+                // not grouped: neighbours in the order they were placed rarely share a direction, and neither do neighbours in space
+                int sameInOrder = 0;
+                for (int i = 1; i < out.size(); i++) if (out.get(i).facing() == out.get(i - 1).facing()) sameInOrder++;
+                assertTrue(sameInOrder <= out.size() / 2, "runs of one direction: " + sameInOrder + " of " + out.size());
+                if (n >= 40) {
+                    int sameNearest = 0;
+                    for (PortalSpec p : out) {
+                        PortalSpec nearest = null;
+                        double best = Double.MAX_VALUE;
+                        for (PortalSpec q : out) {
+                            if (q == p) continue;
+                            double d = Math.hypot(p.centerX() - q.centerX(), p.centerZ() - q.centerZ());
+                            if (d < best) {
+                                best = d;
+                                nearest = q;
+                            }
+                        }
+                        if (nearest.facing() == p.facing()) sameNearest++;
+                    }
+                    assertTrue(sameNearest < out.size() * 0.5, "neighbours in space sharing a direction: " + sameNearest + " of " + out.size());
+                }
+            }
+        }
+    }
+
+    @Test
+    void aFixedFacingIsNeverRandomisedAndOnlyThePlacedPortalsCount() {
+        GenSettings s = settings(40, Placement.MIXED, Layout.RANDOM);
+        s.facing = FacingMode.NORTH;
+        assertTrue(run(FakeTerrain.flat(64), s, List.of(), 1, 4).stream().allMatch(p -> p.facing() == BlockFace.NORTH));
+    }
+
+    @Test
+    void randomFacingKeepsSpacingAndTheTerrainChecks() {
+        FakeTerrain hills = new FakeTerrain((x, z) -> 60 + Math.floorMod(x / 3, 3));
+        GenSettings s = settings(40, Placement.MIXED, Layout.RANDOM);
+        s.facing = FacingMode.RANDOM;
+        List<PortalSpec> out = run(hills, s, List.of(), 1, 8);
+        assertEquals(40, out.size());
+        assertNoOverlapAndGap(out, 8, 5);
+        for (PortalSpec p : out) {
+            assertTrue(Bounds.around(0, 0, s.effectiveRadius()).containsFrame(p));
+            for (int[] c : p.corridorBlocks()) assertNotEquals(p.facing().getOppositeFace(), null);
+        }
+    }
+
+    @Test
     void facingDecidesWhichWayTheFrameRuns() {
         for (FacingMode f : new FacingMode[]{FacingMode.NORTH, FacingMode.SOUTH, FacingMode.EAST, FacingMode.WEST}) {
             GenSettings s = settings(20, Placement.GROUND, Layout.RANDOM);

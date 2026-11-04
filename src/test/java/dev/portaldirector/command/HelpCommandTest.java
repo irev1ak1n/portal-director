@@ -138,7 +138,7 @@ class HelpCommandTest {
         for (int i = 0; i < HelpCommand.PAGES.size(); i++) {
             String all = String.join("\n", HelpCommand.render(i).stream().map(HelpCommandTest::plain).toList());
             for (String old : List.of("/pd create add", "/pd create replace\n", "/pd create partial", "/pd create air", "/pd create ground", "/pd create mixed", "/pd generate",
-                    "orientation", "air-ratio", "slope", "height-min", "height-max", "min-y", "max-y", "staging", "prepare", "release", "entrance", "assign")) {
+                    "orientation", "air-ratio", "slope", "height-min", "height-max", "min-y", "max-y", "staging", "entrance", "group assign ", "group add", "group remove ", "group disband", "group release", "group reset")) {
                 assertFalse(all.contains(old), old);
             }
         }

@@ -34,10 +34,13 @@ The unit tests use MockBukkit and plain JUnit. They cover the layout planners, t
 | `command` | `/pd` and its subcommands, tab completion, and `HelpCommand` (the paginated, clickable help) |
 | `gen` | Layout planners (random, grid, square, wave), the radius `Bounds`, facing rules (`FacingMode`), reveal orders, the generation job |
 | `scene` | Remembered portals (with their names) and block log, saving to disk, safe removal |
-| `group` | Groups and join blocks (a roster of players) |
+| `group` | Groups, member-to-portal links, join blocks, `Cinematic` (prepare, hiding, staggered reveal via `RevealPlan`) |
+| `nether` | Portal pairing: `NetherLinks` (saved pairs and their blocks), `NetherSite` (safe-site search, tested over a fake grid), `PortalTravelListener` |
 | `tnt` | TNT minecart launching and waves |
 
 `Settings.java` is the single list of options behind `/pd set` and `/pd settings`. Renamed and removed config keys are listed at the top of it (`RENAMED`, `REMOVED`) and migrated in `load`; a test in `SettingsMigrationTest` covers each one. Minimum and maximum settings validate each other in `Settings` (and `GenSettings.problem()` before a build).
+
+Portals are paired with the Nether in `NetherLinks`: the listener changes only the destination of vanilla's own teleport (`PlayerPortalEvent#setTo`, search radius 1, no creation), so cooldowns, effects and placement stay vanilla. Group members with `nether-travel false` get the event cancelled in `PortalTravelListener`. Hidden players use `Player#hideEntity` per viewer, tracked in `Cinematic` and always shown again on quit, world change, unlink, group deletion and shutdown.
 
 How the rules are kept:
 
@@ -62,9 +65,10 @@ node layout-test.js
 node reveal-test.js
 node names-test.js
 node simplify-test.js
+node groups-test.js
 ```
 
-`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
+`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `groups-test.js` covers groups, preparing, hiding and the staggered reveal as seen by other bots, Nether travel on and off, one Nether partner per portal with the way back, removal, restart and migration of old group data. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
 
 Keep test servers and worlds outside this repository.
 

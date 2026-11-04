@@ -1,12 +1,12 @@
 # PortalDirector
 
-PortalDirector is a Minecraft server plugin for content creators. It builds whole fields of Nether portals in one command, lets you reveal them one by one like a movie shot, and can send TNT minecarts out of the same portals.
+PortalDirector is a Minecraft server plugin for content creators. It builds whole fields of Nether portals in one command, lets you reveal them one by one like a movie shot, makes your players appear inside their own portals as if they just arrived from the Nether, and can send TNT minecarts out of the same portals.
 
 ## Download
 
 **[Download PortalDirector from GitHub Releases](https://github.com/irev1ak1n/portal-director/releases/latest)**
 
-On that page, scroll to **Assets** and click `PortalDirector-1.3.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.3.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.3.0/PortalDirector-1.3.0.jar).
+On that page, scroll to **Assets** and click `PortalDirector-1.4.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.4.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.4.0/PortalDirector-1.4.0.jar).
 
 ## Who installs it?
 
@@ -19,7 +19,7 @@ Only the **server owner or admin** installs PortalDirector, once, on the server.
 
 ## Install it
 
-1. Download `PortalDirector-1.3.0.jar` (see above).
+1. Download `PortalDirector-1.4.0.jar` (see above).
 2. Put it in your server's **`plugins`** folder:
    - **Hosting panel** (for example Pterodactyl or Apex): open the **File Manager**, open the `plugins` folder, click **Upload** and choose the jar.
    - **Your own computer or server:** copy the file into the `plugins` folder next to `paper.jar`.
@@ -61,6 +61,17 @@ One portal with a name you choose, and taking it down again:
 /pd remove EntranceA
 ```
 
+A cinematic arrival for your players:
+
+```
+/pd group create Group1
+/pd group assign-to-group Steve Group1
+/pd group link-to-portal Steve portal-1
+/pd group visibility-in-portal false     hide them while they are placed
+/pd group prepare                        everybody stands in their own portal
+/pd group visibility-in-portal true      they appear in small groups
+```
+
 Then send TNT minecarts out of them:
 
 ```
@@ -87,6 +98,8 @@ Then send TNT minecarts out of them:
 - **A strict radius.** Every frame block stays within the radius you set (plus an automatic 5%), north, south, east and west of the center.
 - **Named portals.** Every portal has a name you can type: generated ones are `portal-1`, `portal-2` and so on, and you choose the names of single portals. Names are not case sensitive.
 - **Cinematic reveal.** Portals appear one by one, left to right, bottom to top, clockwise and more, with an optional sound and particles. `/pd stop` cancels safely.
+- **Cinematic arrivals.** Link each player to a portal, stand them in it with `/pd group prepare`, hide them from everyone else, then reveal them in small staggered groups, as if they just stepped out of the Nether. Nobody is moved or launched.
+- **Reliable Nether links.** Every PortalDirector portal gets its own Nether partner, so forty close portals no longer share one or two Nether portals. See [Nether portals](#nether-portals).
 - **TNT minecart sequences.** Launch a minecart out of every portal, or in timed waves, with safe and real modes. Minecarts come out the way the portal faces.
 - **Scene management.** PortalDirector remembers every portal and every block it changed, even after a restart. `/pd clear` or `/pd remove` puts the ground back.
 - **Safe building.** Portals avoid water, steep ground and anything that looks player-built. Big builds are spread over many ticks so the server does not freeze.
@@ -115,6 +128,8 @@ These are all changed with `/pd set <name> <value>`. `/pd settings` shows the on
 | `north`, `south`, `east`, `west` | random, grid, wave | Every portal faces that way |
 | `random` | random, grid, wave | Each portal picks one of the four directions |
 | `inward`, `outward` | square | Portals face the middle of the square, or away from it |
+
+**Random facing is genuinely random.** In the random layout every portal is its own draw: it picks one of the four directions at random among those used least so far. That scatters the directions across the whole field and keeps the counts within one of each other, so 40 portals face about 10 each way. Portals never face you, the center or a common direction. Switching to the random layout from another layout puts the facing back to `random`; `/pd set facing north` afterwards makes them all face north. Grid and wave pick each portal's direction at random with `facing random` too, and use one direction otherwise.
 
 A value the current layout can't use is refused with an explanation, for example `inward` for a grid. When you change the layout and the facing no longer fits, it switches to `inward` for a square and `random` for everything else and tells you. Single portals take the direction in the command: `/pd create portal Test here north`.
 
@@ -231,7 +246,7 @@ Base command: `/pd` (alias `/portaldirector`). Every command and every Tab sugge
 | `/pd create [count] [more\|replacement] [skip-blocked]` | Build the current layout with your `/pd set` settings. A count only applies to the random layout |
 | `/pd create portal <name> here <direction> [force]` | Build one named portal where you stand |
 | `/pd create portal <name> <x> <y> <z> <direction> [world] [force]` | Build one named portal at exact coordinates |
-| `/pd group ...` | A roster of players and a join block (see below) |
+| `/pd group ...` | Groups, portals for players, preparing and visibility (see below) |
 | `/pd help [page or topic]` | Short, clickable help pages (see "Built-in help") |
 | `/pd list [page]` | The name and anchor coordinates of every portal |
 | `/pd reload` | Reload `config.yml` |
@@ -261,21 +276,33 @@ Base command: `/pd` (alias `/portaldirector`). Every command and every Tab sugge
 | `/pd set world-y-max 320` / `world-y-min -64` | Highest and lowest Minecraft Y any portal frame may use |
 | `/pd set <name> <value>` | Any other option; `/pd settings all` lists them |
 
-### Groups
+### Groups and cinematic arrivals
 
-A group is a list of players. Players who step on the group's join block are added to it automatically.
+A group is a few players who take part in a scene. Each one is linked to a portal; `prepare` stands them in it. Commands that don't name a group use the only group; with several groups add its name at the end.
 
 | Command | Description |
 |---|---|
-| `/pd group add [name] <player>` | Add a player by hand |
-| `/pd group block set <block>` | Stepping on this block joins the group |
-| `/pd group create <name>` | New group |
-| `/pd group disband <name>` | Delete the group |
-| `/pd group info [name]` | Who is in the group |
-| `/pd group list` | Every group and its join block |
-| `/pd group remove [name] <player>` | Take a player out |
+| `/pd group assign-to-group <player> <group>` | Add a player to a group |
+| `/pd group block <block>` | Players who step on this block join the group, for example `/pd group block obsidian` |
+| `/pd group create <name>` | New group, for example `/pd group create Group1` |
+| `/pd group delete <name>` | Delete a group and its links. No portal is touched |
+| `/pd group info [name]` | Each player and their portal: `Steve → portal-1`, `Dream → Not assigned` |
+| `/pd group link-to-portal <player> <portal>` | Give a player a portal, by name (`portal-1`, `EntranceA`) or by anchor `x y z`. One portal per player, one player per portal |
+| `/pd group list` | Every group and its players |
+| `/pd group nether-travel true\|false` | Default false: linked players standing in their portal stay there |
+| `/pd group prepare [name]` | Teleport every online linked player into the middle of their portal |
+| `/pd group remove-from-group <player> <group>` | Take a player out; their portal link is cleared |
+| `/pd group unlink-from-portal <player> <portal>` | Take the portal away from the player |
+| `/pd group visibility-in-portal true\|false` | Default true. false hides prepared players; true shows them |
+| `/pd group visibility-in-portal-delay <seconds>` | Default 0.35. The pause between appearing groups |
 
-With only one group you can leave its name out.
+**Preparing.** `prepare` puts each online player with a portal inside the purple area, looking out of the portal. Players without a portal, offline players and missing portals are skipped and named in the message. Nobody is walked out or launched.
+
+**Nether travel.** With `nether-travel false` (the default), a group member standing in the portal linked to them is not sent to the Nether, so the scene can wait inside the purple. Everybody else, and members in other portals, travel as normal. `true` allows travel, through the correct partner portal.
+
+**Visibility.** `visibility-in-portal false` hides the prepared players from every other player's client (they are removed from view, not made invisible with a potion). Turning it `true` reveals them in small groups, 3, 2, 4, 2, 3 and so on, the first at once and the next ones one delay apart (every third pause is half as long again), so it looks natural but plays the same every time. If visibility was already on, prepared players simply appear. Hidden players become visible again if they leave the server, change world, leave the group or the group is deleted. Only prepared members of a group with visibility off are ever hidden.
+
+Old groups are kept. Player assignments saved by older versions in scene files become links on their group, by portal name.
 
 ### TNT minecarts
 
@@ -303,13 +330,23 @@ Nothing is ever launched unless you type a launch command.
 | `/pd help` or `/pd help 1` | Start here; `/pd help 2`, `3` and so on go page by page |
 | `/pd help create` | Creating portals and the `more`, `replacement` and `skip-blocked` options |
 | `/pd help examples` | Ready-made recipes: 30 floating portals, different heights, a world Y range, a wall |
-| `/pd help group` | Groups |
+| `/pd help group` | Groups, linking players to portals, preparing, visibility and Nether travel |
 | `/pd help layouts` | Grid, random, square and wave |
 | `/pd help portals` | Single named portals |
 | `/pd help reveal` | The cinematic delay |
 | `/pd help scenes` | Listing, removing and clearing |
 | `/pd help set` | Every setting, in plain words, including the four height settings |
 | `/pd help tnt` | TNT minecarts |
+
+## Nether portals
+
+When a player walks into a PortalDirector portal, the plugin sends them to that portal's own partner in the Nether, and back through the same partner to the same portal. Portals that aren't PortalDirector's are left alone.
+
+**Why this is needed.** Minecraft divides Overworld coordinates by 8 to find the Nether spot, then reuses any Nether portal within 16 blocks of it. Portals built 8 to 100 blocks apart in the Overworld land within a few blocks of each other in the Nether, so dozens of them share one or two Nether portals. Coming back, it multiplies by 8 and picks the nearest Overworld portal within 128 blocks, which is often a different one. Vanilla linking simply can't keep a one-to-one connection for portals this close.
+
+**What PortalDirector does.** The first time someone uses a portal, it builds that portal's partner in the Nether at a safe spot as near as possible to the Overworld coordinates divided by 8 (up to 32 blocks away) and remembers the pair in `plugins/PortalDirector/nether/`. Partners keep at least 3 empty blocks between them, face the same way as the Overworld portal, and are only placed in open natural space on solid ground: never next to lava, never within 2 blocks of a fortress, bastion, chest or someone's build, and never close to another portal. If there is no such place, the player stays where they are and is told why; the portal is never linked to another one. Removing a portal (`/pd remove`, `/pd clear`) restores the Nether blocks of its partner and nothing else.
+
+**What to know.** The Nether partners are created on first use, not when the Overworld portals are built, so nothing is changed in your Nether until someone travels. The first trip through a new portal loads and may generate some Nether chunks, which takes a moment. A vanilla portal built within about 128 Overworld blocks of one of ours can end up in one of our Nether portals, and then returns to ours; keep vanilla portals away from PortalDirector areas if that matters.
 
 ## Permissions
 
@@ -334,11 +371,25 @@ Operators have everything by default. Give players only the parts you want them 
 ## Notes and limits
 
 - Creating very large areas loads many chunks; the limit is `generate.max-chunks`.
-- Normal Nether travel through generated portals works.
+- Normal Nether travel through generated portals works, with one Nether partner per portal (see [Nether portals](#nether-portals)). Group members with `nether-travel false` stay in their portal.
 - The radius holds the obsidian frame. The cleared walkway in front of a portal can reach up to three blocks further.
 - Grid, wave and square layouts treat `mixed` mode like `ground`: their lowest row stands on the ground and the rest stack above it.
 
 ## Upgrading
+
+**From 1.3.0:** the group commands changed.
+
+| Before | Now |
+|---|---|
+| `/pd group add` | `/pd group assign-to-group <player> <group>` |
+| `/pd group remove` | `/pd group remove-from-group <player> <group>` |
+| `/pd group disband` | `/pd group delete <name>` |
+| `/pd group block set <block>` | `/pd group block <block>` |
+| `/pd group assign`, `assignments` | `/pd group link-to-portal`, `unlink-from-portal`, `info` |
+| `/pd group status`, `release`, `reset` | removed |
+| (new) | `prepare`, `nether-travel`, `visibility-in-portal`, `visibility-in-portal-delay` |
+
+Existing groups, members and join blocks are kept, and portal assignments from scene files saved by 1.2.0 or older become links on their group.
 
 **From 1.2.0** (everything below is migrated automatically when the plugin starts; saved portals are untouched):
 
@@ -350,7 +401,7 @@ Operators have everything by default. Give players only the parts you want them 
 | `air-ratio` | removed: `mixed` is about half and half |
 | `slope` | removed: ground portals pick suitable terrain themselves |
 | `facing auto` | `random` (`inward` for a square). `inward` and `outward` are for the square only |
-| `entrance.*`, `/pd group prepare\|release\|reset\|assign\|assignments\|status`, `/pd set staging` | removed with the player entrance system |
+| `entrance.*`, `/pd group release\|reset\|assign\|assignments\|status`, `/pd set staging` | removed with the player entrance system (1.4.0 adds a simpler `/pd group prepare`) |
 | `groups.auto-assign`, `groups.announce-join` | removed |
 | `/pd tnt launch group <name>` | removed (it used the assignments) |
 

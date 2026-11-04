@@ -247,6 +247,8 @@ final class PortalCommands {
         RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, recordsOf(sc, p), result -> {
             pl.activeJob(null);
             sc.dropPortal(id);
+            pl.groups().forgetPortal(name);
+            pl.netherLinks().unlink(sc.name(), id);
             pl.scenes().save(sc);
             Msg.ok(s, "Portal " + name + " removed: " + result.restored() + " blocks restored"
                     + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : "."));

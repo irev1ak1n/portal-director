@@ -505,6 +505,7 @@ final class GenerateCommands {
                     return;
                 }
                 String value = String.join(" ", a.subList(f.used(), a.size()));
+                Layout layoutBefore = pl.settings().gen.layout;
                 f.option().set(value);
                 pl.saveSettings();
                 Msg.ok(s, shortName(f.option()) + " is now " + f.option().display() + ".");
@@ -514,7 +515,11 @@ final class GenerateCommands {
                 }
                 if (f.option().key.equals("generate.layout")) {
                     GenSettings lg = pl.settings().gen;
-                    if (!FacingMode.allowed(lg.facing, lg.layout)) {
+                    if (lg.layout == Layout.RANDOM && layoutBefore != Layout.RANDOM && lg.facing != FacingMode.RANDOM) {
+                        lg.facing = FacingMode.RANDOM;
+                        pl.saveSettings();
+                        Msg.info(s, "Facing is random again: every portal of the random layout gets its own direction, about a quarter each. /pd set facing north|south|east|west makes them all face one way.");
+                    } else if (!FacingMode.allowed(lg.facing, lg.layout)) {
                         FacingMode was = lg.facing;
                         lg.facing = FacingMode.defaultFor(lg.layout);
                         pl.saveSettings();

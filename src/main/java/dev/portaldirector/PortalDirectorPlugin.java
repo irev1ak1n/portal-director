@@ -1,8 +1,11 @@
 package dev.portaldirector;
 
 import dev.portaldirector.command.PdCommand;
+import dev.portaldirector.group.Cinematic;
 import dev.portaldirector.group.GroupManager;
 import dev.portaldirector.group.JoinBlockListener;
+import dev.portaldirector.nether.NetherLinks;
+import dev.portaldirector.nether.PortalTravelListener;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
 import dev.portaldirector.tnt.TntDirector;
@@ -22,6 +25,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
+    private Cinematic cinematic;
+    private NetherLinks netherLinks;
     private Job activeJob;
     private BukkitTask progress;
 
@@ -33,9 +38,15 @@ public class PortalDirectorPlugin extends JavaPlugin {
         scenes.loadAll(getConfig().getString("scene.current"));
         groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
+        groups.migrateLegacy(scenes);
+        cinematic = new Cinematic(this);
+        netherLinks = new NetherLinks(this, new File(getDataFolder(), "nether"));
         tnt = new TntDirector(this, settings, scenes);
         getServer().getPluginManager().registerEvents(new JoinBlockListener(groups), this);
         getServer().getPluginManager().registerEvents(tnt, this);
+        getServer().getPluginManager().registerEvents(cinematic, this);
+        getServer().getPluginManager().registerEvents(new PortalTravelListener(this), this);
+        netherLinks.cleanOrphans();
         tnt.start();
         PdCommand command = new PdCommand(this);
         PluginCommand pd = getCommand("pd");
@@ -50,6 +61,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
     public void onDisable() {
         if (activeJob != null) activeJob.cancel();
         if (tnt != null) tnt.shutdown();
+        if (cinematic != null) cinematic.shutdown();
+        if (netherLinks != null) netherLinks.save();
         if (scenes != null) scenes.saveAll();
         if (groups != null) groups.save();
         saveSettings();
@@ -65,6 +78,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
         reloadConfig();
         settings.load(getConfig());
         groups.load();
+        groups.migrateLegacy(scenes);
     }
 
     public Settings settings() {
@@ -77,6 +91,14 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public GroupManager groups() {
         return groups;
+    }
+
+    public Cinematic cinematic() {
+        return cinematic;
+    }
+
+    public NetherLinks netherLinks() {
+        return netherLinks;
     }
 
     public TntDirector tnt() {

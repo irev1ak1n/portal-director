@@ -19,7 +19,16 @@ public final class PortalPlanner {
     private static final int NEARBY_TRIES = 6;
     private static final int NEARBY_REACH = 6;
 
+    private static final BlockFace[] FACES = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
+
     private PortalPlanner() {
+    }
+
+    private static int indexOf(BlockFace f) {
+        for (int i = 0; i < FACES.length; i++) {
+            if (FACES[i] == f) return i;
+        }
+        return 0;
     }
 
     /** The y of the frame floor for a ground portal here: level with the highest ground under it, so players can walk in, or {@code Integer.MIN_VALUE} when the ground is unsuitable. */
@@ -93,6 +102,8 @@ public final class PortalPlanner {
         private int rejected;
         private int floatingPlaced;
         private int groundPlaced;
+        /** How many of this run's portals face north, south, east and west. Random facing deals from the least used. */
+        private final int[] facingCounts = new int[FACES.length];
         private final java.util.Map<String, Integer> reasons = new java.util.LinkedHashMap<>();
         private String lastReason = "";
 
@@ -125,6 +136,7 @@ public final class PortalPlanner {
                 blockers.add(spec);
                 if (spec.floating()) floatingPlaced++;
                 else groundPlaced++;
+                facingCounts[indexOf(spec.facing())]++;
                 nextId++;
             }
         }
@@ -247,13 +259,22 @@ public final class PortalPlanner {
                 case SOUTH -> BlockFace.SOUTH;
                 case EAST -> BlockFace.EAST;
                 case WEST -> BlockFace.WEST;
-                default -> switch (rnd.nextInt(4)) {
-                    case 0 -> BlockFace.NORTH;
-                    case 1 -> BlockFace.SOUTH;
-                    case 2 -> BlockFace.EAST;
-                    default -> BlockFace.WEST;
-                };
+                default -> leastUsed();
             };
+        }
+
+        /**
+         * Random facing: each portal gets one of the four directions, picked at random among those used least so far.
+         * Every portal is its own draw, so the directions are scattered, and the counts never drift more than one apart.
+         */
+        private BlockFace leastUsed() {
+            int min = Integer.MAX_VALUE;
+            for (int c : facingCounts) min = Math.min(min, c);
+            List<BlockFace> pool = new ArrayList<>();
+            for (int i = 0; i < FACES.length; i++) {
+                if (facingCounts[i] == min) pool.add(FACES[i]);
+            }
+            return pool.get(rnd.nextInt(pool.size()));
         }
     }
 }

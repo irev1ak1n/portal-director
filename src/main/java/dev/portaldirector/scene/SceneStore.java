@@ -4,6 +4,7 @@ import dev.portaldirector.gen.SquareFacing;
 import dev.portaldirector.model.PortalSpec;
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.BufferedInputStream;
@@ -17,6 +18,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;
 
 /** Reads and writes scenes under {@code scenes/}: a readable .yml and a compact .blocks file per scene. */
 public final class SceneStore {
@@ -97,6 +100,20 @@ public final class SceneStore {
             scene.square(new SquareInfo(y.getInt("square.center-x"), y.getInt("square.center-z"), y.getInt("square.size"),
                     y.getInt("square.per-side"), y.getInt("square.layers", 1), y.getInt("square.spacing"),
                     SquareFacing.valueOf(y.getString("square.facing", "INWARD")), new ArrayList<>(y.getIntegerList("square.ids"))));
+        }
+        ConfigurationSection legacy = y.getConfigurationSection("assignments");
+        if (legacy != null) {
+            for (String group : legacy.getKeys(false)) {
+                ConfigurationSection g = legacy.getConfigurationSection(group);
+                if (g == null) continue;
+                for (String id : g.getKeys(false)) {
+                    try {
+                        scene.legacyAssignments().computeIfAbsent(group, k -> new TreeMap<>()).put(Integer.parseInt(id), UUID.fromString(g.getString(id, "")));
+                    } catch (IllegalArgumentException ignored) {
+                        // a damaged entry is dropped
+                    }
+                }
+            }
         }
         File blocks = blocksFile(name);
         if (blocks.exists()) {
