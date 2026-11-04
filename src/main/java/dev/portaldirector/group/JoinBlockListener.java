@@ -1,6 +1,5 @@
 package dev.portaldirector.group;
 
-import dev.portaldirector.Settings;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
@@ -14,11 +13,9 @@ import org.bukkit.event.player.PlayerMoveEvent;
 public final class JoinBlockListener implements Listener {
 
     private final GroupManager groups;
-    private final Settings settings;
 
-    public JoinBlockListener(GroupManager groups, Settings settings) {
+    public JoinBlockListener(GroupManager groups) {
         this.groups = groups;
-        this.settings = settings;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -33,10 +30,8 @@ public final class JoinBlockListener implements Listener {
         if (g == null) return;
         Player p = e.getPlayer();
         if (groups.groupOf(p.getUniqueId()) != null) return;
-        int slot = groups.join(g, p.getUniqueId(), p.getName());
-        if (slot >= 0 && settings.announceJoin) {
-            String text = "Joined " + g.name() + (slot > 0 ? " - portal " + slot : "");
-            p.sendActionBar(Component.text(text, NamedTextColor.LIGHT_PURPLE));
+        if (groups.join(g, p.getUniqueId(), p.getName())) {
+            p.sendActionBar(Component.text("Joined " + g.name(), NamedTextColor.LIGHT_PURPLE));
         }
     }
 }

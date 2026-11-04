@@ -25,8 +25,6 @@ class SceneStorageTest {
         Scene s = new Scene("invasion", "world");
         s.portals().put(1, new PortalSpec(1, 10, 64, -20, Axis.X, BlockFace.NORTH, false));
         s.portals().put(2, new PortalSpec(2, 40, 120, 5, Axis.Z, BlockFace.EAST, true));
-        UUID player = UUID.randomUUID();
-        s.assignmentsOf("NULL").put(2, player);
         s.blocks().record(10, 64, -20, "minecraft:grass_block[snowy=false]", "minecraft:obsidian");
         s.blocks().record(11, 65, -20, "minecraft:air", "minecraft:nether_portal[axis=x]");
         store.save(s);
@@ -34,7 +32,6 @@ class SceneStorageTest {
         Scene back = store.load("invasion");
         assertEquals("world", back.worldName());
         assertEquals(s.portals(), back.portals());
-        assertEquals(player, back.assignmentsOf("null").get(2));
         assertEquals(2, back.blocks().size());
         assertTrue(back.blocks().has(11, 65, -20));
         assertEquals(3, back.nextId());

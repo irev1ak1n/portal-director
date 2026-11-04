@@ -66,7 +66,7 @@ public final class GenerationJob implements Job {
 
     /** Plans and builds new portals. {@code existing} are all portals already in the world, in any scene. */
     public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, int cx, int cz,
-                         int defaultDx, int defaultDz, List<PortalSpec> existing, Consumer<Result> onDone) {
+                         List<PortalSpec> existing, Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
         this.scene = scene;
@@ -75,9 +75,9 @@ public final class GenerationJob implements Job {
         this.fixed = null;
         this.centerX = cx;
         this.centerZ = cz;
-        this.planner = new PortalPlanner.Session(new BukkitTerrain(world), settings.gen, cx, cz, defaultDx, defaultDz,
+        this.planner = new PortalPlanner.Session(new BukkitTerrain(world), settings.gen, cx, cz,
                 existing, scene.nextId(), new Random());
-        int r = settings.gen.radius + 12;
+        int r = settings.gen.effectiveRadius() + 8;
         for (int chunkX = (cx - r) >> 4; chunkX <= (cx + r) >> 4; chunkX++) {
             for (int chunkZ = (cz - r) >> 4; chunkZ <= (cz + r) >> 4; chunkZ++) chunksToLoad.add(new long[]{chunkX, chunkZ});
         }
@@ -204,7 +204,7 @@ public final class GenerationJob implements Job {
         double delayTicks = Math.max(1.0, settings.gen.delay * 20.0);
         while (buildIndex < toBuild.size() && buildTicks >= (long) Math.floor(buildIndex * delayTicks)) {
             PortalSpec p = toBuild.get(buildIndex++);
-            for (PortalEdits.Edit e : PortalEdits.forPortal(world, p, settings.gen.maxSlope + 1)) PortalEdits.apply(world, scene.blocks(), e);
+            for (PortalEdits.Edit e : PortalEdits.forPortal(world, p, PortalPlanner.MAX_SUPPORT)) PortalEdits.apply(world, scene.blocks(), e);
             scene.addPortal(p);
             completed++;
             if (settings.gen.effects) reveal(p);
@@ -238,7 +238,7 @@ public final class GenerationJob implements Job {
                 }
                 current = toBuild.get(buildIndex++);
                 scene.addPortal(current);
-                pending.addAll(PortalEdits.forPortal(world, current, settings.gen.maxSlope + 1));
+                pending.addAll(PortalEdits.forPortal(world, current, PortalPlanner.MAX_SUPPORT));
             }
             PortalEdits.Edit e = pending.poll();
             if (e == null) continue;

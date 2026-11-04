@@ -1,6 +1,5 @@
 package dev.portaldirector.command;
 
-import dev.portaldirector.group.Group;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.PortalDirectorPlugin;
@@ -10,10 +9,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.UUID;
 
-/** Reads portal selections: all, floating, ground, group NAME, or ids such as 1,4,10-15. */
+/** Reads portal selections: all, floating, ground, square, side, or names and ids such as EntranceA,4,10-15. */
 final class TargetParser {
 
     record Result(List<PortalSpec> portals, int used) {
@@ -23,7 +20,7 @@ final class TargetParser {
     }
 
     static Result parse(PortalDirectorPlugin pl, Scene scene, List<String> args, int from) {
-        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, group <name>, side <north|east|south|west>, square, or portal names like EntranceA,EntranceB.");
+        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, side <north|east|south|west>, square, or portal names like EntranceA,EntranceB.");
         String t = args.get(from).toLowerCase(Locale.ROOT);
         List<PortalSpec> all = new ArrayList<>(scene.portals().values());
         switch (t) {
@@ -40,13 +37,6 @@ final class TargetParser {
                 int side = java.util.Arrays.asList(dev.portaldirector.gen.SquarePlanner.SIDE_NAMES).indexOf(args.get(from + 1).toLowerCase(Locale.ROOT));
                 if (side < 0) throw new IllegalArgumentException("A side is north, east, south or west.");
                 return new Result(squarePortals(scene, side), 2);
-            }
-            case "group": {
-                if (from + 1 >= args.size()) throw new IllegalArgumentException("Which group? /pd tnt launch group <name>");
-                Group g = pl.groups().get(args.get(from + 1));
-                if (g == null) throw new IllegalArgumentException("No group called " + args.get(from + 1) + ".");
-                TreeMap<Integer, UUID> map = scene.assignmentsOf(g.name());
-                return new Result(map.keySet().stream().map(id -> scene.portals().get(id)).filter(p -> p != null).toList(), 2);
             }
             default:
                 return new Result(ids(scene, t), 1);
@@ -76,7 +66,7 @@ final class TargetParser {
                 }
             }
         } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-            throw new IllegalArgumentException("'" + text + "' is not a portal name or selection. Use all, floating, ground, group <name>, portal names like EntranceA,EntranceB, or portal-1 style numbers like 1,4,10-15. /pd list shows the names.");
+            throw new IllegalArgumentException("'" + text + "' is not a portal name or selection. Use all, floating, ground, portal names like EntranceA,EntranceB, or portal-1 style numbers like 1,4,10-15. /pd list shows the names.");
         }
         List<PortalSpec> out = new ArrayList<>();
         for (int id : ids) {

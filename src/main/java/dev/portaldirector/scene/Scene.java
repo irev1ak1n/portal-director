@@ -10,9 +10,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
-import java.util.UUID;
 
-/** A named set of portals in one world, with group assignments and the block log for safe removal. */
+/** A named set of portals in one world, with the block log for safe removal. */
 public final class Scene {
 
     private String name;
@@ -20,8 +19,6 @@ public final class Scene {
     private final TreeMap<Integer, PortalSpec> portals = new TreeMap<>();
     /** portal id to its display name. The id stays the internal key; people use the name. */
     private final Map<Integer, String> names = new LinkedHashMap<>();
-    /** group name (lower case) to portal id to player. */
-    private final Map<String, TreeMap<Integer, UUID>> assignments = new LinkedHashMap<>();
     private final BlockLog blocks = new BlockLog();
     private SquareInfo square;
 
@@ -133,17 +130,8 @@ public final class Scene {
         return blocks;
     }
 
-    public Map<String, TreeMap<Integer, UUID>> assignments() {
-        return assignments;
-    }
-
-    public TreeMap<Integer, UUID> assignmentsOf(String group) {
-        return assignments.computeIfAbsent(group.toLowerCase(), k -> new TreeMap<>());
-    }
-
     public void dropPortal(int id) {
         portals.remove(id);
         names.remove(id);
-        for (TreeMap<Integer, UUID> map : assignments.values()) map.remove(id);
     }
 }

@@ -73,36 +73,30 @@ class PortalNamesTest {
     }
 
     @Test
-    void removingAPortalDropsItsNameAndAssignments() {
+    void removingAPortalDropsItsName() {
         Scene s = new Scene("a", "world");
         s.addPortal(spec(1, 0, 64, 0), "A");
         s.addPortal(spec(2, 20, 64, 0), "B");
-        s.assignmentsOf("team").put(1, UUID.randomUUID());
-        s.assignmentsOf("team").put(2, UUID.randomUUID());
         s.dropPortal(1);
         assertNull(s.byName("A"));
-        assertFalse(s.assignmentsOf("team").containsKey(1));
-        assertTrue(s.assignmentsOf("team").containsKey(2));
+        assertNotNull(s.byName("B"));
         assertDoesNotThrow(() -> s.checkName("A"), "the name is free again");
     }
 
     @Test
-    void namesAndAssignmentsSurviveSaving() throws IOException {
+    void namesSurviveSaving() throws IOException {
         SceneStore store = new SceneStore(dir);
         Scene s = new Scene("show", "world");
         s.addPortal(spec(1, 0, 64, 0), "EntranceA");
         s.addPortal(spec(2, 20, 64, 0));
-        UUID player = UUID.randomUUID();
-        s.assignmentsOf("team").put(1, player);
         store.save(s);
         Scene back = store.load("show");
         assertEquals("EntranceA", back.nameOf(1));
         assertEquals("portal-2", back.nameOf(2));
-        assertEquals(player, back.assignmentsOf("team").get(1));
     }
 
     @Test
-    void sceneFilesFromBeforeNamesStillLoadWithTheirAssignments() throws IOException {
+    void sceneFilesFromBeforeNamesAndWithOldAssignmentsStillLoad() throws IOException {
         File old = new File(dir, "old.yml");
         YamlConfiguration y = new YamlConfiguration();
         UUID player = UUID.randomUUID();
@@ -126,7 +120,6 @@ class PortalNamesTest {
         assertEquals(3, s.portals().size());
         assertEquals("portal-2", s.nameOf(2));
         assertEquals(2, s.byName("portal-2").id());
-        assertEquals(player, s.assignmentsOf("team").get(2));
     }
 
     @Test

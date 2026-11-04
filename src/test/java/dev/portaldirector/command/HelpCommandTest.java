@@ -113,7 +113,7 @@ class HelpCommandTest {
     @Test
     void topicsResolveToTheirFirstPageAndMatchTabCompletion() {
         for (String name : HelpCommand.topicNames()) assertTrue(HelpCommand.pageOfTopic(name) > 0, name);
-        assertEquals(List.of("create", "group", "layouts", "portals", "reveal", "scenes", "set", "tnt"), HelpCommand.topicNames());
+        assertEquals(List.of("create", "examples", "group", "layouts", "portals", "reveal", "scenes", "set", "tnt"), HelpCommand.topicNames());
         assertEquals(0, HelpCommand.pageOfTopic("start"));
         assertEquals(HelpCommand.pageOfTopic("create"), HelpCommand.pageOfTopic("generate"));
         assertEquals(-1, HelpCommand.pageOfTopic("nonsense"));
@@ -137,7 +137,8 @@ class HelpCommandTest {
     void helpDoesNotMentionRemovedOptions() {
         for (int i = 0; i < HelpCommand.PAGES.size(); i++) {
             String all = String.join("\n", HelpCommand.render(i).stream().map(HelpCommandTest::plain).toList());
-            for (String old : List.of("/pd create add", "/pd create replace\n", "/pd create partial", "/pd create air", "/pd create ground", "/pd create mixed", "/pd generate")) {
+            for (String old : List.of("/pd create add", "/pd create replace\n", "/pd create partial", "/pd create air", "/pd create ground", "/pd create mixed", "/pd generate",
+                    "orientation", "air-ratio", "slope", "height-min", "height-max", "min-y", "max-y", "staging", "prepare", "release", "entrance", "assign")) {
                 assertFalse(all.contains(old), old);
             }
         }

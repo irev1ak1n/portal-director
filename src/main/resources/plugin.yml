@@ -7,7 +7,7 @@ authors: [PortalDirector contributors]
 
 commands:
   pd:
-    description: Portal Director - generate portal scenes, run entrances and TNT minecart waves.
+    description: Portal Director - generate portal formations and launch TNT minecart waves.
     usage: /pd help
     aliases: [portaldirector]
 
@@ -16,7 +16,7 @@ permissions:
     description: Generate and clear portals, change generator settings.
     default: op
   portaldirector.group:
-    description: Manage groups, assignments and entrances.
+    description: Manage groups and their join blocks.
     default: op
   portaldirector.tnt:
     description: Launch and clear TNT minecarts.

@@ -1,6 +1,5 @@
 package dev.portaldirector;
 
-import dev.portaldirector.entrance.WavePlan;
 import dev.portaldirector.tnt.TntSchedule;
 import dev.portaldirector.util.Durations;
 import org.junit.jupiter.api.Test;
@@ -10,31 +9,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TimingTest {
-
-    @Test
-    void synchronizedReleaseIsOneWaveOnTickZero() {
-        List<WavePlan.Wave> waves = WavePlan.synchronous(30);
-        assertEquals(1, waves.size());
-        assertEquals(new WavePlan.Wave(0, 0, 30), waves.get(0));
-        assertTrue(WavePlan.synchronous(0).isEmpty());
-    }
-
-    @Test
-    void staggeredReleaseSplitsIntoTimedWaves() {
-        List<WavePlan.Wave> waves = WavePlan.staggered(12, 5, 200);
-        assertEquals(3, waves.size());
-        assertEquals(new WavePlan.Wave(0, 0, 5), waves.get(0));
-        assertEquals(new WavePlan.Wave(200, 5, 10), waves.get(1));
-        assertEquals(new WavePlan.Wave(400, 10, 12), waves.get(2));
-    }
-
-    @Test
-    void everySlotIsInExactlyOneWave() {
-        for (int slots : new int[]{1, 7, 30, 100}) {
-            int covered = WavePlan.staggered(slots, 6, 20).stream().mapToInt(w -> w.to() - w.from()).sum();
-            assertEquals(slots, covered);
-        }
-    }
 
     @Test
     void tntLaunchesEverythingAtOnceWithoutStagger() {

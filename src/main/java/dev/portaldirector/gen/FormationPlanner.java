@@ -191,8 +191,8 @@ public final class FormationPlanner {
                 floating = raw.y() - 1 - top > support;
             }
             PortalSpec p = new PortalSpec(raw.id(), raw.x(), raw.y(), raw.z(), raw.axis(), raw.facing(), floating);
-            if (p.y() < lowest || p.y() + PortalSpec.HEIGHT > highest) {
-                problems.add(where + ": outside the height limits (" + lowest + " to " + highest + ")");
+            if (p.y() < lowest || p.y() + PortalSpec.HEIGHT - 1 > highest) {
+                problems.add(where + ": outside world-y-min / world-y-max (frames must stay between y " + lowest + " and " + highest + ")");
                 continue;
             }
             if (!PortalPlanner.volumeFree(terrain, p, false)) {

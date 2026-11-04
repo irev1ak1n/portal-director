@@ -4,7 +4,6 @@ import dev.portaldirector.gen.SquareFacing;
 import dev.portaldirector.model.PortalSpec;
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.BufferedInputStream;
@@ -18,8 +17,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import java.util.UUID;
 
 /** Reads and writes scenes under {@code scenes/}: a readable .yml and a compact .blocks file per scene. */
 public final class SceneStore {
@@ -73,11 +70,6 @@ public final class SceneStore {
             y.set("square.facing", sq.facing().name());
             y.set("square.ids", sq.ids());
         }
-        for (Map.Entry<String, TreeMap<Integer, UUID>> e : scene.assignments().entrySet()) {
-            for (Map.Entry<Integer, UUID> a : e.getValue().entrySet()) {
-                y.set("assignments." + e.getKey() + "." + a.getKey(), a.getValue().toString());
-            }
-        }
         y.save(yml(scene.name()));
         File blocks = blocksFile(scene.name());
         File tmp = new File(dir, scene.name() + ".blocks.tmp");
@@ -97,7 +89,7 @@ public final class SceneStore {
                     num(m.get("id")), num(m.get("x")), num(m.get("y")), num(m.get("z")),
                     Axis.valueOf(String.valueOf(m.get("axis"))), BlockFace.valueOf(String.valueOf(m.get("facing"))),
                     Boolean.parseBoolean(String.valueOf(m.get("floating"))));
-            // Scenes saved before portals had names have no "name": they get portal-<id>, so assignments by id keep working.
+            // Scenes saved before portals had names have no "name": they get portal-<id>. Old player assignments in the file are ignored.
             Object portalName = m.get("name");
             scene.addPortal(p, portalName == null ? null : String.valueOf(portalName));
         }
@@ -105,17 +97,6 @@ public final class SceneStore {
             scene.square(new SquareInfo(y.getInt("square.center-x"), y.getInt("square.center-z"), y.getInt("square.size"),
                     y.getInt("square.per-side"), y.getInt("square.layers", 1), y.getInt("square.spacing"),
                     SquareFacing.valueOf(y.getString("square.facing", "INWARD")), new ArrayList<>(y.getIntegerList("square.ids"))));
-        }
-        ConfigurationSection a = y.getConfigurationSection("assignments");
-        if (a != null) {
-            for (String group : a.getKeys(false)) {
-                ConfigurationSection g = a.getConfigurationSection(group);
-                if (g == null) continue;
-                for (String id : g.getKeys(false)) {
-                    String uuid = g.getString(id);
-                    if (uuid != null) scene.assignmentsOf(group).put(Integer.parseInt(id), UUID.fromString(uuid));
-                }
-            }
         }
         File blocks = blocksFile(name);
         if (blocks.exists()) {

@@ -5,18 +5,25 @@ import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.random.RandomGenerator;
 
 /** Decides where portals go. Pure logic over {@link Terrain}, so it can run a few attempts per tick. */
 public final class PortalPlanner {
 
+    /** The tallest step in the ground, across a portal's four columns, a ground portal may stand on. */
+    public static final int MAX_GROUND_STEP = 3;
+    /** How far below a ground portal's frame the ground may be before it is filled up to meet it. */
+    public static final int MAX_SUPPORT = MAX_GROUND_STEP + 1;
+    /** Nearby spots tried when a ground spot is unsuitable, before giving that attempt up. */
+    private static final int NEARBY_TRIES = 6;
+    private static final int NEARBY_REACH = 6;
+
     private PortalPlanner() {
     }
 
     /** The y of the frame floor for a ground portal here: level with the highest ground under it, so players can walk in, or {@code Integer.MIN_VALUE} when the ground is unsuitable. */
-    public static int groundY(Terrain terrain, PortalSpec p, int maxSlope) {
+    public static int groundY(Terrain terrain, PortalSpec p, int maxStep) {
         int lo = Integer.MAX_VALUE;
         int hi = Integer.MIN_VALUE;
         for (int i = 0; i < PortalSpec.WIDTH; i++) {
@@ -29,7 +36,7 @@ public final class PortalPlanner {
             lo = Math.min(lo, top);
             hi = Math.max(hi, top);
         }
-        if (hi - lo > maxSlope) return Integer.MIN_VALUE;
+        if (hi - lo > maxStep) return Integer.MIN_VALUE;
         // The walkway is cleared: ground that rises more than a block there is a hillside, and ground that falls
         // away more than a block in front would leave a step too high to walk up.
         for (int[] c : p.corridorBlocks()) {
@@ -63,52 +70,52 @@ public final class PortalPlanner {
         return true;
     }
 
+    /** The lowest and highest frame floor a portal may have, from the world-y limits and the world's own build limits. */
+    static int[] floorRange(Terrain terrain, GenSettings s) {
+        int lowest = Math.max(s.worldYMin, terrain.minY() + 1);
+        int highest = Math.min(s.worldYMax, terrain.maxY() - 2);
+        return new int[]{lowest, highest - (PortalSpec.HEIGHT - 1)};
+    }
+
     /**
-     * An incremental placement run. {@code defaultDx/defaultDz} is the leaving direction used by the
-     * automatic facing of grid and wave layouts.
+     * An incremental placement run inside the square around (cx, cz): x and z within the effective radius, with the
+     * whole obsidian frame inside it.
      */
     public static final class Session {
         private final Terrain terrain;
         private final GenSettings s;
-        private final int cx;
-        private final int cz;
-        private final int defaultDx;
-        private final int defaultDz;
+        private final Bounds bounds;
         private final List<PortalSpec> blockers;
         private final List<PortalSpec> placed = new ArrayList<>();
         private final RandomGenerator rnd;
-        private final Iterator<int[]> candidates;
         private int nextId;
         private int attemptsLeft;
         private int rejected;
+        private int floatingPlaced;
+        private int groundPlaced;
         private final java.util.Map<String, Integer> reasons = new java.util.LinkedHashMap<>();
         private String lastReason = "";
 
-        public Session(Terrain terrain, GenSettings settings, int cx, int cz, int defaultDx, int defaultDz,
+        public Session(Terrain terrain, GenSettings settings, int cx, int cz,
                        List<PortalSpec> existing, int firstId, RandomGenerator rnd) {
             this.terrain = terrain;
             this.s = settings.copy();
-            this.cx = cx;
-            this.cz = cz;
-            this.defaultDx = defaultDx;
-            this.defaultDz = defaultDz;
+            this.bounds = Bounds.around(cx, cz, s.effectiveRadius());
             this.blockers = new ArrayList<>(existing);
             this.nextId = firstId;
             this.rnd = rnd;
-            this.candidates = candidates();
             this.attemptsLeft = s.count * 60 + 300;
         }
 
         public boolean done() {
-            return placed.size() >= s.count || attemptsLeft <= 0 || !candidates.hasNext();
+            return placed.size() >= s.count || attemptsLeft <= 0;
         }
 
         /** Tries up to {@code budget} candidate positions. */
         public void step(int budget) {
             while (budget-- > 0 && !done()) {
                 attemptsLeft--;
-                int[] c = candidates.next();
-                PortalSpec spec = tryPlace(c[0], c[1]);
+                PortalSpec spec = tryPlace();
                 if (spec == null) {
                     rejected++;
                     reasons.merge(lastReason, 1, Integer::sum);
@@ -116,6 +123,8 @@ public final class PortalPlanner {
                 }
                 placed.add(spec);
                 blockers.add(spec);
+                if (spec.floating()) floatingPlaced++;
+                else groundPlaced++;
                 nextId++;
             }
         }
@@ -150,23 +159,44 @@ public final class PortalPlanner {
             return Math.max(1, s.spacingV);
         }
 
-        private PortalSpec tryPlace(int px, int pz) {
+        /** Mixed mode aims for half floating and half on the ground by always trying the kind that is behind. */
+        private PortalSpec tryPlace() {
             boolean air = switch (s.placement) {
                 case GROUND -> false;
                 case AIR -> true;
-                case MIXED -> rnd.nextDouble() < s.airRatio;
+                case MIXED -> floatingPlaced == groundPlaced ? rnd.nextBoolean() : floatingPlaced < groundPlaced;
             };
-            PortalSpec spec = attempt(px, pz, air);
-            if (spec == null && s.placement == Placement.MIXED) spec = attempt(px, pz, !air);
+            PortalSpec spec = attempt(air);
+            if (spec == null && s.placement == Placement.MIXED) spec = attempt(!air);
             return spec;
         }
 
-        private PortalSpec attempt(int px, int pz, boolean air) {
-            double[] dir = direction(px, pz);
-            Axis axis = chooseAxis();
-            BlockFace face = chooseFacing(axis, dir[0], dir[1]);
-            int x = axis == Axis.X ? px - 2 : px;
-            int z = axis == Axis.Z ? pz - 2 : pz;
+        private PortalSpec attempt(boolean air) {
+            BlockFace face = chooseFacing();
+            Axis axis = face == BlockFace.NORTH || face == BlockFace.SOUTH ? Axis.X : Axis.Z;
+            int span = PortalSpec.WIDTH - 1;
+            int loX = bounds.minX();
+            int hiX = bounds.maxX() - (axis == Axis.X ? span : 0);
+            int loZ = bounds.minZ();
+            int hiZ = bounds.maxZ() - (axis == Axis.Z ? span : 0);
+            if (hiX < loX || hiZ < loZ) return fail("the radius is too small for a portal");
+            int x = loX + rnd.nextInt(hiX - loX + 1);
+            int z = loZ + rnd.nextInt(hiZ - loZ + 1);
+            PortalSpec spec = tryAt(x, z, axis, face, air);
+            if (spec != null || air) return spec;
+            // Unsuitable ground (water, a cliff, a building): look for a good surface a few blocks away.
+            String why = lastReason;
+            for (int i = 0; i < NEARBY_TRIES && spec == null; i++) {
+                int nx = Math.max(loX, Math.min(hiX, x + rnd.nextInt(2 * NEARBY_REACH + 1) - NEARBY_REACH));
+                int nz = Math.max(loZ, Math.min(hiZ, z + rnd.nextInt(2 * NEARBY_REACH + 1) - NEARBY_REACH));
+                spec = tryAt(nx, nz, axis, face, false);
+            }
+            if (spec == null) lastReason = why;
+            return spec;
+        }
+
+        /** Checks one exact position; the frame's minimum corner is (x, z). */
+        private PortalSpec tryAt(int x, int z, Axis axis, BlockFace face, boolean air) {
             PortalSpec probe = new PortalSpec(nextId, x, 0, z, axis, face, air);
             int[] box = probe.box();
             for (int bx = box[0]; bx <= box[3]; bx++) {
@@ -174,94 +204,55 @@ public final class PortalPlanner {
                     if (!terrain.isReady(bx, bz)) return fail("the area was not loaded");
                 }
             }
-            int y = air ? airY(probe) : groundY(probe);
-            if (y == Integer.MIN_VALUE) return fail(air ? "no clear sky" : "water, steep ground or buildings");
+            int y = air ? airY(probe) : PortalPlanner.groundY(terrain, probe, MAX_GROUND_STEP);
+            if (y == Integer.MIN_VALUE) {
+                if (air) return null;
+                return fail("water, steep ground or buildings");
+            }
             PortalSpec spec = new PortalSpec(nextId, x, y, z, axis, face, air);
-            int lowest = Math.max(s.minY, terrain.minY() + 1);
-            int highest = Math.min(s.maxY, terrain.maxY() - 2);
-            if (spec.y() < lowest || spec.y() + PortalSpec.HEIGHT > highest) return fail("outside the height limits");
-            if (!volumeFree(spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
-            if (!air && !openAbove(terrain, spec)) return fail("under a tree or a ledge");
+            int[] floors = floorRange(terrain, s);
+            if (spec.y() < floors[0]) return fail("below world-y-min");
+            if (spec.y() > floors[1]) return fail("above world-y-max");
+            if (!bounds.containsFrame(spec)) return fail("outside the radius");
+            if (!PortalPlanner.volumeFree(terrain, spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
+            if (!air && !PortalPlanner.openAbove(terrain, spec)) return fail("under a tree or a ledge");
             for (PortalSpec other : blockers) {
                 if (!spec.separatedFrom(other, gapH(), gapV())) return fail("too close to another portal");
             }
             return spec;
         }
 
-        private int groundY(PortalSpec p) {
-            return PortalPlanner.groundY(terrain, p, s.maxSlope);
-        }
-
+        /** A floor height above the terrain that satisfies both the altitude range and the world-y limits, or MIN_VALUE. */
         private int airY(PortalSpec p) {
             int[] box = p.box();
             int top = terrain.minY();
             for (int bx = box[0]; bx <= box[3]; bx++) {
                 for (int bz = box[2]; bz <= box[5]; bz++) top = Math.max(top, terrain.highestY(bx, bz));
             }
-            int lo = Math.max(2, Math.min(s.heightMin, s.heightMax));
-            int hi = Math.max(lo, Math.max(s.heightMin, s.heightMax));
-            return top + lo + rnd.nextInt(hi - lo + 1);
+            int lo = Math.max(2, Math.min(s.altitudeMin, s.altitudeMax));
+            int hi = Math.max(lo, Math.max(s.altitudeMin, s.altitudeMax));
+            int[] floors = floorRange(terrain, s);
+            int from = Math.max(top + lo, floors[0]);
+            int to = Math.min(top + hi, floors[1]);
+            if (from > to) {
+                fail(top + lo > floors[1] ? "above world-y-max" : "below world-y-min");
+                return Integer.MIN_VALUE;
+            }
+            return from + rnd.nextInt(to - from + 1);
         }
 
-        private boolean volumeFree(PortalSpec p, boolean air) {
-            return PortalPlanner.volumeFree(terrain, p, air);
-        }
-
-        private Axis chooseAxis() {
-            return switch (s.orientation) {
-                case X -> Axis.X;
-                case Z -> Axis.Z;
-                case RANDOM -> switch (s.facing) {
-                    case NORTH, SOUTH -> Axis.X;
-                    case EAST, WEST -> Axis.Z;
-                    default -> rnd.nextBoolean() ? Axis.X : Axis.Z;
+        private BlockFace chooseFacing() {
+            return switch (s.facing) {
+                case NORTH -> BlockFace.NORTH;
+                case SOUTH -> BlockFace.SOUTH;
+                case EAST -> BlockFace.EAST;
+                case WEST -> BlockFace.WEST;
+                default -> switch (rnd.nextInt(4)) {
+                    case 0 -> BlockFace.NORTH;
+                    case 1 -> BlockFace.SOUTH;
+                    case 2 -> BlockFace.EAST;
+                    default -> BlockFace.WEST;
                 };
-            };
-        }
-
-        private BlockFace chooseFacing(Axis axis, double dx, double dz) {
-            if (axis == Axis.X) return dz >= 0 ? BlockFace.SOUTH : BlockFace.NORTH;
-            return dx >= 0 ? BlockFace.EAST : BlockFace.WEST;
-        }
-
-        /** Desired leaving direction at a position, as a vector. */
-        private double[] direction(int px, int pz) {
-            FacingMode mode = s.facing;
-            if (mode == FacingMode.AUTO) mode = FacingMode.INWARD;
-            return switch (mode) {
-                case INWARD -> centerOr(cx - px, cz - pz);
-                case OUTWARD -> centerOr(px - cx, pz - cz);
-                case RANDOM -> switch (rnd.nextInt(4)) {
-                    case 0 -> new double[]{0, -1};
-                    case 1 -> new double[]{0, 1};
-                    case 2 -> new double[]{1, 0};
-                    default -> new double[]{-1, 0};
-                };
-                case NORTH -> new double[]{0, -1};
-                case SOUTH -> new double[]{0, 1};
-                case EAST -> new double[]{1, 0};
-                case WEST -> new double[]{-1, 0};
-                default -> new double[]{defaultDx, defaultDz};
-            };
-        }
-
-        private double[] centerOr(double dx, double dz) {
-            return dx == 0 && dz == 0 ? new double[]{0, 1} : new double[]{dx, dz};
-        }
-
-        private Iterator<int[]> candidates() {
-            return new Iterator<>() {
-                @Override
-                public boolean hasNext() {
-                    return true;
-                }
-
-                @Override
-                public int[] next() {
-                    double a = rnd.nextDouble() * Math.PI * 2;
-                    double r = s.radius * Math.sqrt(rnd.nextDouble());
-                    return new int[]{cx + (int) Math.round(Math.cos(a) * r), cz + (int) Math.round(Math.sin(a) * r)};
-                }
             };
         }
     }

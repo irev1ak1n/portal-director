@@ -5,12 +5,7 @@ import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.GenerationMode;
 import dev.portaldirector.gen.RevealOrder;
 import dev.portaldirector.gen.Layout;
-import dev.portaldirector.gen.Orientation;
 import dev.portaldirector.gen.Placement;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
@@ -73,17 +68,6 @@ public final class Settings {
     public int maxChunks = 900;
     public int maxPortals = 500;
 
-    public boolean blockVanillaTravel = false;
-    public boolean stagingInvisible = false;
-    public boolean freezeStaged = true;
-    public int walkTicks = 26;
-    public double walkSpeed = 0.22;
-    public int fallProtectionSeconds = 20;
-    public int waveSize = 5;
-    public boolean returnOnReset = true;
-    public boolean autoAssignJoiners = true;
-    public boolean announceJoin = true;
-
     public int tntPerPortal = 1;
     public double tntSpeed = 1.3;
     public double tntLift = 0.25;
@@ -106,9 +90,9 @@ public final class Settings {
     public boolean centerHasY;
     public boolean centerPinned;
 
-    public Location staging;
-
     private final Map<String, Option> options = new LinkedHashMap<>();
+    /** True while a config file is being read; the min/max checks wait until both values are in. */
+    private boolean loading;
 
     public Settings() {
         register();
@@ -118,36 +102,66 @@ public final class Settings {
         return options;
     }
 
+    /** Old key to new key: a saved value moves to the new name and the old one disappears. */
+    private static final String[][] RENAMED = {
+            {"generate.height-min", "generate.altitude-min"},
+            {"generate.height-max", "generate.altitude-max"},
+            {"generate.min-y", "generate.world-y-min"},
+            {"generate.max-y", "generate.world-y-max"},
+    };
+
+    /** Settings that no longer exist; they are dropped from the config file. */
+    private static final String[] REMOVED = {
+            "generate.radius-margin", "generate.air-ratio", "generate.orientation", "generate.max-slope", "entrance", "groups", "square",
+    };
+
     public void load(FileConfiguration c) {
         // Older configs had a single generate.spacing: it becomes the horizontal spacing.
-        if (c.contains("generate.spacing") && !c.contains("generate.spacing-horizontal")) {
+        if (c.contains("generate.spacing") && !c.contains("generate.spacing-horizontal", true)) {
             c.set("generate.spacing-horizontal", c.get("generate.spacing"));
         }
         c.set("generate.spacing", null);
-        for (Option o : options.values()) {
-            if (c.contains(o.key)) {
-                try {
-                    o.set(String.valueOf(c.get(o.key)));
-                } catch (IllegalArgumentException ignored) {
-                    // keep the default for an invalid value
+        for (String[] r : RENAMED) {
+            if (c.contains(r[0], true) && !c.contains(r[1], true)) c.set(r[1], c.get(r[0]));
+            c.set(r[0], null);
+        }
+        for (String key : REMOVED) c.set(key, null);
+        loading = true;
+        try {
+            for (Option o : options.values()) {
+                if (c.contains(o.key)) {
+                    try {
+                        o.set(String.valueOf(c.get(o.key)));
+                    } catch (IllegalArgumentException ignored) {
+                        // keep the default for an invalid value
+                    }
                 }
             }
+        } finally {
+            loading = false;
         }
+        normalize();
         centerPinned = c.getBoolean("center.pinned", false);
         centerWorld = c.getString("center.world");
         centerX = c.getDouble("center.x");
         centerZ = c.getDouble("center.z");
         centerHasY = c.contains("center.y");
         centerY = c.getDouble("center.y");
-        ConfigurationSection st = c.getConfigurationSection("entrance.staging-location");
-        staging = null;
-        if (st != null) {
-            World w = Bukkit.getWorld(st.getString("world", ""));
-            if (w != null) {
-                staging = new Location(w, st.getDouble("x"), st.getDouble("y"), st.getDouble("z"),
-                        (float) st.getDouble("yaw"), (float) st.getDouble("pitch"));
-            }
+    }
+
+    /** Repairs combinations an edited or older config file can hold: reversed limits, a facing the layout does not take. */
+    private void normalize() {
+        if (gen.altitudeMin > gen.altitudeMax) {
+            int t = gen.altitudeMin;
+            gen.altitudeMin = gen.altitudeMax;
+            gen.altitudeMax = t;
         }
+        if (gen.worldYMin > gen.worldYMax) {
+            int t = gen.worldYMin;
+            gen.worldYMin = gen.worldYMax;
+            gen.worldYMax = t;
+        }
+        if (!FacingMode.allowed(gen.facing, gen.layout)) gen.facing = FacingMode.defaultFor(gen.layout);
     }
 
     public void save(FileConfiguration c) {
@@ -157,28 +171,24 @@ public final class Settings {
         c.set("center.x", centerX);
         c.set("center.z", centerZ);
         c.set("center.y", centerHasY ? centerY : null);
-        c.set("entrance.staging-location", null);
-        if (staging != null && staging.getWorld() != null) {
-            c.set("entrance.staging-location.world", staging.getWorld().getName());
-            c.set("entrance.staging-location.x", staging.getX());
-            c.set("entrance.staging-location.y", staging.getY());
-            c.set("entrance.staging-location.z", staging.getZ());
-            c.set("entrance.staging-location.yaw", staging.getYaw());
-            c.set("entrance.staging-location.pitch", staging.getPitch());
-        }
     }
 
     private void register() {
-        intOpt("generate.count", "portals for the random layout", 1, 1000, () -> gen.count, v -> gen.count = v);
-        intOpt("generate.radius", "blocks around the center", 8, 400, () -> gen.radius, v -> gen.radius = v);
-        intOpt("generate.spacing-horizontal", "least empty blocks between portal frames across the ground (x/z)", 1, 100, () -> gen.spacingH, v -> gen.spacingH = v);
-        intOpt("generate.spacing-vertical", "least empty blocks between floating portals above each other", 1, 100, () -> gen.spacingV, v -> gen.spacingV = v);
+        intOpt("generate.count", "how many portals the random layout builds", 1, 1000, () -> gen.count, v -> gen.count = v);
+        intOpt("generate.radius", "how far portals spread north, south, east and west (5% is added automatically)", 8, 400, () -> gen.radius, v -> gen.radius = v);
+        intOpt("generate.spacing-horizontal", "least empty blocks between portal frames, side by side", 1, 100, () -> gen.spacingH, v -> gen.spacingH = v);
+        intOpt("generate.spacing-vertical", "least empty blocks between portals above each other", 1, 100, () -> gen.spacingV, v -> gen.spacingV = v);
         enumOpt("generate.placement", Placement.class, () -> gen.placement, v -> gen.placement = v);
-        dblOpt("generate.air-ratio", "share of floating portals in mixed mode (0 to 1)", 0, 1, () -> gen.airRatio, v -> gen.airRatio = v);
-        intOpt("generate.height-min", "lowest floating portal, blocks above ground", 2, 300, () -> gen.heightMin, v -> gen.heightMin = v);
-        intOpt("generate.height-max", "highest floating portal, blocks above ground", 2, 300, () -> gen.heightMax, v -> gen.heightMax = v);
-        enumOpt("generate.orientation", Orientation.class, () -> gen.orientation, v -> gen.orientation = v);
         enumOpt("generate.layout", Layout.class, () -> gen.layout, v -> gen.layout = v);
+        facingOpt();
+        intOpt("generate.altitude-min", "lowest floating portal, in blocks above the ground", 2, 300, () -> gen.altitudeMin, v -> gen.altitudeMin = v,
+                () -> gen.altitudeMin > gen.altitudeMax ? "cannot be above altitude-max (" + gen.altitudeMax + "). Raise altitude-max first" : null);
+        intOpt("generate.altitude-max", "highest floating portal, in blocks above the ground", 2, 300, () -> gen.altitudeMax, v -> gen.altitudeMax = v,
+                () -> gen.altitudeMax < gen.altitudeMin ? "cannot be below altitude-min (" + gen.altitudeMin + "). Lower altitude-min first" : null);
+        intOpt("generate.world-y-min", "lowest world y any portal frame may use", -64, 320, () -> gen.worldYMin, v -> gen.worldYMin = v,
+                () -> gen.worldYMin > gen.worldYMax ? "cannot be above world-y-max (" + gen.worldYMax + "). Raise world-y-max first" : null);
+        intOpt("generate.world-y-max", "highest world y any portal frame may use", -64, 320, () -> gen.worldYMax, v -> gen.worldYMax = v,
+                () -> gen.worldYMax < gen.worldYMin ? "cannot be below world-y-min (" + gen.worldYMin + "). Lower world-y-min first" : null);
         enumOpt("generate.generation", GenerationMode.class, () -> gen.generation, v -> gen.generation = v);
         dblOpt("generate.generation-delay", "seconds between portals appearing when generation is delayed (0.05 to 60)", 0.05, 60, () -> gen.delay, v -> gen.delay = v);
         enumOpt("generate.generation-order", RevealOrder.class, () -> gen.order, v -> gen.order = v);
@@ -189,26 +199,11 @@ public final class Settings {
         intOpt("generate.square-layers", "square: identical squares stacked upward", 1, 10, () -> gen.squareLayers, v -> gen.squareLayers = v);
         intOpt("generate.wave-rows", "wave: rows stacked upward", 1, 20, () -> gen.waveRows, v -> gen.waveRows = v);
         intOpt("generate.wave-per-row", "wave: portals in each row", 1, 40, () -> gen.wavePerRow, v -> gen.wavePerRow = v);
-        enumOpt("generate.facing", FacingMode.class, () -> gen.facing, v -> gen.facing = v);
-        intOpt("generate.max-slope", "tallest step in the ground a ground portal may stand on", 0, 10, () -> gen.maxSlope, v -> gen.maxSlope = v);
-        intOpt("generate.min-y", "lowest allowed y for any portal frame", -64, 320, () -> gen.minY, v -> gen.minY = v);
-        intOpt("generate.max-y", "highest allowed y for the top of any portal frame", -64, 320, () -> gen.maxY, v -> gen.maxY = v);
         intOpt("generate.blocks-per-tick", "blocks placed per tick", 20, 5000, () -> blocksPerTick, v -> blocksPerTick = v);
         intOpt("generate.max-chunks", "refuse areas needing more chunks than this", 16, 5000, () -> maxChunks, v -> maxChunks = v);
         intOpt("generate.max-portals", "most portals that can exist at once", 1, 5000, () -> maxPortals, v -> maxPortals = v);
 
 
-        boolOpt("groups.auto-assign", "give joining players the next free portal", () -> autoAssignJoiners, v -> autoAssignJoiners = v);
-        boolOpt("groups.announce-join", "one action bar line when joining via the join block", () -> announceJoin, v -> announceJoin = v);
-
-        boolOpt("entrance.block-vanilla-travel", "turn OFF normal Nether travel through generated portals (decoration only)", () -> blockVanillaTravel, v -> blockVanillaTravel = v);
-        boolOpt("entrance.staging-invisible", "staged players are invisible until released", () -> stagingInvisible, v -> stagingInvisible = v);
-        boolOpt("entrance.freeze-staged", "staged players cannot move", () -> freezeStaged, v -> freezeStaged = v);
-        intOpt("entrance.walk-ticks", "how long players are walked forward after release", 0, 200, () -> walkTicks, v -> walkTicks = v);
-        dblOpt("entrance.walk-speed", "blocks per tick while walking out", 0.05, 0.5, () -> walkSpeed, v -> walkSpeed = v);
-        intOpt("entrance.fall-protection-seconds", "fall damage immunity after release, 0 to disable", 0, 300, () -> fallProtectionSeconds, v -> fallProtectionSeconds = v);
-        intOpt("entrance.wave-size", "players per wave for staggered releases", 1, 1000, () -> waveSize, v -> waveSize = v);
-        boolOpt("entrance.return-on-reset", "reset sends players back to where they were", () -> returnOnReset, v -> returnOnReset = v);
 
         intOpt("tnt.per-portal", "minecarts per portal per wave", 1, 50, () -> tntPerPortal, v -> tntPerPortal = v);
         dblOpt("tnt.speed", "launch speed in blocks per tick", 0.1, 5, () -> tntSpeed, v -> tntSpeed = v);
@@ -227,6 +222,11 @@ public final class Settings {
     }
 
     private void intOpt(String key, String hint, int min, int max, Supplier<Integer> get, Consumer<Integer> set) {
+        intOpt(key, hint, min, max, get, set, () -> null);
+    }
+
+    /** An integer setting whose value must also agree with another one; {@code check} returns the problem or null. */
+    private void intOpt(String key, String hint, int min, int max, Supplier<Integer> get, Consumer<Integer> set, Supplier<String> check) {
         options.put(key, new Option(key, hint, get::get, s -> {
             int v;
             try {
@@ -235,7 +235,13 @@ public final class Settings {
                 throw new IllegalArgumentException("'" + s + "' is not a number");
             }
             if (v < min || v > max) throw new IllegalArgumentException("must be between " + min + " and " + max);
+            int old = get.get();
             set.accept(v);
+            String problem = loading ? null : check.get();
+            if (problem != null) {
+                set.accept(old);
+                throw new IllegalArgumentException(problem);
+            }
         }, List.of()));
     }
 
@@ -263,6 +269,23 @@ public final class Settings {
             else if (t.equals("false") || t.equals("off") || t.equals("no")) set.accept(false);
             else throw new IllegalArgumentException("use on or off");
         }, List.of("on", "off")));
+    }
+
+    /** Facing takes compass directions and random everywhere, inward and outward only for the square layout. */
+    private void facingOpt() {
+        List<String> names = new ArrayList<>();
+        for (FacingMode m : FacingMode.values()) names.add(m.label());
+        options.put("generate.facing", new Option("generate.facing", "north | south | east | west | random, or inward | outward for the square",
+                () -> gen.facing.label(), s -> {
+            FacingMode v = GenSettings.parse(FacingMode.class, s, null);
+            if (v == null) throw new IllegalArgumentException("use one of: north, south, east, west, random, inward, outward");
+            if (!loading && !FacingMode.allowed(v, gen.layout)) {
+                GenSettings probe = gen.copy();
+                probe.facing = v;
+                throw new IllegalArgumentException(probe.facingProblem());
+            }
+            gen.facing = v;
+        }, names));
     }
 
     private <E extends Enum<E>> void enumOpt(String key, Class<E> type, Supplier<E> get, Consumer<E> set) {

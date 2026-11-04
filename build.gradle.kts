@@ -3,8 +3,8 @@ plugins {
 }
 
 group = "dev.portaldirector"
-version = "1.2.0"
-description = "Mass Nether portal scenes, synchronized player entrances and TNT minecart waves."
+version = "1.3.0"
+description = "Mass Nether portal formations and TNT minecart waves for content creators."
 
 // Pinned versions for reproducible builds.
 val paperApiVersion = "26.3.build.231-stable"

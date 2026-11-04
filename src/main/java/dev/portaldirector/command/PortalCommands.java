@@ -1,11 +1,10 @@
 package dev.portaldirector.command;
 
 import dev.portaldirector.PortalDirectorPlugin;
-import dev.portaldirector.entrance.EntranceDirector;
 import dev.portaldirector.gen.BukkitTerrain;
 import dev.portaldirector.gen.NaturalBlocks;
 import dev.portaldirector.gen.PortalEdits;
-import dev.portaldirector.group.Group;
+import dev.portaldirector.gen.PortalPlanner;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.BlockLog;
 import dev.portaldirector.scene.RemovalJob;
@@ -205,13 +204,12 @@ final class PortalCommands {
         BukkitTerrain terrain = new BukkitTerrain(world);
         int maxTop = Integer.MIN_VALUE;
         for (int i = 0; i < PortalSpec.WIDTH; i++) maxTop = Math.max(maxTop, terrain.topY(probe.cellX(i), probe.cellZ(i)));
-        int support = pl.settings().gen.maxSlope + 1;
+        int support = PortalPlanner.MAX_SUPPORT;
         boolean floating = probe.y() - 1 - maxTop > support;
         PortalSpec spec = new PortalSpec(probe.id(), probe.x(), probe.y(), probe.z(), probe.axis(), probe.facing(), floating);
         for (PortalEdits.Edit e : PortalEdits.forPortal(world, spec, support)) PortalEdits.apply(world, scene.blocks(), e);
         scene.addPortal(spec, name);
         pl.scenes().select(scene);
-        pl.groups().fillAll(scene);
         pl.scenes().save(scene);
         pl.saveSettings();
         Msg.ok(s, "Portal " + name + " built at " + x + ", " + y + ", " + z + " facing " + facing.name().toLowerCase(Locale.ROOT)
@@ -242,12 +240,6 @@ final class PortalCommands {
             throw new IllegalArgumentException(usage);
         }
         if (pl.activeJob() != null) throw pl.busy();
-        for (Group g : pl.groups().all()) {
-            if (sc.assignmentsOf(g.name()).containsKey(p.id()) && pl.entrance().phase(g) != EntranceDirector.Phase.IDLE) {
-                throw new IllegalArgumentException("Group " + g.name() + " is staged or walking out and has a player at " + sc.nameOf(p.id())
-                        + ". Run /pd group reset " + g.name() + " first.");
-            }
-        }
         World w = Bukkit.getWorld(sc.worldName());
         if (w == null) throw new IllegalArgumentException("World " + sc.worldName() + " is not loaded.");
         final int id = p.id();

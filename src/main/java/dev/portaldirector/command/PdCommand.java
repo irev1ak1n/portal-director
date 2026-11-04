@@ -6,7 +6,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,7 +34,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
 
         subs.put("create", new Entry(createCommand(gen.generate(), portal.create()), g));
         subs.put("remove", new Entry(portal.remove(), g));
-        subs.put("set", new Entry(setCommand(gen.set(), gen.centerCmd(), staging()), g));
+        subs.put("set", new Entry(setCommand(gen.set(), gen.centerCmd()), g));
         subs.put("settings", new Entry(gen.settings(), g));
         subs.put("list", new Entry(scene.portals(), g));
         subs.put("clear", new Entry(scene.clearShortcut(), "portaldirector.scene"));
@@ -78,15 +77,13 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         return c != 0 ? c : x.compareTo(y);
     };
 
-    /** /pd set is the one place for configuration: generation settings, the center and the staging area. */
-    private Sub setCommand(Sub settings, Sub center, Sub staging) {
+    /** /pd set is the one place for configuration: generation settings and the center. */
+    private Sub setCommand(Sub settings, Sub center) {
         return new Sub() {
             @Override
             public void run(CommandSender s, List<String> a) {
                 if (!a.isEmpty() && a.get(0).equalsIgnoreCase("center")) {
                     center.run(s, a.subList(1, a.size()));
-                } else if (!a.isEmpty() && a.get(0).equalsIgnoreCase("staging")) {
-                    staging.run(s, a.subList(1, a.size()));
                 } else {
                     settings.run(s, a);
                 }
@@ -95,45 +92,9 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
                 if (a.size() > 1 && a.get(0).equalsIgnoreCase("center")) return center.tab(s, a.subList(1, a.size()));
-                if (a.size() > 1 && a.get(0).equalsIgnoreCase("staging")) return staging.tab(s, a.subList(1, a.size()));
                 List<String> out = new ArrayList<>(settings.tab(s, a));
-                if (a.size() == 1) {
-                    out.add("center");
-                    out.add("staging");
-                }
+                if (a.size() == 1) out.add("center");
                 return out;
-            }
-        };
-    }
-
-    private Sub staging() {
-        return new Sub() {
-            @Override
-            public void run(CommandSender s, List<String> a) {
-                String sub = a.isEmpty() ? "show" : a.get(0).toLowerCase(Locale.ROOT);
-                switch (sub) {
-                    case "here", "set" -> {
-                        if (!(s instanceof Player p)) throw new IllegalArgumentException("Stand where you want the staging area, as a player.");
-                        pl.settings().staging = p.getLocation().clone();
-                        pl.saveSettings();
-                        Msg.ok(s, "Staging area set here. /pd group prepare now holds players here until you release them.");
-                    }
-                    case "clear", "reset" -> {
-                        pl.settings().staging = null;
-                        pl.saveSettings();
-                        Msg.ok(s, "Staging area cleared: players are held at their own portals.");
-                    }
-                    default -> {
-                        var st = pl.settings().staging;
-                        Msg.info(s, st == null ? "No staging area: prepared players wait inside their own portal. /pd set staging here uses your position instead (for example a hidden spot or the Nether)."
-                                : "Staging area at " + st.getBlockX() + ", " + st.getBlockY() + ", " + st.getBlockZ() + " in " + st.getWorld().getName() + ".");
-                    }
-                }
-            }
-
-            @Override
-            public List<String> tab(CommandSender s, List<String> a) {
-                return a.size() == 1 ? List.of("here", "clear", "show") : List.of();
             }
         };
     }
@@ -167,7 +128,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
 
     private String suggestion(String typed) {
         String t = typed.toLowerCase(Locale.ROOT);
-        if (List.of("radius", "spacing", "height", "mode", "placement", "layout", "orientation", "facing", "count", "center", "staging").contains(t)) {
+        if (List.of("radius", "spacing", "altitude-min", "altitude-max", "world-y-min", "world-y-max", "mode", "layout", "facing", "count", "center").contains(t)) {
             return "Settings are changed with /pd set, for example /pd set " + t + " <value>. ";
         }
         for (String known : subs.keySet()) {

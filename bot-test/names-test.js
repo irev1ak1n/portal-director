@@ -1,7 +1,7 @@
 'use strict'
 /*
  * Named portals live test on an isolated Paper server: /pd create portal in all four directions, duplicate and invalid names,
- * removal by name and by exact anchor coordinates (and the refusals that must remove nothing), restoring, assignments and TNT
+ * removal by name and by exact anchor coordinates (and the refusals that must remove nothing), restoring, and TNT
  * by name, alphabetical tab completion through a real client, restart persistence, generated names and scene files from
  * before names existed. Nothing here is visual verification.
  */
@@ -181,13 +181,12 @@ async function main () {
   })
   await run('op PdTab', 500)
   await run('pd group create team')
-  await run('pd group add team PdTab')
+  out = await run('pd group add team PdTab')
+  check('a player can be added to a group', /PdTab added to team/.test(out), out.trim().split('\n').pop())
+  out = await run('pd group info team')
+  check('group info lists the player', /PdTab/.test(out))
   out = await run('pd group assign team entranced PdTab')
-  check('a player can be assigned to a portal by name, ignoring case', /PdTab will come out of portal EntranceD/.test(out), out.trim().split('\n').pop())
-  out = await run('pd group assign team nosuch PdTab')
-  check('an unknown portal name is explained', /no portal called nosuch/.test(out))
-  out = await run('pd group assignments')
-  check('assignments are listed by portal name', /EntranceD: PdTab/.test(out), out.trim().split('\n').slice(-3).join(' / '))
+  check('the old assignment commands are gone', /Groups/.test(out) && !/will come out/.test(out), out.trim().split('\n').pop().slice(0, 100))
   await run('pd tnt mode safe')
   out = await run('pd tnt launch EntranceC', 1500)
   const alive = await run('execute if entity @e[type=minecraft:tnt_minecart]', 500)
@@ -201,7 +200,7 @@ async function main () {
   try {
     const main = await tab(bot, '/pd ')
     check('/pd suggests the commands in alphabetical order', JSON.stringify(main) === JSON.stringify(['clear', 'create', 'group', 'help', 'list', 'reload', 'remove', 'set', 'settings', 'stop', 'tnt']), main.join(' '))
-    for (const [cmd, must] of [['/pd create ', 'portal'], ['/pd set ', 'generation'], ['/pd group ', 'assign'], ['/pd tnt ', 'launch'], ['/pd set generation ', 'order'], ['/pd remove ', 'EntranceA'], ['/pd group assign team ', 'EntranceB'], ['/pd tnt launch ', 'EntranceC']]) {
+    for (const [cmd, must] of [['/pd create ', 'portal'], ['/pd set ', 'generation'], ['/pd group ', 'block'], ['/pd tnt ', 'launch'], ['/pd set generation ', 'order'], ['/pd remove ', 'EntranceA'], ['/pd tnt launch ', 'EntranceC']]) {
       const l = await tab(bot, cmd)
       check(`${cmd}suggestions are alphabetical${must ? ' and include ' + must : ''}`, l.length > 0 && isSorted(l) && (!must || l.includes(must)), l.slice(0, 14).join(' '))
     }
@@ -228,7 +227,7 @@ async function main () {
   }
   check('every page 1 to N shows its page number', allPages)
   check('no page is longer than 18 lines', longest > 0 && longest <= 18, longest + ' lines')
-  for (const topic of ['create', 'group', 'layouts', 'portals', 'reveal', 'scenes', 'set', 'tnt']) {
+  for (const topic of ['create', 'examples', 'group', 'layouts', 'portals', 'reveal', 'scenes', 'set', 'tnt']) {
     const o = await run('pd help ' + topic, 800)
     check(`pd help ${topic} opens that topic`, /Page \d+\/\d+/.test(o) && o.includes('/pd '), (o.match(/PortalDirector\s+(.*)/) || [])[1])
   }
@@ -307,7 +306,7 @@ async function main () {
 
   out = await runUntil('pd remove EntranceD', /Portal \w+ removed/, 60000)
   await sleep(500)
-  check('removing a portal drops the player assignment for it', !/EntranceD/.test(await run('pd group assignments', 600)) && !/^assignments:/m.test(fs.readFileSync(path.join(PLUGIN_DIR, 'scenes', 'default.yml'), 'utf8')))
+  check('the saved scene has no player assignments any more', !/^assignments:/m.test(fs.readFileSync(path.join(PLUGIN_DIR, 'scenes', 'default.yml'), 'utf8')))
   bot.end()
 
   // ---- persistence across a restart
@@ -389,7 +388,6 @@ async function main () {
 
   // ---- scene files saved before names existed
   log('old scene file')
-  await run('pd group create show2')
   const old = readScene()
   const left = old.portals.length
   const stopCode = await srv.stop()
@@ -400,7 +398,7 @@ async function main () {
   srv.start()
   await srv.waitForLine(/Done \(/, 240000, 0, 'restart')
   await sleep(4000)
-  out = await run('pd list', 800)
+  out = await run('pd list', 2500)
   const migrated = (out.match(/portal-\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length
   check('an old scene file without names still loads, with portal-<id> names', migrated === left && left > 0, `${migrated} of ${left}`)
   await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000)

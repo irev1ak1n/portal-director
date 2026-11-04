@@ -265,9 +265,7 @@ async function main () {
   out = await run('pd help layouts')
   check('layout help explains rows, columns, layers and per-side', /grid rows 4/.test(out) && /square per-side 5/.test(out) && /wave per-row 5/.test(out) && /Rows and layers go up/.test(out))
 
-  // grid in all four directions, with bot entrance and TNT for each
-  await run('pd group create NULL')
-  await run(`pd group add NULL ${BOT}`)
+  // grid in all four directions, with TNT for each
   await run('pd set spacing horizontal 8')
   await run('pd set spacing vertical 5')
   const results = []
@@ -287,24 +285,9 @@ async function main () {
       check(`${kind} ${facing}: every portal faces ${facing} and is upright`, sc.portals.every(p => p.facing === FACING && p.axis === (facing === 'north' || facing === 'south' ? 'X' : 'Z')))
       const bad = await badBlocks(sc.portals)
       check(`${kind} ${facing}: 400 frame and portal blocks verified on the server`, bad === 0, bad + ' wrong')
-      // a bot comes out of the portal in the middle of the second row, a minecart from the same portal
+      // a minecart comes out of the portal in the middle of the second row
       const mid = sc.portals.find(p => p.id === 8)
       const g = geom(mid)
-      await run(`tp ${BOT} 1000.5 200 1000.5`, 80)
-      await sleep(1500)
-      await run('pd group assign NULL 8 ' + BOT)
-      await run('pd group prepare NULL', 1500)
-      await sleep(3500)
-      bot.forced.length = 0
-      const traj = []
-      const sampler = setInterval(() => traj.push(bot.entity.position.clone()), 50)
-      await run('pd group release NULL', 100)
-      await sleep(4500)
-      clearInterval(sampler)
-      const peak = Math.max(...traj.map(p => (p.x - g.cx) * g.stepX + (p.z - g.cz) * g.stepZ))
-      const side = Math.max(...traj.slice(0, 40).map(p => Math.abs((p.x - g.cx) * g.stepZ) + Math.abs((p.z - g.cz) * g.stepX)))
-      check(`${kind} ${facing}: the player comes out of portal 8 walking ${facing}`, peak >= 3 && side < 1.6, `forward ${peak.toFixed(1)}, sideways ${side.toFixed(1)}`)
-      await run('pd group reset NULL', 1500)
       await run('pd tnt launch 8 1', 100)
       await sleep(450)
       const posOut = await run('data get entity @e[type=minecraft:tnt_minecart,limit=1] Pos', 400)
@@ -404,8 +387,7 @@ async function main () {
     check('square: no corner overlaps or duplicates', noIntersections(sc.portals, 8, 5) && new Set(layer(0).map(p => p.x + ',' + p.z)).size === 20)
     check('square: the middle is open', sc.portals.every(p => { const b = geom(p).box; return !(midX >= b.minX && midX <= b.maxX && midZ >= b.minZ && midZ <= b.maxZ) }))
     check('square 60 portals: all blocks verified on the server', (await badBlocks(sc.portals)) === 0, '1200 blocks')
-    // entrances and TNT through the layers
-    await run('pd group release NULL clockwise 0.1 5', 200)
+    // TNT through the layers
     out = await run('pd tnt launch side east', 800)
     await sleep(1200)
     check('tnt launch side east reaches the east portals of all three layers', (await count('@e[type=minecraft:tnt_minecart]')) === 15, out.trim().split('\n').pop().slice(0, 100))

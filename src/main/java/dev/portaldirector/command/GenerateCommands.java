@@ -3,6 +3,7 @@ package dev.portaldirector.command;
 import dev.portaldirector.PortalDirectorPlugin;
 import dev.portaldirector.Settings;
 import dev.portaldirector.gen.BukkitTerrain;
+import dev.portaldirector.gen.Bounds;
 import dev.portaldirector.gen.FacingMode;
 import dev.portaldirector.gen.FormationPlanner;
 import dev.portaldirector.gen.GenSettings;
@@ -11,6 +12,7 @@ import dev.portaldirector.gen.RevealOrder;
 import dev.portaldirector.gen.GenerationJob;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Placement;
+import dev.portaldirector.gen.PortalPlanner;
 import dev.portaldirector.gen.SquareFacing;
 import dev.portaldirector.gen.SquarePlanner;
 import dev.portaldirector.model.PortalSpec;
@@ -45,19 +47,24 @@ final class GenerateCommands {
         ALIASES.put("radius", "generate.radius");
         ALIASES.put("layout", "generate.layout");
         ALIASES.put("generation", "generate.generation");
-        ALIASES.put("orientation", "generate.orientation");
         ALIASES.put("facing", "generate.facing");
-        ALIASES.put("air-ratio", "generate.air-ratio");
-        ALIASES.put("slope", "generate.max-slope");
-        ALIASES.put("min-y", "generate.min-y");
-        ALIASES.put("max-y", "generate.max-y");
         ALIASES.put("fuse", "tnt.fuse-seconds");
         ALIASES.put("tnt-limit", "tnt.max-active");
     }
 
-    /** What /pd settings shows for each layout: {name admins type, setting key}. */
-    private static final String[] SPACING = {"spacing horizontal", "generate.spacing-horizontal", "spacing vertical", "generate.spacing-vertical"};
-    private static final String[] LIMITS = {"min-y", "generate.min-y", "max-y", "generate.max-y"};
+    /** Names that used to be settings: typing one explains what replaced it. Never suggested. */
+    private static final Map<String, String> GONE = new LinkedHashMap<>();
+
+    static {
+        GONE.put("height-min", "is now called altitude-min: /pd set altitude-min <blocks above the ground>");
+        GONE.put("height-max", "is now called altitude-max: /pd set altitude-max <blocks above the ground>");
+        GONE.put("min-y", "is now called world-y-min: /pd set world-y-min <world y>");
+        GONE.put("max-y", "is now called world-y-max: /pd set world-y-max <world y>");
+        GONE.put("orientation", "no longer exists. /pd set facing north|south|east|west picks the direction, and the frame turns to match");
+        GONE.put("air-ratio", "no longer exists. /pd set mode mixed always builds about half floating and half ground portals");
+        GONE.put("slope", "no longer exists. Ground portals choose suitable terrain by themselves");
+        GONE.put("max-slope", "no longer exists. Ground portals choose suitable terrain by themselves");
+    }
 
     private final PortalDirectorPlugin pl;
     private final SceneCommands scenes;
@@ -67,22 +74,21 @@ final class GenerateCommands {
         this.scenes = scenes;
     }
 
-    private record Center(World world, int x, int y, int z, BlockFace facingAuto, boolean pinned) {
+    private record Center(World world, int x, int y, int z, boolean pinned) {
     }
 
     private Center center(CommandSender s) {
         Settings st = pl.settings();
         Player p = s instanceof Player pp ? pp : null;
-        BlockFace auto = p == null ? BlockFace.SOUTH : p.getFacing().getOppositeFace();
         if (st.centerPinned) {
             World w = Bukkit.getWorld(st.centerWorld == null ? "" : st.centerWorld);
             if (w == null) throw new IllegalArgumentException("The pinned center is in a world that is not loaded. Use /pd set center reset to build around yourself again.");
             int y = st.centerHasY ? (int) Math.floor(st.centerY) : p != null && p.getWorld() == w ? p.getLocation().getBlockY() : w.getSeaLevel() + 1;
-            return new Center(w, (int) Math.floor(st.centerX), y, (int) Math.floor(st.centerZ), auto, true);
+            return new Center(w, (int) Math.floor(st.centerX), y, (int) Math.floor(st.centerZ), true);
         }
         if (p == null) throw new IllegalArgumentException("The console has no position. Pin a center first: /pd set center <x> <y> <z> <world>");
         Location l = p.getLocation();
-        return new Center(l.getWorld(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), auto, false);
+        return new Center(l.getWorld(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), false);
     }
 
     /** How many portals the current layout settings make. */
@@ -97,11 +103,16 @@ final class GenerateCommands {
 
     private static String describeLayout(GenSettings g) {
         return switch (g.layout) {
-            case RANDOM -> "random: " + g.count + " portals within " + g.radius + " blocks";
+            case RANDOM -> "random: " + g.count + " portals within " + radiusText(g);
             case GRID -> "grid: " + g.gridRows + " rows x " + g.gridColumns + " columns = " + expectedCount(g) + " portals";
             case SQUARE -> "square: " + g.squarePerSide + " per side x 4 sides x " + g.squareLayers + " layer" + (g.squareLayers == 1 ? "" : "s") + " = " + expectedCount(g) + " portals";
             case WAVE -> "wave: " + g.waveRows + " rows x " + g.wavePerRow + " per row = " + expectedCount(g) + " portals";
         };
+    }
+
+    /** "100 blocks (105 effective with automatic 5% margin)". */
+    static String radiusText(GenSettings g) {
+        return g.radius + " blocks (" + g.effectiveRadius() + " effective with automatic " + GenSettings.RADIUS_MARGIN_PERCENT + "% margin)";
     }
 
     // /pd create [count] [more|replacement] [skip-blocked]; where portals stand is /pd set mode
@@ -154,6 +165,8 @@ final class GenerateCommands {
                 boolean partial = args.skipBlocked();
                 Settings st = pl.settings();
                 Layout layout = st.gen.layout;
+                String settingsProblem = st.gen.problem();
+                if (settingsProblem != null) throw new IllegalArgumentException(settingsProblem);
                 if (count != null && layout != Layout.RANDOM) {
                     throw new IllegalArgumentException("The " + layout.name().toLowerCase(Locale.ROOT) + " layout works out the number of portals itself ("
                             + describeLayout(st.gen) + "). Change it with " + layoutHint(layout) + ", or use /pd set layout random to choose a number.");
@@ -184,6 +197,7 @@ final class GenerateCommands {
                 if (layout == Layout.SQUARE && scene.square() != null && !replace) {
                     throw new IllegalArgumentException("There is already a square. /pd create replacement swaps it for a new one, /pd clear removes it.");
                 }
+                if (layout != Layout.RANDOM) requireInsideRadius(c, plan(c, 1));
                 final boolean partialFinal = partial;
                 final boolean addFinal = add;
                 if (replace && !scene.portals().isEmpty()) {
@@ -235,12 +249,9 @@ final class GenerateCommands {
         scene.worldName(c.world().getName());
         List<PortalSpec> existing = new ArrayList<>(pl.scenes().portalsIn(c.world().getName()));
         int before = scene.portals().size();
-        int dx = c.facingAuto().getModX();
-        int dz = c.facingAuto().getModZ();
-        GenerationJob job = new GenerationJob(pl, c.world(), scene, st, c.x(), c.z(), dx, dz, existing, result -> {
+        GenerationJob job = new GenerationJob(pl, c.world(), scene, st, c.x(), c.z(), existing, result -> {
             pl.activeJob(null);
             pl.scenes().save(scene);
-            pl.groups().fillAll(scene);
             if (result.failed()) {
                 Msg.err(s, "Something went wrong while building (" + result.error() + "). The portals that were finished are kept.");
             } else if (result.cancelled()) {
@@ -249,22 +260,22 @@ final class GenerateCommands {
                 Msg.ok(s, "Built " + result.placed() + " of " + result.requested() + " portals"
                         + (before > 0 ? " (" + scene.portals().size() + " in total)" : "") + ".");
                 if (result.placed() < result.requested()) {
-                    Msg.info(s, "Only " + result.placed() + " fit in this area. " + shortfall(result.reasons()) + " Make room with /pd set radius " + Math.min(400, st.gen.radius * 3 / 2)
+                    Msg.info(s, "Only " + result.placed() + " fit inside the radius of " + radiusText(st.gen) + ". " + shortfall(result.reasons()) + " Make room with /pd set radius " + Math.min(400, st.gen.radius * 3 / 2)
                             + ", /pd set spacing horizontal " + Math.max(2, st.gen.spacingH / 2) + ", or try /pd set mode air.");
                 }
                 Report.formation(s, pl, scene);
             }
         });
         if (job.chunkCount() > st.maxChunks) {
-            throw new IllegalArgumentException("A radius of " + st.gen.radius + " blocks covers " + job.chunkCount() + " chunks, more than the limit of " + st.maxChunks
+            throw new IllegalArgumentException("A radius of " + radiusText(st.gen) + " covers " + job.chunkCount() + " chunks, more than the limit of " + st.maxChunks
                     + ". Use a smaller radius, for example /pd set radius " + Math.max(8, st.gen.radius / 2) + ".");
         }
         job.autosave(() -> pl.scenes().save(scene));
         pl.activeJob(job);
         pl.scenes().select(scene);
         pl.saveSettings();
-        Msg.ok(s, "Building " + st.gen.count + " " + st.gen.placement.name().toLowerCase(Locale.ROOT) + " portals (random layout) within " + st.gen.radius
-                + " blocks of " + (c.pinned() ? "the pinned center " : "") + c.x() + ", " + c.z() + ". " + revealNote(st.gen));
+        Msg.ok(s, "Building " + st.gen.count + " " + st.gen.placement.name().toLowerCase(Locale.ROOT) + " portals (random layout) within " + radiusText(st.gen)
+                + " of " + (c.pinned() ? "the pinned center " : "") + c.x() + ", " + c.z() + ". " + revealNote(st.gen));
         job.start();
     }
 
@@ -279,6 +290,42 @@ final class GenerateCommands {
 
     // Grid, square and wave
 
+    /** The portals a grid, wave or square would build around {@code c}. No world access, so it can run before anything is removed. */
+    private List<PortalSpec> plan(Center c, int firstId) {
+        GenSettings g = pl.settings().gen;
+        BlockFace auto = BlockFace.SOUTH;
+        int centerFloor = c.y() - 1;
+        switch (g.layout) {
+            case GRID -> {
+                return FormationPlanner.grid(firstId, c.x(), c.z(), centerFloor, g.gridRows, g.gridColumns, g.spacingH, g.spacingV, g.facing, auto, new Random());
+            }
+            case WAVE -> {
+                return FormationPlanner.wave(firstId, c.x(), c.z(), centerFloor, g.waveRows, g.wavePerRow, g.spacingH, g.spacingV, g.facing, auto, new Random());
+            }
+            default -> {
+                int size = SquarePlanner.sizeFor(g.squarePerSide, g.spacingH);
+                if (size < SquarePlanner.MIN_SIZE) {
+                    throw new IllegalArgumentException("A square with " + g.squarePerSide + " portals per side and " + g.spacingH + " blocks between them is only " + size
+                            + " blocks wide, too small to keep the middle open. Use /pd set square per-side or /pd set spacing horizontal with larger values (at least " + SquarePlanner.MIN_SIZE + " blocks wide).");
+                }
+                SquareFacing sf = g.facing == FacingMode.OUTWARD ? SquareFacing.OUTWARD : SquareFacing.INWARD;
+                return FormationPlanner.square(firstId, c.x(), c.z(), centerFloor, g.squarePerSide, g.squareLayers, g.spacingH, g.spacingV, sf);
+            }
+        }
+    }
+
+    /** Every frame block must be within the radius of the center; otherwise nothing is built and the radius is not stretched. */
+    private void requireInsideRadius(Center c, List<PortalSpec> plan) {
+        GenSettings g = pl.settings().gen;
+        int needed = 0;
+        for (PortalSpec p : plan) needed = Math.max(needed, Bounds.radiusNeeded(p, c.x(), c.z()));
+        if (needed > g.effectiveRadius()) {
+            throw new IllegalArgumentException("The " + describeLayout(g) + " reaches " + needed + " blocks from the center, but the radius is " + radiusText(g)
+                    + ", so nothing was built or removed. " + (needed <= 400 ? "Raise it with /pd set radius " + needed + ", or use " : "Use ")
+                    + "fewer " + (g.layout == Layout.SQUARE ? "portals per side" : "rows or columns") + " or a smaller spacing.");
+        }
+    }
+
     private void startFormation(CommandSender s, Scene scene, Center c, boolean partial) {
         Settings st = pl.settings();
         GenSettings g = st.gen;
@@ -288,24 +335,8 @@ final class GenerateCommands {
                     + " can exist at once. Use fewer rows, columns or layers, or raise the limit with /pd set max-portals.");
         }
         boolean ground = g.placement != Placement.AIR;
-        BlockFace auto = c.facingAuto();
-        int centerFloor = c.y() - 1;
-        int firstId = scene.nextId();
-        List<PortalSpec> plan;
-        switch (g.layout) {
-            case GRID -> plan = FormationPlanner.grid(firstId, c.x(), c.z(), centerFloor, g.gridRows, g.gridColumns, g.spacingH, g.spacingV, g.facing, auto, new Random());
-            case WAVE -> plan = FormationPlanner.wave(firstId, c.x(), c.z(), centerFloor, g.waveRows, g.wavePerRow, g.spacingH, g.spacingV, g.facing, auto, new Random());
-            default -> {
-                int size = SquarePlanner.sizeFor(g.squarePerSide, g.spacingH);
-                if (size < SquarePlanner.MIN_SIZE) {
-                    throw new IllegalArgumentException("A square with " + g.squarePerSide + " portals per side and " + g.spacingH + " blocks between them is only " + size
-                            + " blocks wide, too small to keep the middle open. Use /pd set square per-side or /pd set spacing horizontal with larger values (at least " + SquarePlanner.MIN_SIZE + " blocks wide).");
-                }
-                SquareFacing sf = g.facing == FacingMode.OUTWARD ? SquareFacing.OUTWARD : SquareFacing.INWARD;
-                plan = FormationPlanner.square(firstId, c.x(), c.z(), centerFloor, g.squarePerSide, g.squareLayers, g.spacingH, g.spacingV, sf);
-            }
-        }
-        List<PortalSpec> layoutPlan = plan;
+        List<PortalSpec> layoutPlan = plan(c, scene.nextId());
+        requireInsideRadius(c, layoutPlan);
         int minX = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE;
         int minZ = Integer.MAX_VALUE;
@@ -356,14 +387,14 @@ final class GenerateCommands {
             }
         }
         List<PortalSpec> existing = new ArrayList<>(pl.scenes().portalsIn(c.world().getName()));
-        FormationPlanner.Fit fit = FormationPlanner.check(terrain, specs, g.minY, g.maxY, existing, ground, g.maxSlope + 1, lowest);
+        FormationPlanner.Fit fit = FormationPlanner.check(terrain, specs, g.worldYMin, g.worldYMax, existing, ground, PortalPlanner.MAX_SUPPORT, lowest);
         int total = specs.size();
         if (!fit.problems().isEmpty()) {
             for (String p : fit.problems().stream().limit(4).toList()) Msg.info(s, "  blocked - " + p);
             if (fit.problems().size() > 4) Msg.info(s, "  ... and " + (fit.problems().size() - 4) + " more");
             if (!partial) {
                 throw new IllegalArgumentException(fit.problems().size() + " of the " + total + " portals cannot be built here, so nothing was built and nothing was changed. "
-                        + "Move the center with /pd set center, try /pd set mode " + (ground ? "air" : "ground") + ", change the spacing, or add 'skip-blocked' to build only the portals that fit.");
+                        + "Move the center with /pd set center, try /pd set mode " + (ground ? "air" : "ground") + ", change the spacing or the world-y limits, or add 'skip-blocked' to build only the portals that fit.");
             }
         }
         if (fit.usable().isEmpty()) throw new IllegalArgumentException("Nothing fits here.");
@@ -378,7 +409,7 @@ final class GenerateCommands {
         List<PortalSpec> ordered = fit.usable();
         if (g.generation == GenerationMode.DELAYED) {
             boolean randomFacing = g.facing == FacingMode.RANDOM;
-            BlockFace wall = randomFacing ? BlockFace.SOUTH : FormationPlanner.wallFacing(g.facing, c.facingAuto());
+            BlockFace wall = randomFacing ? BlockFace.SOUTH : FormationPlanner.wallFacing(g.facing, BlockFace.SOUTH);
             RevealOrder.Info info = new RevealOrder.Info(wall, g.layout == Layout.WAVE ? g.wavePerRow : g.gridColumns, g.squarePerSide, g.squareLayers, c.x(), c.z());
             java.util.Set<Integer> keep = new java.util.HashSet<>();
             fit.usable().forEach(p -> keep.add(p.id()));
@@ -390,7 +421,6 @@ final class GenerateCommands {
         Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals. " + revealNote(g));
         GenerationJob job = new GenerationJob(pl, c.world(), scene, st, ordered, result -> {
             pl.activeJob(null);
-            pl.groups().fillAll(scene);
             pl.scenes().save(scene);
             if (result.cancelled()) {
                 if (result.placed() == 0) scene.square(null);
@@ -414,11 +444,7 @@ final class GenerateCommands {
     }
 
     private static String facingLabel(GenSettings g) {
-        if (g.layout == Layout.SQUARE) return g.facing == FacingMode.OUTWARD ? "outward" : "inward";
-        return switch (g.facing) {
-            case NORTH, SOUTH, EAST, WEST, RANDOM -> g.facing.name().toLowerCase(Locale.ROOT);
-            default -> "you";
-        };
+        return g.facing.label();
     }
 
     private static String trimSeconds(double v) {
@@ -467,6 +493,9 @@ final class GenerateCommands {
                     throw new IllegalArgumentException("Say which layout it is for: /pd set grid rows 4, /pd set grid columns 5, /pd set square per-side 5, /pd set square layers 3, "
                             + "/pd set wave rows 4 or /pd set wave per-row 5.");
                 }
+                String gone = a.size() > 1 ? GONE.get(first + "-" + a.get(1).toLowerCase(Locale.ROOT)) : null;
+                if (gone == null) gone = GONE.get(first);
+                if (gone != null) throw new IllegalArgumentException("'" + first + "' " + gone + ".");
                 Found f = find(a);
                 if (f == null) {
                     throw new IllegalArgumentException("There is no setting called '" + String.join(" ", a) + "'. /pd settings lists the names, and Tab completion after /pd set shows them.");
@@ -483,6 +512,23 @@ final class GenerateCommands {
                     GenSettings gg = pl.settings().gen;
                     Msg.info(s, "Portals will now appear one by one, every " + trimSeconds(gg.delay) + " s, order " + gg.order.resolve(gg.layout).name().toLowerCase(Locale.ROOT).replace('_', '-') + ". Change the pace with /pd set generation delay 0.5.");
                 }
+                if (f.option().key.equals("generate.layout")) {
+                    GenSettings lg = pl.settings().gen;
+                    if (!FacingMode.allowed(lg.facing, lg.layout)) {
+                        FacingMode was = lg.facing;
+                        lg.facing = FacingMode.defaultFor(lg.layout);
+                        pl.saveSettings();
+                        Msg.info(s, "Facing was " + was.label() + ", which the " + lg.layout.name().toLowerCase(Locale.ROOT) + " layout does not take, so it is now "
+                                + lg.facing.label() + ". Choose another with /pd set facing <" + String.join("|", FacingMode.allowedFor(lg.layout).stream().map(FacingMode::label).toList()) + ">.");
+                    }
+                }
+                if (f.option().key.equals("generate.placement") && pl.settings().gen.placement == Placement.MIXED) {
+                    Msg.info(s, "Mixed builds about half floating and half ground portals (random layout; grid, wave and square stand on the ground).");
+                }
+                if (f.option().key.equals("generate.radius")) {
+                    GenSettings rg = pl.settings().gen;
+                    Msg.info(s, "Portals stay within " + rg.effectiveRadius() + " blocks of the center in every direction (x and z, automatic " + GenSettings.RADIUS_MARGIN_PERCENT + "% margin included).");
+                }
                 if (f.option().key.equals("generate.generation-order") || f.option().key.equals("generate.layout")) {
                     String problem = RevealOrder.problem(pl.settings().gen.layout, pl.settings().gen.order);
                     if (problem != null) Msg.info(s, "Note: " + problem);
@@ -496,7 +542,7 @@ final class GenerateCommands {
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
                 if (a.size() == 1) {
-                    List<String> names = new ArrayList<>(List.of("layout", "generation", "grid", "square", "wave", "count", "mode", "radius", "spacing", "orientation", "facing", "height", "air-ratio", "min-y", "max-y", "slope"));
+                    List<String> names = new ArrayList<>(List.of("altitude-max", "altitude-min", "count", "facing", "generation", "grid", "layout", "mode", "radius", "spacing", "square", "wave", "world-y-max", "world-y-min"));
                     for (Settings.Option o : pl.settings().options().values()) {
                         if (!o.key.startsWith("generate.")) names.add(o.key);
                     }
@@ -505,8 +551,6 @@ final class GenerateCommands {
                 String first = a.get(0).toLowerCase(Locale.ROOT);
                 if (a.size() == 2) {
                     switch (first) {
-                        case "height":
-                            return List.of("min", "max");
                         case "spacing":
                             return List.of("horizontal", "vertical");
                         case "grid":
@@ -524,7 +568,7 @@ final class GenerateCommands {
                 Found f = find(a.subList(0, a.size() - 1));
                 if (f == null || f.used() != a.size() - 1) return List.of();
                 List<String> sug = new ArrayList<>(f.option().suggestions());
-                if (f.option().key.equals("generate.facing")) sug = new ArrayList<>(List.of("north", "south", "east", "west", "random", "inward", "outward", "auto"));
+                if (f.option().key.equals("generate.facing")) sug = new ArrayList<>(FacingMode.allowedFor(pl.settings().gen.layout).stream().map(FacingMode::label).toList());
                 if (sug.isEmpty()) sug.add(String.valueOf(f.option().get()));
                 return sug;
             }
@@ -533,12 +577,23 @@ final class GenerateCommands {
 
     private static String shortName(Settings.Option o) {
         for (Map.Entry<String, String> e : ALIASES.entrySet()) {
-            if (e.getValue().equals(o.key) && !e.getKey().equals("placement") && !e.getKey().startsWith("height-")) return e.getKey();
+            if (e.getValue().equals(o.key) && !e.getKey().equals("placement")) return e.getKey();
         }
-        for (String prefix : new String[]{"spacing-", "height-", "grid-", "square-", "wave-", "generation-"}) {
+        for (String prefix : new String[]{"spacing-", "grid-", "square-", "wave-", "generation-"}) {
             if (o.key.startsWith("generate." + prefix)) return o.key.replace("generate.", "").replaceFirst("-", " ");
         }
-        return o.key;
+        return o.key.startsWith("generate.") ? o.key.substring("generate.".length()) : o.key;
+    }
+
+    /** One line of /pd settings: the name admins type, the value and what it does. */
+    private void row(CommandSender s, String key) {
+        Settings.Option o = pl.settings().options().get(key);
+        Msg.line(s, String.format("    %-19s %-8s %s", shortName(o), o.display(), o.hint));
+    }
+
+    private void section(CommandSender s, String title, String... keys) {
+        Msg.line(s, "  " + title);
+        for (String k : keys) row(s, k);
     }
 
     Sub settings() {
@@ -547,84 +602,78 @@ final class GenerateCommands {
             public void run(CommandSender s, List<String> a) {
                 Settings st = pl.settings();
                 String which = a.isEmpty() ? "generate" : a.get(0).toLowerCase(Locale.ROOT);
+                if (!List.of("generate", "generation", "portals", "tnt", "all").contains(which)) {
+                    throw new IllegalArgumentException("Pick one of: generate, tnt, all.");
+                }
                 Scene sc = pl.scenes().current();
+                GenSettings g = st.gen;
                 Msg.head(s, "Portal Director settings");
                 Msg.line(s, "  Portals now: " + (sc == null ? 0 : sc.portals().size()) + "    Center: "
                         + (st.centerPinned ? (int) st.centerX + (st.centerHasY ? " " + (int) st.centerY : " (your height)") + " " + (int) st.centerZ + " in " + st.centerWorld + " (pinned)" : "wherever you stand"));
-                if (which.equals("generate") || which.equals("generation") || which.equals("portals")) {
-                    GenSettings g = st.gen;
-                    Msg.line(s, "  Layout: " + describeLayout(g) + "  (/pd create builds this)");
-                    List<String[]> rows = new ArrayList<>();
-                    rows.add(new String[]{"layout", "generate.layout"});
-                    switch (g.layout) {
-                        case GRID -> {
-                            rows.add(new String[]{"grid rows", "generate.grid-rows"});
-                            rows.add(new String[]{"grid columns", "generate.grid-columns"});
-                        }
-                        case SQUARE -> {
-                            rows.add(new String[]{"square per-side", "generate.square-per-side"});
-                            rows.add(new String[]{"square layers", "generate.square-layers"});
-                        }
-                        case WAVE -> {
-                            rows.add(new String[]{"wave rows", "generate.wave-rows"});
-                            rows.add(new String[]{"wave per-row", "generate.wave-per-row"});
-                        }
-                        default -> {
-                            rows.add(new String[]{"count", "generate.count"});
-                            rows.add(new String[]{"radius", "generate.radius"});
-                        }
-                    }
-                    rows.add(new String[]{"mode", "generate.placement"});
-                    rows.add(new String[]{SPACING[0], SPACING[1]});
-                    rows.add(new String[]{SPACING[2], SPACING[3]});
-                    rows.add(new String[]{"facing", "generate.facing"});
-                    if (g.layout == Layout.RANDOM) {
-                        rows.add(new String[]{"orientation", "generate.orientation"});
-                        rows.add(new String[]{"height min", "generate.height-min"});
-                        rows.add(new String[]{"height max", "generate.height-max"});
-                        rows.add(new String[]{"air-ratio", "generate.air-ratio"});
-                        rows.add(new String[]{"slope", "generate.max-slope"});
-                    }
-                    rows.add(new String[]{LIMITS[0], LIMITS[1]});
-                    rows.add(new String[]{LIMITS[2], LIMITS[3]});
-                    rows.add(new String[]{"generation", "generate.generation"});
-                    if (g.generation == GenerationMode.DELAYED) {
-                        rows.add(new String[]{"generation delay", "generate.generation-delay"});
-                        rows.add(new String[]{"generation order", "generate.generation-order"});
-                        rows.add(new String[]{"generation effects", "generate.generation-effects"});
-                    }
-                    Msg.line(s, "  Change with /pd set <name> <value>:");
-                    for (String[] row : rows) {
-                        Settings.Option o = st.options().get(row[1]);
-                        Msg.line(s, String.format("    %-19s %-8s %s", row[0], o.display(), o.hint));
-                    }
-                    switch (g.layout) {
-                        case GRID -> Msg.line(s, "  A vertical wall: rows go up, columns go sideways. facing north|south|east|west picks the direction it faces (random turns each portal).");
-                        case SQUARE -> Msg.line(s, "  Square perimeters around an open middle, stacked in layers. facing inward|outward.");
-                        case WAVE -> Msg.line(s, "  Rows that rise and fall like a wave, every other row shifted. facing north|south|east|west.");
-                        default -> Msg.line(s, "  Height min/max are blocks ABOVE the ground for floating portals.");
-                    }
-                    Msg.line(s, "  Spacing: horizontal is the gap side by side, vertical the gap between rows and layers. Other layouts: /pd help layouts. Reveal one by one: /pd set generation delayed.");
-                    Msg.line(s, "  More: /pd settings tnt | players | all");
+                if (which.equals("tnt")) {
+                    tntRows(s, st);
                     return;
                 }
-                String prefix = switch (which) {
-                    case "tnt" -> "tnt.";
-                    case "players", "entrance", "group", "groups" -> "entrance.";
-                    case "all" -> "";
-                    default -> throw new IllegalArgumentException("Pick one of: generate, tnt, players, all.");
-                };
-                for (Settings.Option o : st.options().values()) {
-                    if (o.key.startsWith(prefix) || (which.equals("players") && o.key.startsWith("groups."))) {
-                        Msg.line(s, String.format("    %-34s %-8s %s", o.key, o.display(), o.hint));
-                    }
+                Msg.line(s, "  Layout: " + describeLayout(g) + "  (/pd create builds this)");
+                Msg.line(s, "  Change with /pd set <name> <value>.");
+                switch (g.layout) {
+                    case GRID -> section(s, "Grid", "generate.layout", "generate.grid-rows", "generate.grid-columns");
+                    case SQUARE -> section(s, "Square", "generate.layout", "generate.square-per-side", "generate.square-layers");
+                    case WAVE -> section(s, "Wave", "generate.layout", "generate.wave-rows", "generate.wave-per-row");
+                    default -> section(s, "Random", "generate.layout", "generate.count");
                 }
-                if (which.equals("tnt")) Msg.line(s, "  " + (st.tntPreview ? "SAFE MODE is on (nothing explodes)." : "Real explosions are on.") + " Details: /pd tnt status");
+                Msg.line(s, "  Area");
+                Msg.line(s, "    Radius: " + radiusText(g));
+                Msg.line(s, "    Portals stay within x and z +/- " + g.effectiveRadius() + " of the center, frames included.");
+                section(s, "Placement", "generate.placement", "generate.facing");
+                section(s, "Spacing", "generate.spacing-horizontal", "generate.spacing-vertical");
+                Msg.line(s, "  Heights (optional, the defaults suit most worlds)");
+                if (g.layout == Layout.RANDOM) {
+                    row(s, "generate.altitude-min");
+                    row(s, "generate.altitude-max");
+                }
+                row(s, "generate.world-y-min");
+                row(s, "generate.world-y-max");
+                section(s, "Timing", "generate.generation");
+                if (g.generation == GenerationMode.DELAYED) {
+                    row(s, "generate.generation-delay");
+                    row(s, "generate.generation-order");
+                    row(s, "generate.generation-effects");
+                }
+                if (which.equals("all")) {
+                    if (g.layout != Layout.RANDOM) {
+                        section(s, "Other layouts", "generate.count", "generate.grid-rows", "generate.grid-columns", "generate.square-per-side",
+                                "generate.square-layers", "generate.wave-rows", "generate.wave-per-row");
+                    } else {
+                        section(s, "Other layouts", "generate.grid-rows", "generate.grid-columns", "generate.square-per-side",
+                                "generate.square-layers", "generate.wave-rows", "generate.wave-per-row");
+                        Msg.line(s, "    (altitude settings are shown above)");
+                    }
+                    if (g.layout != Layout.RANDOM) {
+                        row(s, "generate.altitude-min");
+                        row(s, "generate.altitude-max");
+                    }
+                    if (g.generation != GenerationMode.DELAYED) {
+                        section(s, "Delayed generation", "generate.generation-delay", "generate.generation-order", "generate.generation-effects");
+                    }
+                    section(s, "Limits", "generate.blocks-per-tick", "generate.max-chunks", "generate.max-portals");
+                    tntRows(s, st);
+                } else {
+                    Msg.line(s, "  More: /pd settings tnt | all. Tips and examples: /pd help set");
+                }
+            }
+
+            private void tntRows(CommandSender s, Settings st) {
+                Msg.line(s, "  TNT");
+                for (Settings.Option o : st.options().values()) {
+                    if (o.key.startsWith("tnt.")) Msg.line(s, String.format("    %-24s %-8s %s", o.key, o.display(), o.hint));
+                }
+                Msg.line(s, "  " + (st.tntPreview ? "SAFE MODE is on (nothing explodes)." : "Real explosions are on.") + " Details: /pd tnt status");
             }
 
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
-                return a.size() == 1 ? List.of("generate", "tnt", "players", "all") : List.of();
+                return a.size() == 1 ? List.of("all", "generate", "tnt") : List.of();
             }
         };
     }

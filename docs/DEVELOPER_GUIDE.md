@@ -25,20 +25,26 @@ Pinned versions (in `build.gradle.kts`): Paper API 26.3.build.231-stable, MockBu
 ./gradlew test
 ```
 
-The unit tests use MockBukkit and plain JUnit. They cover the layout planners, reveal ordering, spacing, terrain rules, portal names (including old scene files without names), settings migration, scene saving and block restoring. The report is in `build/reports/tests/test/index.html`.
+The unit tests use MockBukkit and plain JUnit. They cover the layout planners, the radius boundary (every frame block, every facing, the fixed 5% margin), mixed-mode balance, altitude and world-y limits, reveal ordering, spacing, terrain rules, portal names (including old scene files without names), settings migration and validation, help pages, scene saving and block restoring. The report is in `build/reports/tests/test/index.html`.
 
 ## Code layout
 
 | Package | What is in it |
 |---|---|
 | `command` | `/pd` and its subcommands, tab completion, and `HelpCommand` (the paginated, clickable help) |
-| `gen` | Layout planners (random, grid, square, wave), reveal orders, the generation job |
+| `gen` | Layout planners (random, grid, square, wave), the radius `Bounds`, facing rules (`FacingMode`), reveal orders, the generation job |
 | `scene` | Remembered portals (with their names) and block log, saving to disk, safe removal |
-| `group` | Groups, join blocks, portal assignment |
-| `entrance` | Preparing and releasing players, release patterns |
+| `group` | Groups and join blocks (a roster of players) |
 | `tnt` | TNT minecart launching and waves |
 
-`Settings.java` is the single list of options behind `/pd set` and `/pd settings`.
+`Settings.java` is the single list of options behind `/pd set` and `/pd settings`. Renamed and removed config keys are listed at the top of it (`RENAMED`, `REMOVED`) and migrated in `load`; a test in `SettingsMigrationTest` covers each one. Minimum and maximum settings validate each other in `Settings` (and `GenSettings.problem()` before a build).
+
+How the rules are kept:
+
+- **Radius.** `GenSettings.effectiveRadius()` is the radius plus the fixed 5% margin (`RADIUS_MARGIN_PERCENT`, deliberately not a setting), rounded down. The random planner samples the frame's corner inside `Bounds` so the whole obsidian frame fits; grid, wave and square are checked against `Bounds` before anything is removed or built (`requireInsideRadius`).
+- **Facing.** `FacingMode.allowedFor(layout)` is the one list of values a layout takes; the axis is always derived from the facing.
+- **Ground and slope.** The step a ground portal may stand on is the constant `PortalPlanner.MAX_GROUND_STEP`, not a setting. A failed ground spot is retried a few blocks away before it counts as a rejection.
+- **Heights.** `altitude-min/max` are blocks above the local terrain (floating portals); `world-y-min/max` are absolute and apply to every portal frame.
 
 Portals keep an internal numeric id (assignments and block records use it) and a name that people type. `Scene.addPortal` gives generated portals `portal-<id>`; `PortalCommands` handles `/pd create portal` and `/pd remove`. All Tab suggestions go through one alphabetical sort in `PdCommand.onTabComplete`, and `subs` there is a sorted map, so a new command only needs to be added once.
 
@@ -55,9 +61,10 @@ npm install --ignore-scripts
 node layout-test.js
 node reveal-test.js
 node names-test.js
+node simplify-test.js
 ```
 
-`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
+`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
 
 Keep test servers and worlds outside this repository.
 

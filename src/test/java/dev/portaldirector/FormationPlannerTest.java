@@ -1,6 +1,5 @@
 package dev.portaldirector;
 
-import dev.portaldirector.entrance.ReleasePattern;
 import dev.portaldirector.gen.FacingMode;
 import dev.portaldirector.gen.FormationPlanner;
 import dev.portaldirector.gen.SquareFacing;
@@ -306,21 +305,5 @@ class FormationPlannerTest {
         assertEquals(4, fit.usable().size());
         assertTrue(fit.usable().stream().filter(p -> p.y() == 64).noneMatch(PortalSpec::floating));
         assertTrue(fit.usable().stream().filter(p -> p.y() > 64).allMatch(PortalSpec::floating));
-    }
-
-    // Release patterns with layers
-
-    @Test
-    void releasePatternsGroupBySideAcrossLayersAndGoAroundLayerByLayer() {
-        List<List<Integer>> sides = List.of(List.of(1, 2, 9, 10), List.of(3, 4, 11, 12), List.of(5, 6, 13, 14), List.of(7, 8, 15, 16));
-        List<Integer> ring = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
-        Set<Integer> all = new HashSet<>(ring);
-        assertEquals(List.of(ring), ReleasePattern.ALL_AT_ONCE.waves(sides, ring, all, 1));
-        assertEquals(sides, ReleasePattern.SIDE_BY_SIDE.waves(sides, ring, all, 1));
-        assertEquals(List.of(List.of(1, 2, 9, 10, 5, 6, 13, 14), List.of(3, 4, 11, 12, 7, 8, 15, 16)), ReleasePattern.OPPOSITE_SIDES.waves(sides, ring, all, 1));
-        assertEquals(16, ReleasePattern.CLOCKWISE.waves(sides, ring, all, 1).size());
-        assertEquals(List.of(1, 2, 3, 4), ReleasePattern.CLOCKWISE.waves(sides, ring, all, 4).get(0));
-        assertEquals(List.of(List.of(1), List.of(5), List.of(8)), ReleasePattern.SIDE_BY_SIDE.waves(sides, ring, Set.of(1, 5, 8), 1));
-        assertEquals(ReleasePattern.OPPOSITE_SIDES, ReleasePattern.parse("opposite-sides"));
     }
 }

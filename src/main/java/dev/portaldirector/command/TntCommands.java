@@ -70,14 +70,11 @@ final class TntCommands {
                         default -> List.of();
                     };
                 }
-                if (sub.equals("launch") && a.size() == 3 && a.get(1).equalsIgnoreCase("group")) {
-                    return pl.groups().all().stream().map(g -> g.name()).toList();
-                }
                 if (sub.equals("launch") && a.size() == 3 && a.get(1).equalsIgnoreCase("side")) return List.of("north", "east", "south", "west");
                 if (sub.equals("launch")) return List.of("1", "2", "3", "stagger");
                 if (sub.equals("wave") && a.size() == 3) return List.of("5", "10", "20");
                 if (sub.equals("wave") && a.size() == 4) return List.of("1", "2", "3");
-                if (sub.equals("wave") && a.size() == 5) return List.of("all", "floating", "ground", "square", "group");
+                if (sub.equals("wave") && a.size() == 5) return List.of("all", "floating", "ground", "square");
                 return List.of();
             }
         };
@@ -87,7 +84,7 @@ final class TntCommands {
         Msg.head(s, "TNT minecarts");
         Msg.cmd(s, "/pd tnt launch all", "one minecart out of every portal, all at once");
         Msg.cmd(s, "/pd tnt launch all 3", "three per portal");
-        Msg.cmd(s, "/pd tnt launch 1,4,10-15", "only those portals (also: floating, ground, square, side east, group NAME)");
+        Msg.cmd(s, "/pd tnt launch 1,4,10-15", "only those portals (also: floating, ground, square, side east, or portal names)");
         Msg.cmd(s, "/pd tnt launch all 2 stagger 0.5", "half a second between portals");
         Msg.cmd(s, "/pd tnt wave 5 20", "5 waves, 20 seconds apart");
         Msg.cmd(s, "/pd tnt mode safe|real", "safe: nothing explodes, real: they explode");
@@ -116,7 +113,7 @@ final class TntCommands {
     }
 
     private List<String> launchTargets() {
-        List<String> out = new java.util.ArrayList<>(List.of("all", "floating", "ground", "square", "side", "group"));
+        List<String> out = new java.util.ArrayList<>(List.of("all", "floating", "ground", "square", "side"));
         Scene sc = pl.scenes().current();
         if (sc != null) sc.portals().keySet().stream().limit(60).map(sc::nameOf).forEach(out::add);
         return out;

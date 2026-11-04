@@ -1,8 +1,5 @@
 package dev.portaldirector.group;
 
-import dev.portaldirector.Settings;
-import dev.portaldirector.scene.Scene;
-import dev.portaldirector.scene.SceneManager;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -15,28 +12,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-/** Creates and stores groups and keeps portal assignments in the current scene. */
+/** Creates and stores groups: a name, a join block and a list of players. */
 public final class GroupManager {
 
     private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9_-]{1,24}");
 
     private final File file;
     private final Logger log;
-    private final Settings settings;
-    private final SceneManager scenes;
     private final Map<String, Group> groups = new LinkedHashMap<>();
     private final Map<Material, Group> byBlock = new EnumMap<>(Material.class);
 
-    public GroupManager(File file, Logger log, Settings settings, SceneManager scenes) {
+    public GroupManager(File file, Logger log) {
         this.file = file;
         this.log = log;
-        this.settings = settings;
-        this.scenes = scenes;
     }
 
     public void load() {
@@ -106,9 +98,6 @@ public final class GroupManager {
     public void delete(Group g) {
         groups.remove(g.name().toLowerCase(Locale.ROOT));
         if (g.joinBlock() != null) byBlock.remove(g.joinBlock());
-        for (Scene s : scenes.all()) {
-            if (s.assignments().remove(g.name().toLowerCase(Locale.ROOT)) != null) scenes.save(s);
-        }
         save();
     }
 
@@ -135,52 +124,16 @@ public final class GroupManager {
         save();
     }
 
-    /** Adds the player once. Returns the assigned portal id, 0 when no portal was given, -1 if already a member. */
-    public int join(Group g, UUID player, String name) {
-        if (g.has(player)) {
-            g.members().put(player, name);
-            return -1;
-        }
+    /** Adds the player once. Returns false when they were already a member. */
+    public boolean join(Group g, UUID player, String name) {
+        boolean added = !g.has(player);
         g.members().put(player, name);
-        save();
-        Scene scene = scenes.current();
-        if (settings.autoAssignJoiners && scene != null && !scene.portals().isEmpty()) {
-            TreeMap<Integer, UUID> map = scene.assignmentsOf(g.name());
-            int free = Assigner.firstFree(new ArrayList<>(scene.portals().keySet()), map);
-            if (free > 0) {
-                Assigner.assign(map, free, player);
-                scenes.save(scene);
-                return free;
-            }
-        }
-        return 0;
+        if (added) save();
+        return added;
     }
 
     public void remove(Group g, UUID player) {
         g.members().remove(player);
-        for (Scene s : scenes.all()) {
-            TreeMap<Integer, UUID> map = s.assignments().get(g.name().toLowerCase(Locale.ROOT));
-            if (map != null && map.values().removeIf(player::equals)) scenes.save(s);
-        }
         save();
-    }
-
-    /** Assigns the whole group in the current scene. Returns the resulting map. */
-    public TreeMap<Integer, UUID> autoAssign(Group g, Scene scene, boolean keepExisting) {
-        TreeMap<Integer, UUID> existing = scene.assignmentsOf(g.name());
-        TreeMap<Integer, UUID> result = Assigner.auto(new ArrayList<>(scene.portals().keySet()),
-                new ArrayList<>(g.members().keySet()), existing, keepExisting);
-        existing.clear();
-        existing.putAll(result);
-        scenes.save(scene);
-        return result;
-    }
-
-    /** Fills free portals for members of auto-assign groups, used after a scene gets new portals. */
-    public void fillAll(Scene scene) {
-        if (!settings.autoAssignJoiners) return;
-        for (Group g : groups.values()) {
-            if (!g.members().isEmpty()) autoAssign(g, scene, true);
-        }
     }
 }

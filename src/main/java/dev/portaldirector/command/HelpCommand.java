@@ -47,7 +47,7 @@ final class HelpCommand implements Sub {
                             e("3. /pd list", "/pd list", "see every portal and where it is"),
                             e("4. /pd remove", "/pd remove ", "take one portal down by name"),
                             e("5. /pd clear", "/pd clear", "remove all and restore the ground")),
-                    List.of("Try it (click a line, then press Enter):", "/pd set layout grid", "/pd create", "Topics: create, portals, set, layouts, reveal, group, tnt, scenes"),
+                    List.of("Try it (click a line, then press Enter):", "/pd set layout grid", "/pd create", "Topics: create, examples, group, layouts, portals, reveal, scenes, set, tnt"),
                     true),
             new Topic("create", "Creating portals", List.of("generate", "build"),
                     List.of("Builds the layout chosen with /pd set layout."),
@@ -57,7 +57,15 @@ final class HelpCommand implements Sub {
                             e("/pd create more", "/pd create more", "keep the portals you have and build another set"),
                             e("/pd create replacement", "/pd create replacement", "remove the old portals first, then build"),
                             e("/pd create skip-blocked", "/pd create skip-blocked", "build only the portals that fit, skip blocked spots"))),
-                    List.of("Combine them: /pd create 30 more skip-blocked", "Stand on the ground or in the air: /pd set mode"),
+                    List.of("Combine them: /pd create 30 more skip-blocked", "Ground or sky? /pd set mode. Size? /pd set radius."),
+                    false),
+            new Topic("examples", "Examples", List.of("example", "recipes"),
+                    List.of("Click a line, then press Enter."),
+                    List.of(),
+                    List.of("30 floating portals:", "/pd set mode air", "/pd set radius 80", "/pd create 30",
+                            "Floating portals at different heights:", "/pd set altitude-min 20", "/pd set altitude-max 50",
+                            "Keep portals between two world heights:", "/pd set world-y-min 80", "/pd set world-y-max 180",
+                            "A wall that faces north:", "/pd set layout grid", "/pd set facing north", "/pd create"),
                     false),
             new Topic("portals", "Single named portals", List.of("manual", "portal"),
                     List.of("Name one portal yourself and place it exactly."),
@@ -70,18 +78,23 @@ final class HelpCommand implements Sub {
                     List.of("Direction: north, south, east or west.", "x y z is the lower block inside the doorway."),
                     false),
             new Topic("set", "Settings", List.of("settings", "config"),
-                    List.of("All configuration goes through /pd set."),
+                    List.of("Everything is changed with /pd set <name> <value>.", "Altitude and World Y are optional: the defaults", "already suit most worlds."),
                     sorted(List.of(
-                            e("/pd set center here", "/pd set center here", "build around this spot (or x y z, or reset)"),
-                            e("/pd set count 30", "/pd set count 30", "random layout: number of portals"),
-                            e("/pd set facing south", "/pd set facing south", "north, south, east, west or random"),
-                            e("/pd set layout grid", "/pd set layout grid", "random, grid, square or wave"),
-                            e("/pd set mode air", "/pd set mode air", "ground, air or mixed: where portals stand"),
-                            e("/pd set radius 100", "/pd set radius 100", "random layout: how far from the center"),
-                            e("/pd set spacing horizontal 8", "/pd set spacing horizontal 8", "gap between portals side by side (or vertical)"),
-                            e("/pd set staging here", "/pd set staging here", "hold prepared players here (or clear)"),
-                            e("/pd settings", "/pd settings", "show every value; /pd settings all lists more"))),
-                    List.of("Layout sizes: /pd help layouts. Reveal: /pd help reveal."),
+                            e("/pd set altitude-max 60", "/pd set altitude-max 60", "Altitude Max: highest floating portal above ground"),
+                            e("/pd set altitude-min 15", "/pd set altitude-min 15", "Altitude Min: lowest floating portal above ground"),
+                            e("/pd set center here", "/pd set center here", "Center: build around this spot (or x y z, or reset)"),
+                            e("/pd set count 30", "/pd set count 30", "Count: portals the random layout makes"),
+                            e("/pd set facing north", "/pd set facing north", "Facing: which way portals face and TNT launches"),
+                            e("/pd set generation delay 0.5", "/pd set generation delay 0.5", "Generation Delay: seconds between portals"),
+                            e("/pd set layout grid", "/pd set layout grid", "Layout: random, grid, square or wave"),
+                            e("/pd set mode air", "/pd set mode air", "Mode: ground, air, or mixed (half and half)"),
+                            e("/pd set radius 80", "/pd set radius 80", "Radius: how far N, S, E and W, plus an automatic 5%"),
+                            e("/pd set spacing horizontal 8", "/pd set spacing horizontal 8", "Spacing Horizontal: gap between frames side by side"),
+                            e("/pd set spacing vertical 5", "/pd set spacing vertical 5", "Spacing Vertical: gap between frames above each other"),
+                            e("/pd set world-y-max 320", "/pd set world-y-max 320", "World Y Max: highest Minecraft Y portals may use"),
+                            e("/pd set world-y-min -64", "/pd set world-y-min -64", "World Y Min: lowest Minecraft Y portals may use"),
+                            e("/pd settings", "/pd settings", "Show every value; /pd settings all shows more"))),
+                    List.of("Altitude counts up from the ground nearby.", "World Y is the real Minecraft Y: a safety limit,", "not a height above the ground."),
                     false),
             new Topic("layouts", "Layouts", List.of("layout", "formations"),
                     List.of("Pick with /pd set layout, set its size, then /pd create."),
@@ -90,7 +103,7 @@ final class HelpCommand implements Sub {
                             e("/pd set layout random", "/pd set layout random", "scattered: count and radius"),
                             e("/pd set layout square", "/pd set square per-side 5", "a ring: square per-side 5, layers 3 = 60"),
                             e("/pd set layout wave", "/pd set wave rows 4", "wavy rows: wave rows 4 and wave per-row 5"))),
-                    List.of("Rows and layers go up; columns and sides go across.", "Squares face inward or outward."),
+                    List.of("Rows and layers go up; columns and sides go across.", "Facing: north, south, east, west or random;", "the square uses inward or outward.", "Every layout stays inside the radius."),
                     false),
             new Topic("reveal", "Cinematic reveal", List.of("delay", "cinematic", "generation"),
                     List.of("Make portals appear one by one instead of at once."),
@@ -103,28 +116,24 @@ final class HelpCommand implements Sub {
                             e("/pd stop", "/pd stop", "cancel; portals already built stay"))),
                     List.of("Orders: bottom-to-top, clockwise, counterclockwise,", "left-to-right, random, top-to-bottom, auto."),
                     false),
-            new Topic("group", "Groups and entrances", List.of("players", "groups", "entrance"),
-                    List.of("Players walk out of their own portal together."),
+            new Topic("group", "Groups", List.of("players", "groups", "roster"),
+                    List.of("A list of players. Anyone who steps on the", "group's join block is added automatically."),
                     sorted(List.of(
-                            e("/pd group add <player>", "/pd group add ", "add a player by hand (or remove)"),
-                            e("/pd group assign <group> auto", "/pd group assign team auto", "portal 1 to player 1, and so on"),
-                            e("/pd group assign <group> <portal> <player>", "/pd group assign team EntranceA ", "one player to one named portal"),
-                            e("/pd group assignments", "/pd group assignments", "who is at which portal"),
+                            e("/pd group add <player>", "/pd group add ", "add a player by hand"),
                             e("/pd group block set <block>", "/pd group block set emerald_block", "stepping on this block joins the group"),
                             e("/pd group create <group>", "/pd group create team", "make a group"),
                             e("/pd group disband <group>", "/pd group disband ", "delete a group"),
-                            e("/pd group info", "/pd group info", "members and their portals"),
-                            e("/pd group prepare <group>", "/pd group prepare team", "everyone waits inside their portal"),
-                            e("/pd group release <group>", "/pd group release team", "everyone walks out together"),
-                            e("/pd group reset <group>", "/pd group reset team", "cancel and send everyone back"))),
-                    List.of("Patterns: all-at-once, clockwise, opposite-sides,", "side-by-side (squares), staggered <secs> [per wave]."),
+                            e("/pd group info", "/pd group info", "who is in the group"),
+                            e("/pd group list", "/pd group list", "every group and its join block"),
+                            e("/pd group remove <player>", "/pd group remove ", "take a player out"))),
+                    List.of(),
                     false),
             new Topic("tnt", "TNT minecarts", List.of("minecart", "minecarts"),
                     List.of("Minecarts leave through the portals."),
                     sorted(List.of(
                             e("/pd tnt clear", "/pd tnt clear", "stop and remove every TNT minecart"),
                             e("/pd tnt fuse 3", "/pd tnt fuse 3", "explode this many seconds after launch (or off)"),
-                            e("/pd tnt launch all", "/pd tnt launch all", "one per portal; also floating, ground, group <name>"),
+                            e("/pd tnt launch all", "/pd tnt launch all", "one per portal; also floating or ground"),
                             e("/pd tnt launch <name>", "/pd tnt launch EntranceA", "or named portals, e.g. EntranceA,EntranceB"),
                             e("/pd tnt limit 300", "/pd tnt limit 300", "most minecarts alive at once"),
                             e("/pd tnt mode safe", "/pd tnt mode safe", "safe: no explosions; real: they explode"),
@@ -236,7 +245,7 @@ final class HelpCommand implements Sub {
             if (line.startsWith("/pd ")) {
                 out.add(click(line, NamedTextColor.AQUA, ClickEvent.suggestCommand(line), "Click to put this in your chat box"));
             } else if (line.startsWith("Topics: ")) {
-                out.add(topicLinks());
+                out.addAll(topicLinks());
             } else {
                 out.add(Component.text(line, NamedTextColor.GRAY));
             }
@@ -245,14 +254,21 @@ final class HelpCommand implements Sub {
         return out;
     }
 
-    private static Component topicLinks() {
-        Component c = Component.text("Topics: ", NamedTextColor.GRAY);
+    /** The topic names as clickable words, over two lines so they fit the chat window. */
+    private static List<Component> topicLinks() {
         List<String> names = topicNames();
-        for (int i = 0; i < names.size(); i++) {
-            c = c.append(click(names.get(i), NamedTextColor.YELLOW, ClickEvent.runCommand("/pd help " + names.get(i)), "Open /pd help " + names.get(i)));
-            if (i < names.size() - 1) c = c.append(Component.text(" ", NamedTextColor.GRAY));
+        int half = (names.size() + 1) / 2;
+        List<Component> out = new ArrayList<>();
+        for (int row = 0; row < 2; row++) {
+            Component c = Component.text(row == 0 ? "Topics: " : "        ", NamedTextColor.GRAY);
+            List<String> part = names.subList(row == 0 ? 0 : half, row == 0 ? half : names.size());
+            for (int i = 0; i < part.size(); i++) {
+                c = c.append(click(part.get(i), NamedTextColor.YELLOW, ClickEvent.runCommand("/pd help " + part.get(i)), "Open /pd help " + part.get(i)));
+                if (i < part.size() - 1) c = c.append(Component.text(" ", NamedTextColor.GRAY));
+            }
+            out.add(c);
         }
-        return c;
+        return out;
     }
 
     private static Component footer(int index) {

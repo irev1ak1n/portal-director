@@ -41,6 +41,13 @@ public final class PortalEdits {
                 if (top < world.getMinHeight() || p.y() - 1 - top > maxSupport) continue;
                 BlockData fill = supportFor(world.getBlockAt(x, top, z).getType());
                 for (int y = top + 1; y < p.y(); y++) edits.add(new Edit(x, y, z, fill));
+                // A hollow right under the surface (a cave mouth, an overhang) would leave the frame hanging: fill it too,
+                // down to solid ground and never deeper than the five blocks per-portal removal knows about.
+                for (int y = p.y() - 1; top >= p.y() - 1 && y >= p.y() - 5 && y > world.getMinHeight(); y--) {
+                    var b = world.getBlockAt(x, y, z);
+                    if (!(b.getType().isAir() || (b.isPassable() && !b.isLiquid()))) break;
+                    edits.add(new Edit(x, y, z, fill));
+                }
             }
         }
         for (int[] c : p.corridorBlocks()) {

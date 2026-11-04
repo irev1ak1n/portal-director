@@ -42,14 +42,12 @@ final class SceneCommands {
             return;
         }
         pl.tnt().stop();
-        pl.entrance().resetScene(sc);
         RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, result -> {
             pl.activeJob(null);
             if (result.cancelled()) {
                 Msg.info(s, "Stopped. " + result.restored() + " blocks restored; run /pd clear again to finish.");
             } else {
                 sc.clearPortals();
-                sc.assignments().clear();
                 sc.square(null);
                 Msg.ok(s, "Cleared: " + result.restored() + " blocks restored"
                         + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : "."));

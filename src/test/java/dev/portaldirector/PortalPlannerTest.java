@@ -3,7 +3,7 @@ package dev.portaldirector;
 import dev.portaldirector.gen.FacingMode;
 import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.Layout;
-import dev.portaldirector.gen.Orientation;
+import dev.portaldirector.gen.Bounds;
 import dev.portaldirector.gen.Placement;
 import dev.portaldirector.gen.PortalPlanner;
 import dev.portaldirector.model.PortalSpec;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PortalPlannerTest {
 
     private static List<PortalSpec> run(FakeTerrain t, GenSettings s, List<PortalSpec> existing, int firstId, long seed) {
-        PortalPlanner.Session session = new PortalPlanner.Session(t, s, 0, 0, 0, 1, existing, firstId, new Random(seed));
+        PortalPlanner.Session session = new PortalPlanner.Session(t, s, 0, 0, existing, firstId, new Random(seed));
         while (!session.done()) session.step(50);
         return session.placed();
     }
@@ -119,7 +119,7 @@ class PortalPlannerTest {
     void steepGroundIsRejected() {
         FakeTerrain cliffs = new FakeTerrain((x, z) -> Math.floorMod(x, 2) == 0 ? 60 : 80);
         GenSettings s = settings(5, Placement.GROUND, Layout.RANDOM);
-        s.orientation = Orientation.X;
+        s.facing = FacingMode.NORTH;
         assertTrue(run(cliffs, s, List.of(), 1, 4).isEmpty());
     }
 
@@ -129,8 +129,8 @@ class PortalPlannerTest {
         s.radius = 10;
         s.spacingH = 8;
         s.spacingV = 5;
-        s.heightMin = 2;
-        s.heightMax = 90;
+        s.altitudeMin = 2;
+        s.altitudeMax = 90;
         List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 21);
         assertNoOverlapAndGap(out, 8, 5);
         int stackedPairs = 0;
@@ -145,12 +145,12 @@ class PortalPlannerTest {
 
     @Test
     void portalsAtTheSameHeightKeepTheHorizontalGapWhateverTheirRotation() {
-        for (Orientation o : Orientation.values()) {
+        for (FacingMode f : new FacingMode[]{FacingMode.RANDOM, FacingMode.NORTH, FacingMode.EAST}) {
             GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
-            s.orientation = o;
+            s.facing = f;
             s.radius = 40;
-            s.heightMin = 20;
-            s.heightMax = 20;
+            s.altitudeMin = 20;
+            s.altitudeMax = 20;
             s.spacingH = 9;
             s.spacingV = 3;
             List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 5);
@@ -170,7 +170,7 @@ class PortalPlannerTest {
         FakeTerrain hill = new FakeTerrain((x, z) -> z >= 10 ? 90 : 64);
         GenSettings s = settings(30, Placement.GROUND, Layout.RANDOM);
         s.radius = 40;
-        s.orientation = Orientation.X;
+        s.facing = FacingMode.NORTH;
         for (PortalSpec p : run(hill, s, List.of(), 1, 12)) {
             for (int[] c : p.corridorBlocks()) {
                 if (c[1] == p.y() + 1) assertTrue(hill.topY(c[0], c[2]) <= p.y() + 1, "walkway of portal " + p.id() + " is inside the hill");
@@ -181,8 +181,8 @@ class PortalPlannerTest {
     @Test
     void floatingPortalsHangInTheHeightRangeAboveTheGround() {
         GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
-        s.heightMin = 25;
-        s.heightMax = 80;
+        s.altitudeMin = 25;
+        s.altitudeMax = 80;
         List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 9);
         assertEquals(30, out.size());
         Set<Integer> heights = new HashSet<>();
@@ -202,27 +202,188 @@ class PortalPlannerTest {
     }
 
     @Test
-    void orientationIsHonoured() {
+    void facingDecidesWhichWayTheFrameRuns() {
+        for (FacingMode f : new FacingMode[]{FacingMode.NORTH, FacingMode.SOUTH, FacingMode.EAST, FacingMode.WEST}) {
+            GenSettings s = settings(20, Placement.GROUND, Layout.RANDOM);
+            s.facing = f;
+            Axis axis = f == FacingMode.NORTH || f == FacingMode.SOUTH ? Axis.X : Axis.Z;
+            List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 1);
+            assertFalse(out.isEmpty(), f.name());
+            for (PortalSpec p : out) {
+                assertEquals(BlockFace.valueOf(f.name()), p.facing(), f.name());
+                assertEquals(axis, p.axis(), f.name());
+            }
+        }
         GenSettings s = settings(20, Placement.GROUND, Layout.RANDOM);
-        s.orientation = Orientation.X;
-        assertTrue(run(FakeTerrain.flat(64), s, List.of(), 1, 1).stream().allMatch(p -> p.axis() == Axis.X));
-        s.orientation = Orientation.Z;
-        assertTrue(run(FakeTerrain.flat(64), s, List.of(), 1, 1).stream().allMatch(p -> p.axis() == Axis.Z));
-        s.orientation = Orientation.RANDOM;
+        s.facing = FacingMode.RANDOM;
         List<PortalSpec> random = run(FakeTerrain.flat(64), s, List.of(), 1, 1);
         assertTrue(random.stream().anyMatch(p -> p.axis() == Axis.X));
         assertTrue(random.stream().anyMatch(p -> p.axis() == Axis.Z));
+        assertEquals(java.util.Set.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST), random.stream().map(PortalSpec::facing).collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test
-    void autoFacingPointsAtTheCenterForRandomAndCircle() {
-        for (Layout layout : new Layout[]{Layout.RANDOM}) {
-            GenSettings s = settings(24, Placement.GROUND, layout);
-            s.radius = 60;
-            for (PortalSpec p : run(FakeTerrain.flat(64), s, List.of(), 1, 6)) {
-                double along = p.stepX() * -p.centerX() + p.stepZ() * -p.centerZ();
-                assertTrue(along >= -2, "portal " + p.id() + " should face the middle");
+    void everyFrameBlockStaysInsideTheRadiusSquareForEveryFacing() {
+        int cx = 100;
+        int cz = -50;
+        for (FacingMode f : new FacingMode[]{FacingMode.NORTH, FacingMode.SOUTH, FacingMode.EAST, FacingMode.WEST, FacingMode.RANDOM}) {
+            for (Placement place : Placement.values()) {
+                GenSettings s = settings(80, place, Layout.RANDOM);
+                s.facing = f;
+                s.radius = 30;
+                s.spacingH = 1;
+                s.spacingV = 1;
+                PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, cx, cz, List.of(), 1, new Random(5));
+                while (!session.done()) session.step(100);
+                assertFalse(session.placed().isEmpty(), f + " " + place);
+                for (PortalSpec p : session.placed()) {
+                    for (int[] b : p.frameBlocks()) {
+                        assertTrue(Math.abs(b[0] - cx) <= 31 && Math.abs(b[2] - cz) <= 31, f + " " + place + ": frame block " + b[0] + "," + b[2] + " is beyond the radius");
+                    }
+                }
             }
+        }
+    }
+
+    @Test
+    void theRadiusIsReallyUsedUpToItsEdge() {
+        GenSettings s = settings(300, Placement.GROUND, Layout.RANDOM);
+        s.radius = 20;
+        s.spacingH = 1;
+        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, List.of(), 1, new Random(3));
+        while (!session.done()) session.step(200);
+        int reach = 0;
+        for (PortalSpec p : session.placed()) reach = Math.max(reach, Bounds.radiusNeeded(p, 0, 0));
+        assertEquals(21, reach, "some frame should touch the effective boundary");
+    }
+
+    @Test
+    void anAutomaticFivePercentMarginIsAddedOnEachSide() {
+        GenSettings s = new GenSettings();
+        s.radius = 100;
+        assertEquals(105, s.effectiveRadius());
+        s.radius = 50;
+        assertEquals(52, s.effectiveRadius());
+        s.radius = 20;
+        assertEquals(21, s.effectiveRadius());
+        s.radius = 8;
+        assertEquals(8, s.effectiveRadius());
+        GenSettings m = settings(300, Placement.GROUND, Layout.RANDOM);
+        m.radius = 40;
+        m.spacingH = 1;
+        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), m, 0, 0, List.of(), 1, new Random(3));
+        while (!session.done()) session.step(200);
+        int reach = 0;
+        for (PortalSpec p : session.placed()) reach = Math.max(reach, Bounds.radiusNeeded(p, 0, 0));
+        assertTrue(reach <= 42, "reach " + reach);
+        assertTrue(reach >= 41, "the margin should be used: " + reach);
+    }
+
+    @Test
+    void aRadiusTooSmallForAFrameBuildsNothingAndSaysWhy() {
+        GenSettings s = settings(5, Placement.GROUND, Layout.RANDOM);
+        s.radius = 1;
+        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, List.of(), 1, new Random(1));
+        while (!session.done()) session.step(100);
+        assertTrue(session.placed().isEmpty());
+        assertTrue(session.reasons().containsKey("the radius is too small for a portal"), session.reasons().toString());
+    }
+
+    @Test
+    void mixedModeIsAboutHalfFloatingAndHalfOnTheGround() {
+        for (long seed : new long[]{1, 2, 3}) {
+            List<PortalSpec> out = run(FakeTerrain.flat(64), settings(60, Placement.MIXED, Layout.RANDOM), List.of(), 1, seed);
+            long floating = out.stream().filter(PortalSpec::floating).count();
+            assertEquals(60, out.size());
+            assertTrue(floating >= 27 && floating <= 33, "floating " + floating + " of " + out.size());
+        }
+    }
+
+    @Test
+    void floatingHeightIsRelativeToTheTerrainUnderEachPortal() {
+        FakeTerrain steps = new FakeTerrain((x, z) -> x < 0 ? 64 : 120);
+        GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
+        s.altitudeMin = 15;
+        s.altitudeMax = 40;
+        s.radius = 60;
+        List<PortalSpec> out = run(steps, s, List.of(), 1, 4);
+        assertFalse(out.isEmpty());
+        boolean low = false;
+        boolean high = false;
+        for (PortalSpec p : out) {
+            int ground = 0;
+            int[] box = p.box();
+            for (int bx : new int[]{box[0], box[3]}) {
+                for (int bz : new int[]{box[2], box[5]}) ground = Math.max(ground, steps.highestY(bx, bz));
+            }
+            assertTrue(p.y() - ground >= 15 && p.y() - ground <= 40, "portal " + p.id() + " is " + (p.y() - ground) + " above the ground");
+            if (ground == 64) low = true;
+            if (ground == 120) high = true;
+        }
+        assertTrue(low && high, "both elevations should be used");
+    }
+
+    @Test
+    void worldYLimitsKeepWholeFramesInsideAndFloatingPortalsStillFindARoom() {
+        GenSettings s = settings(30, Placement.AIR, Layout.RANDOM);
+        s.altitudeMin = 15;
+        s.altitudeMax = 90;
+        s.worldYMin = 100;
+        s.worldYMax = 120;
+        List<PortalSpec> out = run(FakeTerrain.flat(64), s, List.of(), 1, 6);
+        assertFalse(out.isEmpty());
+        for (PortalSpec p : out) {
+            assertTrue(p.y() >= 100, "frame floor " + p.y());
+            assertTrue(p.y() + PortalSpec.HEIGHT - 1 <= 120, "frame top " + (p.y() + PortalSpec.HEIGHT - 1));
+        }
+    }
+
+    @Test
+    void worldYMaxIsInclusiveForTheTopOfTheFrame() {
+        GenSettings s = settings(10, Placement.AIR, Layout.RANDOM);
+        s.altitudeMin = 15;
+        s.altitudeMax = 15;
+        s.worldYMax = 64 + 15 + PortalSpec.HEIGHT - 1;
+        assertEquals(10, run(FakeTerrain.flat(64), s, List.of(), 1, 2).size());
+        s.worldYMax -= 1;
+        assertTrue(run(FakeTerrain.flat(64), s, List.of(), 1, 2).isEmpty());
+    }
+
+    @Test
+    void impossibleHeightLimitsAreReportedWithTheReason() {
+        GenSettings s = settings(5, Placement.AIR, Layout.RANDOM);
+        s.altitudeMin = 15;
+        s.altitudeMax = 60;
+        s.worldYMax = 70;
+        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, List.of(), 1, new Random(1));
+        while (!session.done()) session.step(100);
+        assertTrue(session.placed().isEmpty());
+        assertTrue(session.reasons().containsKey("above world-y-max"), session.reasons().toString());
+        s.worldYMax = 320;
+        s.worldYMin = 200;
+        PortalPlanner.Session low = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, List.of(), 1, new Random(1));
+        while (!low.done()) low.step(100);
+        assertTrue(low.placed().isEmpty() || low.placed().stream().allMatch(p -> p.y() >= 200));
+    }
+
+    @Test
+    void groundPortalsStayOnTheSurfaceAndMoveToNearbyGoodGroundInsteadOfGivingUp() {
+        // A pond in the middle of every 10 blocks: the first guess often lands in it, a nearby dry spot is used instead.
+        FakeTerrain pond = new FakeTerrain((x, z) -> 64);
+        for (int x = -60; x <= 60; x++) {
+            for (int z = -60; z <= 60; z++) {
+                if (Math.floorMod(x, 10) >= 3 && Math.floorMod(x, 10) <= 6) pond.liquidAt(x, z);
+            }
+        }
+        GenSettings s = settings(25, Placement.GROUND, Layout.RANDOM);
+        s.radius = 50;
+        s.spacingH = 2;
+        List<PortalSpec> out = run(pond, s, List.of(), 1, 9);
+        assertTrue(out.size() >= 20, "placed " + out.size());
+        for (PortalSpec p : out) {
+            assertEquals(64, p.y());
+            assertFalse(p.floating());
+            for (int i = 0; i < 4; i++) assertFalse(pond.isLiquid(p.cellX(i), 64, p.cellZ(i)), "portal " + p.id() + " is on water");
         }
     }
 
@@ -259,7 +420,7 @@ class PortalPlannerTest {
     void reportsRejectionsWhenThereIsNoRoom() {
         GenSettings s = settings(100, Placement.GROUND, Layout.RANDOM);
         s.radius = 12;
-        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, 0, 1, List.of(), 1, new Random(1));
+        PortalPlanner.Session session = new PortalPlanner.Session(FakeTerrain.flat(64), s, 0, 0, List.of(), 1, new Random(1));
         while (!session.done()) session.step(100);
         assertTrue(session.placed().size() < 100);
         assertTrue(session.rejected() > 0);

@@ -1,7 +1,6 @@
 package dev.portaldirector;
 
 import dev.portaldirector.command.PdCommand;
-import dev.portaldirector.entrance.EntranceDirector;
 import dev.portaldirector.group.GroupManager;
 import dev.portaldirector.group.JoinBlockListener;
 import dev.portaldirector.scene.SceneManager;
@@ -22,7 +21,6 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private final Settings settings = new Settings();
     private SceneManager scenes;
     private GroupManager groups;
-    private EntranceDirector entrance;
     private TntDirector tnt;
     private Job activeJob;
     private BukkitTask progress;
@@ -33,14 +31,11 @@ public class PortalDirectorPlugin extends JavaPlugin {
         settings.load(getConfig());
         scenes = new SceneManager(new SceneStore(new File(getDataFolder(), "scenes")), getLogger());
         scenes.loadAll(getConfig().getString("scene.current"));
-        groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger(), settings, scenes);
+        groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
-        entrance = new EntranceDirector(this, settings, scenes);
         tnt = new TntDirector(this, settings, scenes);
-        getServer().getPluginManager().registerEvents(new JoinBlockListener(groups, settings), this);
-        getServer().getPluginManager().registerEvents(entrance, this);
+        getServer().getPluginManager().registerEvents(new JoinBlockListener(groups), this);
         getServer().getPluginManager().registerEvents(tnt, this);
-        entrance.start();
         tnt.start();
         PdCommand command = new PdCommand(this);
         PluginCommand pd = getCommand("pd");
@@ -54,7 +49,6 @@ public class PortalDirectorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (activeJob != null) activeJob.cancel();
-        if (entrance != null) entrance.shutdown();
         if (tnt != null) tnt.shutdown();
         if (scenes != null) scenes.saveAll();
         if (groups != null) groups.save();
@@ -83,10 +77,6 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public GroupManager groups() {
         return groups;
-    }
-
-    public EntranceDirector entrance() {
-        return entrance;
     }
 
     public TntDirector tnt() {
