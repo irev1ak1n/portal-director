@@ -223,6 +223,12 @@ Nothing is ever launched unless you type a launch command.
 
 ## Permissions
 
+**PortalDirector's administrative commands require permission.** By default, server operators can generate and remove portals, manage groups, and launch TNT sequences. Regular players don't need OP to join the server or step on a group's configured joining block.
+
+**Give a trusted creator OP:** the server owner can open their Minecraft hosting panel's **Console** and type `op PlayerName` (for example, `op SpokeIsHere`), **without a slash**. On a self-hosted server, use its server console. This does not require PowerShell when using a hosting panel. **OP grants broad server powers**, so reserve it for trusted administrators.
+
+**Prefer limited access?** With [LuckPerms](https://luckperms.net/), the server admin can grant only the necessary PortalDirector permissions. For example, run `lp user PlayerName permission set portaldirector.generate true` in the server console to allow portal generation without full OP. Grant `portaldirector.group`, `portaldirector.tnt`, or `portaldirector.scene` separately as needed. The table below lists the available permission nodes.
+
 Operators have everything by default. Give players only the parts you want them to have.
 
 | Permission | Default | Grants |
