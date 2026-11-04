@@ -263,7 +263,7 @@ async function main () {
   out = await run('pd create 30')
   check('generate with a number is refused for grid and points at rows and columns', /works out the number of portals itself/.test(out) && /grid rows/.test(out), out.trim().split('\n').pop().slice(0, 120))
   out = await run('pd help layouts')
-  check('layout help explains rows, columns, layers, per-side and spacing', /grid rows 4/.test(out) && /square layers 3/.test(out) && /wave per-row 5/.test(out) && /vertical spacing/.test(out))
+  check('layout help explains rows, columns, layers and per-side', /grid rows 4/.test(out) && /square per-side 5/.test(out) && /wave per-row 5/.test(out) && /Rows and layers go up/.test(out))
 
   // grid in all four directions, with bot entrance and TNT for each
   await run('pd group create NULL')
@@ -418,7 +418,7 @@ async function main () {
   {
     firstSquare.push(...readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks')))
     await run('pd set facing outward')
-    await runUntil('pd create replace', /Built \d+ of \d+ expected portals|cannot be built/, 240000)
+    await runUntil('pd create replacement', /Built \d+ of \d+ expected portals|cannot be built/, 240000)
     const sc = readScene()
     const midX = sc.square['center-x']
     const midZ = sc.square['center-z']
@@ -471,7 +471,7 @@ async function main () {
     await run('pd set grid rows 2')
     await run('pd set grid columns 3')
     await run(`pd set center ${CX + 60} ${CY} ${CZ + 60} world`)
-    out = await runUntil('pd create partial', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
+    out = await runUntil('pd create skip-blocked', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
     const sc = readScene()
     check('ground mode with partial builds the portals that fit and says what was blocked', sc.portals.length >= 3, `${sc.portals.length} of 6; ` + out.replace(/^\[[^\]]*\] /, ''))
     if (sc.portals.length >= 3) {

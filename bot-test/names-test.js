@@ -212,9 +212,52 @@ async function main () {
   } catch (e) {
     check('tab completion through the client', false, e.message)
   }
+  // ---- paginated help
+  log('help')
   out = await run('pd help', 800)
-  const helpCmds = [...out.matchAll(/\/pd (\w+)/g)].map(m => m[1]).filter((v, i, a) => a.indexOf(v) === i)
-  check('pd help lists the commands in alphabetical order', isSorted(helpCmds) && helpCmds[0] === 'clear', helpCmds.join(' '))
+  const total = +((out.match(/Page 1\/(\d+)/) || [])[1])
+  check('pd help shows page 1 of N', total >= 6, 'Page 1/' + total)
+  const steps = ['/pd set', '/pd create', '/pd list', '/pd remove', '/pd clear'].map(x => out.indexOf(x))
+  check('the first page teaches set, create, list, remove, clear in order', steps.every((v, i) => v >= 0 && (i === 0 || v > steps[i - 1])), steps.join(','))
+  let longest = 0
+  let allPages = true
+  for (let i = 1; i <= total; i++) {
+    const o = await run('pd help ' + i, 1000)
+    longest = Math.max(longest, o.split('\n').filter(l => /INFO\]/.test(l)).length)
+    allPages = allPages && new RegExp(`Page ${i}/${total}`).test(o)
+  }
+  check('every page 1 to N shows its page number', allPages)
+  check('no page is longer than 18 lines', longest > 0 && longest <= 18, longest + ' lines')
+  for (const topic of ['create', 'group', 'layouts', 'portals', 'reveal', 'scenes', 'set', 'tnt']) {
+    const o = await run('pd help ' + topic, 800)
+    check(`pd help ${topic} opens that topic`, /Page \d+\/\d+/.test(o) && o.includes('/pd '), (o.match(/PortalDirector\s+(.*)/) || [])[1])
+  }
+  out = await run('pd help create', 500)
+  check('help create explains more, replacement and skip-blocked and nothing old', /create more/.test(out) && /create replacement/.test(out) && /create skip-blocked/.test(out) && !/create (add|replace|partial|air|ground|mixed)\b/.test(out))
+  const createCmds = [...new Set([...out.matchAll(/\/pd create (more|replacement|skip-blocked)\b/g)].map(m => m[1]))]
+  check('commands on a help page are alphabetical', isSorted(createCmds), createCmds.join(' '))
+  check('a page number out of range is explained', /Pages go from 1 to/.test(await run('pd help 99')))
+  check('an unknown topic is explained', /No help topic called nosuch/.test(await run('pd help nosuch')))
+  bot.jsonMsgs = []
+  bot.on('message', m => bot.jsonMsgs.push(JSON.stringify(m.json ?? m)))
+  bot.chat('/pd help 2')
+  await sleep(1800)
+  const raw = bot.jsonMsgs.join('\n')
+  check('page 2 has a Next control that runs /pd help 3', /run_command/.test(raw) && /\/pd help 3/.test(raw))
+  check('page 2 has a Previous control that runs /pd help 1', /\/pd help 1/.test(raw))
+  check('commands on the page insert examples into the chat box', /suggest_command/.test(raw) && /\/pd create 30/.test(raw))
+  try {
+    const opts = await tab(bot, '/pd create ')
+    check('/pd create suggests only the new option names', ['more', 'replacement', 'skip-blocked'].every(o => opts.includes(o)) && !opts.some(o => ['add', 'replace', 'partial', 'air', 'ground', 'mixed'].includes(o)) && isSorted(opts), opts.join(' '))
+    const after = await tab(bot, '/pd create 30 more ')
+    check('options already typed are not suggested again, and more excludes replacement', after.includes('skip-blocked') && !after.includes('more') && !after.includes('replacement') && !after.includes('30'), after.join(' '))
+  } catch (e) {
+    check('create option tab completion', false, e.message)
+  }
+  for (const [word, want] of [['add', 'more'], ['replace', 'replacement'], ['partial', 'skip-blocked'], ['air', '/pd set mode air'], ['ground', '/pd set mode ground'], ['mixed', '/pd set mode mixed']]) {
+    check(`pd create ${word} is refused and points to ${want}`, new RegExp(want.replace(/[/]/g, '\/')).test(await run('pd create ' + word)))
+  }
+  check('combining options that conflict is refused', /either 'more'.*or 'replacement'/.test(await run('pd create more replacement')))
   out = await run('pd generate')
   check('pd generate and pd portal are gone', /I don't know/.test(out) && /I don't know/.test(await run('pd portal create here north')))
   const hereAt = [CX + 60, CZ]
@@ -317,6 +360,32 @@ async function main () {
   out = await runUntil(`pd remove ${keep.name}`, /Portal \w[\w-]* removed/, 60000)
   check('a portal from a partial sequence can be removed by name', new RegExp(`Portal ${keep.name} removed`).test(out))
   await run('pd set generation instant')
+
+  // ---- create options: more, replacement, skip-blocked with counts; mode is only a setting
+  log('create options')
+  await runUntil('pd clear', /[Cc]leared: \d+ blocks restored|nothing to remove|no portals/i, 120000)
+  await sleep(1500)
+  for (const c of ['pd set layout random', 'pd set count 3', 'pd set radius 50', 'pd set mode air']) await run(c)
+  const built = /Built \d+ of \d+|went wrong|Only|cannot/
+  await runUntil('pd create 3', built, 120000)
+  sc = readScene()
+  const firstSet = sc.portals.map(p => p.x + ',' + p.y + ',' + p.z)
+  check('pd create 3 builds three random portals', sc.portals.length === 3, sc.portals.length + ' portals')
+  out = await run('pd create 3')
+  check('creating again without an option explains more and replacement', /create more/.test(out) && /create replacement/.test(out) && /pd clear/.test(out), out.trim().split('\n').pop().slice(0, 140))
+  check('and builds nothing', readScene().portals.length === 3)
+  await runUntil('pd create 2 more', built, 120000)
+  sc = readScene()
+  check('more keeps the three portals and adds two', sc.portals.length === 5 && firstSet.every(k => sc.portals.some(p => p.x + ',' + p.y + ',' + p.z === k)), sc.portals.length + ' portals')
+  check('the new portals have their own unique names', new Set(sc.portals.map(p => p.name.toLowerCase())).size === 5, sc.portals.map(p => p.name).join(' '))
+  await runUntil('pd create 4 replacement', built, 180000)
+  sc = readScene()
+  check('replacement removes the old portals and builds four new ones', sc.portals.length === 4 && sc.portals.every(p => /^portal-\d+$/.test(p.name)), sc.portals.length + ' portals')
+  check('all four are complete', (await badBlocks(sc.portals)) === 0)
+  await runUntil('pd create 2 more skip-blocked', built, 120000)
+  check('a count can be combined with more and skip-blocked', readScene().portals.length === 6)
+  out = await run('pd settings')
+  check('the placement mode was not changed by pd create', /mode\s+air/.test(out), (out.match(/mode\s+\S+/) || [])[0])
 
   // ---- scene files saved before names existed
   log('old scene file')

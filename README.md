@@ -6,7 +6,7 @@ PortalDirector is a Minecraft server plugin for content creators. It builds whol
 
 **[Download PortalDirector from GitHub Releases](https://github.com/irev1ak1n/portal-director/releases/latest)**
 
-On that page, scroll to **Assets** and click `PortalDirector-1.1.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything.
+On that page, scroll to **Assets** and click `PortalDirector-1.2.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything.
 
 ## Who installs it?
 
@@ -19,7 +19,7 @@ Only the **server owner or admin** installs PortalDirector, once, on the server.
 
 ## Install it
 
-1. Download `PortalDirector-1.1.0.jar` (see above).
+1. Download `PortalDirector-1.2.0.jar` (see above).
 2. Put it in your server's **`plugins`** folder:
    - **Hosting panel** (for example Pterodactyl or Apex): open the **File Manager**, open the `plugins` folder, click **Upload** and choose the jar.
    - **Your own computer or server:** copy the file into the `plugins` folder next to `paper.jar`.
@@ -71,7 +71,7 @@ Then let a group walk out together:
 /pd group release team                 all of them walk out at the same moment
 ```
 
-`/pd help` explains everything in plain words, and Tab after `/pd` shows every command (always in alphabetical order). To go to a portal, use Minecraft's own `/tp` with the coordinates from `/pd list`.
+`/pd help` has short clickable pages that explain everything in plain words, and Tab after `/pd` shows every command (always in alphabetical order). To go to a portal, use Minecraft's own `/tp` with the coordinates from `/pd list`.
 
 **Can't see the far portals?** The server only sends the land around you up to its view distance. Raise `view-distance` in `server.properties` or use a smaller formation. PortalDirector warns you after creating when this might be the problem.
 
@@ -104,7 +104,28 @@ Then let a group walk out together:
 | `/pd set mode ground\|air\|mixed` | Stand on the terrain, or float around the center height |
 | `/pd set spacing horizontal 8` / `vertical 5` | Gap between portals side by side / between rows and layers |
 
-Natural blocks in the way (grass, stone, trees) are replaced and restored by `/pd clear`. If something a player built is in the way, nothing is built. `/pd create partial` builds only the portals that fit.
+Natural blocks in the way (grass, stone, trees) are replaced and restored by `/pd clear`. If something a player built is in the way, nothing is built. `/pd create skip-blocked` builds only the portals that fit.
+
+### Creating portals
+
+`/pd create` builds the layout you chose with `/pd set`. It has no placement options: where portals stand is the setting `/pd set mode ground|air|mixed`.
+
+| Command | What it does |
+|---|---|
+| `/pd create` | Build the selected layout around you (grid, square and wave work out their own count) |
+| `/pd create 30` | Random layout only: build 30 portals |
+| `/pd create more` | Keep the existing portals and build another set |
+| `/pd create replacement` | Remove the existing portals first, then build |
+| `/pd create skip-blocked` | Build only the portals that fit and skip blocked positions |
+
+Options can be combined with a count in any order, for example `/pd create 30 more skip-blocked`. `more` and `replacement` can't be used together.
+
+```
+/pd set mode air
+/pd create
+/pd set mode mixed
+/pd create 30
+```
 
 ### Single named portals
 
@@ -154,11 +175,11 @@ Base command: `/pd` (alias `/portaldirector`). Every command and every Tab sugge
 | Command | Description |
 |---|---|
 | `/pd clear` | Remove all portals and restore the ground |
-| `/pd create [count] [ground\|air\|mixed] [add\|replace] [partial]` | Build the current layout. A count only applies to the random layout |
+| `/pd create [count] [more\|replacement] [skip-blocked]` | Build the current layout with your `/pd set` settings. A count only applies to the random layout |
 | `/pd create portal <name> here <direction> [force]` | Build one named portal where you stand |
 | `/pd create portal <name> <x> <y> <z> <direction> [world] [force]` | Build one named portal at exact coordinates |
 | `/pd group ...` | Players and entrances (see below) |
-| `/pd help [group\|layouts\|portals\|set\|tnt]` | Plain-language help |
+| `/pd help [page or topic]` | Short, clickable help pages (see "Built-in help") |
 | `/pd list [page]` | The name and anchor coordinates of every portal |
 | `/pd reload` | Reload `config.yml` |
 | `/pd remove <name>` | Take one portal down and restore its blocks |
@@ -221,6 +242,22 @@ With only one group you can leave its name out. Players who disconnect while pre
 
 Nothing is ever launched unless you type a launch command.
 
+### Built-in help
+
+`/pd help` shows the five-step start (`/pd set`, `/pd create`, `/pd list`, `/pd remove`, `/pd clear`) on page 1. Every page ends with **Previous** and **Next** controls you can click, and clicking a command puts an example into your chat box.
+
+| Command | Shows |
+|---|---|
+| `/pd help` or `/pd help 1` | Start here; `/pd help 2`, `3` and so on go page by page |
+| `/pd help create` | Creating portals and the `more`, `replacement` and `skip-blocked` options |
+| `/pd help group` | Groups and entrances |
+| `/pd help layouts` | Grid, random, square and wave |
+| `/pd help portals` | Single named portals |
+| `/pd help reveal` | The cinematic delay |
+| `/pd help scenes` | Listing, removing and clearing |
+| `/pd help set` | Settings |
+| `/pd help tnt` | TNT minecarts |
+
 ## Permissions
 
 **PortalDirector's administrative commands require permission.** By default, server operators can generate and remove portals, manage groups, and launch TNT sequences. Regular players don't need OP to join the server or step on a group's configured joining block.
@@ -247,6 +284,7 @@ Operators have everything by default. Give players only the parts you want them 
 - Players waiting at their portals are visible to everyone. Use `/pd set entrance.staging-invisible on` or a staging area to hide them.
 - Creating very large areas loads many chunks; the limit is `generate.max-chunks`.
 - Normal Nether travel through generated portals works. To make them decoration only: `/pd set entrance.block-vanilla-travel on`.
+- Upgrading from 1.1.0: `/pd create add`, `replace` and `partial` are now `more`, `replacement` and `skip-blocked`, and `air`, `ground` and `mixed` are only set with `/pd set mode`. Old words are refused with a message that names the new one.
 - Upgrading from 1.0.0: `/pd generate` is now `/pd create`, and `/pd portal create` and `/pd portal remove` are now `/pd create portal <name> ...` and `/pd remove`. Saved scenes load unchanged; their portals are named `portal-<number>`, and players stay assigned to the same portals.
 
 ## For developers

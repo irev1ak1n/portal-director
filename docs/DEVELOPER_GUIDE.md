@@ -31,7 +31,7 @@ The unit tests use MockBukkit and plain JUnit. They cover the layout planners, r
 
 | Package | What is in it |
 |---|---|
-| `command` | `/pd` and its subcommands, help text, tab completion |
+| `command` | `/pd` and its subcommands, tab completion, and `HelpCommand` (the paginated, clickable help) |
 | `gen` | Layout planners (random, grid, square, wave), reveal orders, the generation job |
 | `scene` | Remembered portals (with their names) and block log, saving to disk, safe removal |
 | `group` | Groups, join blocks, portal assignment |
@@ -40,7 +40,9 @@ The unit tests use MockBukkit and plain JUnit. They cover the layout planners, r
 
 `Settings.java` is the single list of options behind `/pd set` and `/pd settings`.
 
-Portals keep an internal numeric id (assignments and block records use it) and a name that people type. `Scene.addPortal` gives generated portals `portal-<id>`; `PortalCommands` handles `/pd create portal` and `/pd remove`. All Tab suggestions go through one alphabetical sort in `PdCommand.onTabComplete`, and `subs` there is a sorted map, so a new command only needs to be added once. Keep the lines of help pages in A to Z order as well.
+Portals keep an internal numeric id (assignments and block records use it) and a name that people type. `Scene.addPortal` gives generated portals `portal-<id>`; `PortalCommands` handles `/pd create portal` and `/pd remove`. All Tab suggestions go through one alphabetical sort in `PdCommand.onTabComplete`, and `subs` there is a sorted map, so a new command only needs to be added once.
+
+Help lives in `HelpCommand`: change an entry in its `TOPICS` list (short text, A to Z inside a topic); `HelpCommandTest` checks page length, order and the Previous/Next controls. The words `/pd create` accepts are `CREATE_OPTIONS` in `GenerateCommands`, used for parsing and Tab completion alike, and where portals stand is only ever `/pd set mode`.
 
 ## Testing on a real server
 

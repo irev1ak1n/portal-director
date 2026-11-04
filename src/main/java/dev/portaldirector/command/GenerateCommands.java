@@ -104,36 +104,54 @@ final class GenerateCommands {
         };
     }
 
-    // /pd create [count] [ground|air|mixed] [add|replace] [partial]
+    // /pd create [count] [more|replacement] [skip-blocked]; where portals stand is /pd set mode
+
+    /** The words /pd create understands besides a count, A to Z. */
+    static final List<String> CREATE_OPTIONS = List.of("more", "replacement", "skip-blocked");
+
+    /** The create options as typed; a count is only for the random layout. Throws for anything else. */
+    record CreateArgs(Integer count, boolean more, boolean replacement, boolean skipBlocked) {
+
+        static CreateArgs parse(List<String> a) {
+            Integer count = null;
+            boolean more = false;
+            boolean replacement = false;
+            boolean skip = false;
+            for (String t : a) {
+                String l = t.toLowerCase(Locale.ROOT);
+                if (l.equals("more")) {
+                    more = true;
+                } else if (l.equals("replacement")) {
+                    replacement = true;
+                } else if (l.equals("skip-blocked")) {
+                    skip = true;
+                } else if (l.matches("\\d{1,9}")) {
+                    if (count != null) throw new IllegalArgumentException("Give the number of portals once: /pd create 30");
+                    count = Integer.parseInt(l);
+                } else if (l.equals("add") || l.equals("replace") || l.equals("partial")) {
+                    String now = l.equals("add") ? "more" : l.equals("replace") ? "replacement" : "skip-blocked";
+                    throw new IllegalArgumentException("'" + t + "' is now called '" + now + "': /pd create " + now);
+                } else if (l.equals("air") || l.equals("ground") || l.equals("mixed")) {
+                    throw new IllegalArgumentException("Where portals stand is a setting now: /pd set mode " + l + ", then /pd create.");
+                } else {
+                    throw new IllegalArgumentException("I did not understand '" + t + "'. /pd create takes a number (random layout only) and the options more, replacement and skip-blocked. "
+                            + "Example: /pd create 30 more. /pd help create explains each one.");
+                }
+            }
+            if (more && replacement) throw new IllegalArgumentException("Choose either 'more' (keep the existing portals) or 'replacement' (remove them first), not both.");
+            return new CreateArgs(count, more, replacement, skip);
+        }
+    }
 
     Sub generate() {
         return new Sub() {
             @Override
             public void run(CommandSender s, List<String> a) {
-                Integer count = null;
-                Placement placement = null;
-                boolean add = false;
-                boolean replace = false;
-                boolean partial = false;
-                for (String t : a) {
-                    String l = t.toLowerCase(Locale.ROOT);
-                    if (l.equals("add") || l.equals("append") || l.equals("more")) {
-                        add = true;
-                    } else if (l.equals("replace") || l.equals("new") || l.equals("again")) {
-                        replace = true;
-                    } else if (l.equals("partial")) {
-                        partial = true;
-                    } else if (l.matches("\\d+")) {
-                        count = Integer.parseInt(l);
-                    } else {
-                        placement = GenSettings.parse(Placement.class, l, null);
-                        if (placement == null) {
-                            throw new IllegalArgumentException("I did not understand '" + t + "'. Try /pd create, /pd create 50 (random layout), /pd create air, or /pd create add. "
-                                    + "(ground, air or mixed picks where portals stand; add or replace says what to do with portals that already exist.)");
-                        }
-                    }
-                }
-                if (add && replace) throw new IllegalArgumentException("Choose either add (keep the existing portals) or replace (remove them first), not both.");
+                CreateArgs args = CreateArgs.parse(a);
+                Integer count = args.count();
+                boolean add = args.more();
+                boolean replace = args.replacement();
+                boolean partial = args.skipBlocked();
                 Settings st = pl.settings();
                 Layout layout = st.gen.layout;
                 if (count != null && layout != Layout.RANDOM) {
@@ -148,24 +166,23 @@ final class GenerateCommands {
                     if (problem != null) throw new IllegalArgumentException(problem);
                 }
                 if (count != null) st.gen.count = count;
-                if (placement != null) st.gen.placement = placement;
                 pl.saveSettings();
                 Center c = center(s);
                 Scene scene = pl.scenes().currentOrCreate(c.world());
                 if (pl.activeJob() != null) throw pl.busy();
                 if (!scene.portals().isEmpty() && !scene.worldName().equals(c.world().getName())) {
                     throw new IllegalArgumentException("The existing portals are in the world " + scene.worldName() + ", and you are in " + c.world().getName()
-                            + ". Run /pd clear first, then generate here.");
+                            + ". Run /pd clear first, then create here.");
                 }
                 int expected = expectedCount(st.gen);
                 if (!scene.portals().isEmpty() && !add && !replace) {
                     throw new IllegalArgumentException("There are already " + scene.portals().size() + " portals (/pd list shows where they are). "
-                            + "To keep them and build " + expected + " more: /pd create add. "
-                            + "To remove them and build new ones: /pd create replace. "
+                            + "To keep them and build " + expected + " more: /pd create more. "
+                            + "To remove them and build new ones: /pd create replacement. "
                             + "To just remove them: /pd clear.");
                 }
                 if (layout == Layout.SQUARE && scene.square() != null && !replace) {
-                    throw new IllegalArgumentException("There is already a square. /pd create replace swaps it for a new one, /pd clear removes it.");
+                    throw new IllegalArgumentException("There is already a square. /pd create replacement swaps it for a new one, /pd clear removes it.");
                 }
                 final boolean partialFinal = partial;
                 final boolean addFinal = add;
@@ -179,8 +196,15 @@ final class GenerateCommands {
 
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
-                if (a.size() == 1 && pl.settings().gen.layout == Layout.RANDOM) return List.of("10", "30", "50", "100", "ground", "air", "mixed", "add", "replace", "partial");
-                return List.of("ground", "air", "mixed", "add", "replace", "partial");
+                // Suggest what has not been typed yet; the word being typed is filtered by the caller.
+                List<String> typed = a.subList(0, a.size() - 1).stream().map(t -> t.toLowerCase(Locale.ROOT)).toList();
+                List<String> out = new ArrayList<>();
+                if (pl.settings().gen.layout == Layout.RANDOM && typed.stream().noneMatch(t -> t.matches("\\d+"))) out.addAll(List.of("10", "30", "50", "100"));
+                for (String o : CREATE_OPTIONS) {
+                    boolean clash = (o.equals("more") && typed.contains("replacement")) || (o.equals("replacement") && typed.contains("more"));
+                    if (!typed.contains(o) && !clash) out.add(o);
+                }
+                return out;
             }
         };
     }
@@ -339,7 +363,7 @@ final class GenerateCommands {
             if (fit.problems().size() > 4) Msg.info(s, "  ... and " + (fit.problems().size() - 4) + " more");
             if (!partial) {
                 throw new IllegalArgumentException(fit.problems().size() + " of the " + total + " portals cannot be built here, so nothing was built and nothing was changed. "
-                        + "Move the center with /pd set center, try /pd set mode " + (ground ? "air" : "ground") + ", change the spacing, or add 'partial' to build only the portals that fit.");
+                        + "Move the center with /pd set center, try /pd set mode " + (ground ? "air" : "ground") + ", change the spacing, or add 'skip-blocked' to build only the portals that fit.");
             }
         }
         if (fit.usable().isEmpty()) throw new IllegalArgumentException("Nothing fits here.");
