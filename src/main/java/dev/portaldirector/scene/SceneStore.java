@@ -52,6 +52,7 @@ public final class SceneStore {
         for (PortalSpec p : scene.portals().values()) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", p.id());
+            m.put("name", scene.nameOf(p.id()));
             m.put("x", p.x());
             m.put("y", p.y());
             m.put("z", p.z());
@@ -96,7 +97,9 @@ public final class SceneStore {
                     num(m.get("id")), num(m.get("x")), num(m.get("y")), num(m.get("z")),
                     Axis.valueOf(String.valueOf(m.get("axis"))), BlockFace.valueOf(String.valueOf(m.get("facing"))),
                     Boolean.parseBoolean(String.valueOf(m.get("floating"))));
-            scene.portals().put(p.id(), p);
+            // Scenes saved before portals had names have no "name": they get portal-<id>, so assignments by id keep working.
+            Object portalName = m.get("name");
+            scene.addPortal(p, portalName == null ? null : String.valueOf(portalName));
         }
         if (y.contains("square.size")) {
             scene.square(new SquareInfo(y.getInt("square.center-x"), y.getInt("square.center-z"), y.getInt("square.size"),

@@ -65,7 +65,7 @@ final class TntCommands {
                         case "limit" -> List.of("50", "100", "300", "600");
                         case "terrain-damage", "terrain", "portal-protection", "preview" -> List.of("on", "off");
                         case "speed" -> List.of("0.8", "1.3", "2");
-                        case "launch" -> List.of("all", "floating", "ground", "square", "side", "group", "1-10");
+                        case "launch" -> launchTargets();
                         case "wave" -> List.of("3", "5", "10");
                         default -> List.of();
                     };
@@ -115,6 +115,13 @@ final class TntCommands {
         return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
+    private List<String> launchTargets() {
+        List<String> out = new java.util.ArrayList<>(List.of("all", "floating", "ground", "square", "side", "group"));
+        Scene sc = pl.scenes().current();
+        if (sc != null) sc.portals().keySet().stream().limit(60).map(sc::nameOf).forEach(out::add);
+        return out;
+    }
+
     private void launch(CommandSender s, List<String> a) {
         Scene sc = scene();
         TargetParser.Result t = TargetParser.parse(pl, sc, a, 0);
@@ -157,7 +164,7 @@ final class TntCommands {
     private Scene scene() {
         Scene sc = pl.scenes().current();
         if (sc == null || sc.portals().isEmpty()) {
-            throw new IllegalArgumentException("There are no portals to launch from. Build some first with /pd generate 30.");
+            throw new IllegalArgumentException("There are no portals to launch from. Build some first with /pd create 30.");
         }
         return sc;
     }

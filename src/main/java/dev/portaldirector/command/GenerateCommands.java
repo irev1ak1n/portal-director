@@ -104,7 +104,7 @@ final class GenerateCommands {
         };
     }
 
-    // /pd generate [count] [ground|air|mixed] [add|replace] [partial]
+    // /pd create [count] [ground|air|mixed] [add|replace] [partial]
 
     Sub generate() {
         return new Sub() {
@@ -128,7 +128,7 @@ final class GenerateCommands {
                     } else {
                         placement = GenSettings.parse(Placement.class, l, null);
                         if (placement == null) {
-                            throw new IllegalArgumentException("I did not understand '" + t + "'. Try /pd generate, /pd generate 50 (random layout), /pd generate air, or /pd generate add. "
+                            throw new IllegalArgumentException("I did not understand '" + t + "'. Try /pd create, /pd create 50 (random layout), /pd create air, or /pd create add. "
                                     + "(ground, air or mixed picks where portals stand; add or replace says what to do with portals that already exist.)");
                         }
                     }
@@ -160,12 +160,12 @@ final class GenerateCommands {
                 int expected = expectedCount(st.gen);
                 if (!scene.portals().isEmpty() && !add && !replace) {
                     throw new IllegalArgumentException("There are already " + scene.portals().size() + " portals (/pd list shows where they are). "
-                            + "To keep them and build " + expected + " more: /pd generate add. "
-                            + "To remove them and build new ones: /pd generate replace. "
+                            + "To keep them and build " + expected + " more: /pd create add. "
+                            + "To remove them and build new ones: /pd create replace. "
                             + "To just remove them: /pd clear.");
                 }
                 if (layout == Layout.SQUARE && scene.square() != null && !replace) {
-                    throw new IllegalArgumentException("There is already a square. /pd generate replace swaps it for a new one, /pd clear removes it.");
+                    throw new IllegalArgumentException("There is already a square. /pd create replace swaps it for a new one, /pd clear removes it.");
                 }
                 final boolean partialFinal = partial;
                 final boolean addFinal = add;
@@ -363,7 +363,7 @@ final class GenerateCommands {
             fit.usable().forEach(p -> byId.put(p.id(), p));
             ordered = ordered.stream().map(p -> byId.get(p.id())).toList();
         }
-        Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals (ids " + fit.usable().get(0).id() + "-" + fit.usable().get(fit.usable().size() - 1).id() + "). " + revealNote(g));
+        Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals. " + revealNote(g));
         GenerationJob job = new GenerationJob(pl, c.world(), scene, st, ordered, result -> {
             pl.activeJob(null);
             pl.groups().fillAll(scene);
@@ -465,7 +465,7 @@ final class GenerateCommands {
                 }
                 if (f.option().key.equals("generate.layout") || f.option().key.startsWith("generate.grid-") || f.option().key.startsWith("generate.square-")
                         || f.option().key.startsWith("generate.wave-")) {
-                    Msg.info(s, "/pd generate will now build a " + describeLayout(pl.settings().gen) + ".");
+                    Msg.info(s, "/pd create will now build a " + describeLayout(pl.settings().gen) + ".");
                 }
             }
 
@@ -529,7 +529,7 @@ final class GenerateCommands {
                         + (st.centerPinned ? (int) st.centerX + (st.centerHasY ? " " + (int) st.centerY : " (your height)") + " " + (int) st.centerZ + " in " + st.centerWorld + " (pinned)" : "wherever you stand"));
                 if (which.equals("generate") || which.equals("generation") || which.equals("portals")) {
                     GenSettings g = st.gen;
-                    Msg.line(s, "  Layout: " + describeLayout(g) + "  (/pd generate builds this)");
+                    Msg.line(s, "  Layout: " + describeLayout(g) + "  (/pd create builds this)");
                     List<String[]> rows = new ArrayList<>();
                     rows.add(new String[]{"layout", "generate.layout"});
                     switch (g.layout) {
@@ -615,7 +615,7 @@ final class GenerateCommands {
                 if (a.isEmpty() || a.get(0).equalsIgnoreCase("show")) {
                     Msg.info(s, st.centerPinned
                             ? "The center is pinned at " + (int) st.centerX + (st.centerHasY ? " " + (int) st.centerY : "") + " " + (int) st.centerZ + " in " + st.centerWorld + ". /pd set center reset goes back to building around you."
-                            : "Portals are built around wherever you stand when you run /pd generate. /pd set center here pins the spot you are on now, /pd set center <x> <y> <z> pins coordinates.");
+                            : "Portals are built around wherever you stand when you run /pd create. /pd set center here pins the spot you are on now, /pd set center <x> <y> <z> pins coordinates.");
                     return;
                 }
                 String first = a.get(0).toLowerCase(Locale.ROOT);

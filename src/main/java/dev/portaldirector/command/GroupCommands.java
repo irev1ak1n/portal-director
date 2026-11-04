@@ -5,6 +5,7 @@ import dev.portaldirector.entrance.EntranceDirector;
 import dev.portaldirector.entrance.ReleasePattern;
 import dev.portaldirector.group.Assigner;
 import dev.portaldirector.group.Group;
+import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Durations;
 import dev.portaldirector.util.Msg;
@@ -63,7 +64,7 @@ final class GroupCommands {
     private Scene scene() {
         Scene sc = pl.scenes().current();
         if (sc == null || sc.portals().isEmpty()) {
-            throw new IllegalArgumentException("There are no portals yet. Generate some first: /pd generate 30 mixed");
+            throw new IllegalArgumentException("There are no portals yet. Generate some first: /pd create 30 mixed");
         }
         return sc;
     }
@@ -155,7 +156,7 @@ final class GroupCommands {
         for (Map.Entry<UUID, String> m : g.members().entrySet()) {
             int portal = map.entrySet().stream().filter(e -> e.getValue().equals(m.getKey())).map(Map.Entry::getKey).findFirst().orElse(0);
             boolean online = Bukkit.getPlayer(m.getKey()) != null;
-            Msg.line(s, "  " + n++ + ". " + m.getValue() + (online ? "" : " (offline)") + (portal > 0 ? " -> portal " + portal : " -> no portal"));
+            Msg.line(s, "  " + n++ + ". " + m.getValue() + (online ? "" : " (offline)") + (portal > 0 ? " -> portal " + sc.nameOf(portal) : " -> no portal"));
         }
     }
 
@@ -177,7 +178,7 @@ final class GroupCommands {
         }
         int slot = pl.groups().join(r.group(), p.getUniqueId(), p.getName() == null ? a.get(r.next()) : p.getName());
         Msg.ok(s, slot == -1 ? p.getName() + " is already in " + r.group().name() + "."
-                : p.getName() + " added to " + r.group().name() + (slot > 0 ? " (portal " + slot + ")." : "."));
+                : p.getName() + " added to " + r.group().name() + (slot > 0 ? " (portal " + pl.scenes().current().nameOf(slot) + ")." : "."));
     }
 
     private void remove(CommandSender s, List<String> a) {
@@ -251,12 +252,12 @@ final class GroupCommands {
                 if (uy != null) map.put(x, uy);
                 if (ux != null) map.put(y, ux);
                 pl.scenes().save(sc);
-                Msg.ok(s, "Swapped portals " + x + " and " + y + ".");
+                Msg.ok(s, "Swapped portals " + sc.nameOf(x) + " and " + sc.nameOf(y) + ".");
             }
             default -> {
                 if (t.size() < 2) throw new IllegalArgumentException("Use /pd group assign " + g.name() + " <portal> <player>");
                 int id = portalId(t.get(0));
-                if (!sc.portals().containsKey(id)) throw new IllegalArgumentException("There is no portal " + id + " (1-" + sc.portals().lastKey() + ").");
+                if (!sc.portals().containsKey(id)) throw new IllegalArgumentException("There is no portal called " + t.get(0) + ". /pd list shows the names.");
                 UUID member = g.members().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(t.get(1)))
                         .map(Map.Entry::getKey).findFirst().orElse(null);
                 if (member == null) {
@@ -264,17 +265,21 @@ final class GroupCommands {
                 }
                 UUID previous = Assigner.assign(map, id, member);
                 pl.scenes().save(sc);
-                Msg.ok(s, t.get(1) + " will come out of portal " + id
+                Msg.ok(s, t.get(1) + " will come out of portal " + sc.nameOf(id)
                         + (previous != null && !previous.equals(member) ? " (replacing " + g.members().getOrDefault(previous, "someone") + ")." : "."));
             }
         }
     }
 
+    /** A portal given by name (not case sensitive); plain numbers still work for portals with default names. */
     private int portalId(String text) {
+        Scene sc = scene();
+        PortalSpec named = sc.byName(text);
+        if (named != null) return named.id();
         try {
             return Integer.parseInt(text);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("'" + text + "' is not a portal id.");
+            throw new IllegalArgumentException("There is no portal called " + text + ". /pd list shows the names.");
         }
     }
 
@@ -288,13 +293,13 @@ final class GroupCommands {
         for (int id : sc.portals().keySet()) {
             UUID u = map.get(id);
             String name = u == null ? "-" : g.members().getOrDefault(u, "?");
-            line.append(id).append(": ").append(name).append("   ");
-            if (++col % 4 == 0) {
+            line.append(sc.nameOf(id)).append(": ").append(name).append("   ");
+            if (++col % 3 == 0) {
                 Msg.line(s, line.toString());
                 line = new StringBuilder("  ");
             }
         }
-        if (col % 4 != 0) Msg.line(s, line.toString());
+        if (col % 3 != 0) Msg.line(s, line.toString());
         List<String> loose = new ArrayList<>();
         for (Map.Entry<UUID, String> m : g.members().entrySet()) {
             if (!map.containsValue(m.getKey())) loose.add(m.getValue());
@@ -356,7 +361,7 @@ final class GroupCommands {
     /** Square formations: release by side or around the square. */
     private void releasePattern(CommandSender s, Group g, Scene sc, ReleasePattern pattern, List<String> t) {
         if (pattern != ReleasePattern.ALL_AT_ONCE && sc.square() == null) {
-            throw new IllegalArgumentException("There is no square, so '" + t.get(0) + "' has nothing to go around. /pd set layout square, then /pd generate builds one.");
+            throw new IllegalArgumentException("There is no square, so '" + t.get(0) + "' has nothing to go around. /pd set layout square, then /pd create builds one.");
         }
         int defaultDelay = pattern == ReleasePattern.CLOCKWISE ? 10 : 60;
         int delay = t.size() > 1 ? Durations.parseTicks(t.get(1)) : defaultDelay;
@@ -412,7 +417,7 @@ final class GroupCommands {
                 case "block" -> a.get(1).equalsIgnoreCase("set") ? blockNames(last) : groups;
                 case "add" -> g != null ? onlineNames() : List.of();
                 case "remove", "kick" -> g != null ? memberNames(g) : List.of();
-                case "assign" -> g != null ? List.of("auto", "clear", "swap") : portalNumbers(selectedGroup(s) != null ? a.get(2) : "");
+                case "assign" -> g != null ? mixed(List.of("auto", "clear", "swap"), portalNumbers("")) : portalNumbers("");
                 case "release" -> g != null ? List.of("staggered", "all-at-once", "clockwise", "opposite-sides", "side-by-side") : List.of();
                 default -> List.of();
             };
@@ -447,7 +452,7 @@ final class GroupCommands {
 
     private List<String> portalNumbers(String ignored) {
         Scene sc = pl.scenes().current();
-        return sc == null ? List.of() : sc.portals().keySet().stream().limit(60).map(String::valueOf).toList();
+        return sc == null ? List.of() : sc.portals().keySet().stream().limit(60).map(sc::nameOf).toList();
     }
 
     private static List<String> mixed(List<String> a, List<String> b) {

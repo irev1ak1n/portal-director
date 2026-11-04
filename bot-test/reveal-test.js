@@ -107,10 +107,10 @@ async function wrongRestored (recs) {
 }
 
 /**
- * Starts /pd generate and watches /pd list until `expected` portals exist (or the time runs out).
+ * Starts /pd create and watches /pd list until `expected` portals exist (or the time runs out).
  * Returns when each id was first seen, in milliseconds after the command, in the order they appeared.
  */
-async function watchGenerate (expected, timeout = 120000, cmd = 'pd generate') {
+async function watchGenerate (expected, timeout = 120000, cmd = 'pd create') {
   const seen = new Map()
   const t0 = performance.now()
   srv.command(cmd)
@@ -121,7 +121,7 @@ async function watchGenerate (expected, timeout = 120000, cmd = 'pd generate') {
     srv.command('pd list')
     await sleep(110)
     for (const line of srv.lines.slice(from)) {
-      const m = line.match(/#(\d+)\s+-?\d+ -?\d+ -?\d+/)
+      const m = line.match(/portal-(\d+)\s+-?\d+ -?\d+ -?\d+/)
       if (m && !seen.has(+m[1])) seen.set(+m[1], sent - t0)
     }
   }
@@ -168,7 +168,7 @@ async function main () {
   check('an unknown order lists the real ones', /use one of: .*left-to-right.*clockwise/.test(out), out.trim().split('\n').pop().slice(0, 140))
   out = await run('pd set generation order clockwise')
   check('an order that does not fit the grid is explained when set', /no clockwise/.test(out) && /left-to-right/.test(out), out.trim().split('\n').pop().slice(0, 140))
-  out = await run('pd generate')
+  out = await run('pd create')
   check('and generate refuses it with a suggestion, building nothing', /no clockwise/.test(out) && /generation order left-to-right/.test(out) && !/Planning/.test(out))
   out = await run('pd settings')
   check('settings show delay, order and effects once delayed', /generation delay\s+0.5/.test(out) && /generation order\s+clockwise/.test(out) && /generation effects\s+off/.test(out))
@@ -302,9 +302,9 @@ async function main () {
   await run('pd set layout grid')
   await run('pd set generation delay 1')
   await run('pd set generation order bottom-to-top')
-  srv.command('pd generate')
+  srv.command('pd create')
   await sleep(5200)
-  out = await run('pd generate', 400)
+  out = await run('pd create', 400)
   check('while a sequence runs, generate is refused with the progress', /still working/.test(out) && /\d+\/20 portals created/.test(out), out.trim().split('\n').pop().slice(0, 140))
   out = await run('pd clear', 400)
   check('and clear is refused too', /still working/.test(out))
@@ -316,18 +316,18 @@ async function main () {
   check('after stop the created portals are tracked (some, not all, in id order from the bottom)', built >= 3 && built < 20 && sc.portals.every(p => p.id <= built), `${built} portals`)
   check('stopped sequence: the portals that exist are complete', (await badBlocks(sc.portals)) === 0)
   out = await run('pd list', 600)
-  check('pd list shows exactly the created portals', (out.match(/#\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length === built)
+  check('pd list shows exactly the created portals', (out.match(/portal-\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length === built)
   recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))
   out = await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000)
   check('clear after stop restores everything', (await wrongRestored(recs)) === 0, recs.length + ' blocks')
-  out = await run('pd generate', 300)
+  out = await run('pd create', 300)
   await run('pd stop', 500)
   await sleep(800)
 
   // restart in the middle of a sequence
   await runUntil('pd clear', /[Cc]leared: \d+ blocks restored|nothing to remove/, 120000).catch(() => {})
   await sleep(1500)
-  srv.command('pd generate')
+  srv.command('pd create')
   await sleep(6500)
   const code = await srv.stop()
   check('server stopped gracefully in the middle of a sequence', code === 0, 'exit code ' + code)
@@ -341,7 +341,7 @@ async function main () {
   await srv.waitForLine(/--- \d+ portals/, 60000, listFrom, 'pd list after restart')
   await sleep(500)
   out = srv.lines.slice(listFrom).join(String.fromCharCode(10))
-  const listed = (out.match(/#\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length
+  const listed = (out.match(/portal-\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length
   check('after a restart the partial sequence is still tracked', sc.portals.length >= 3 && sc.portals.length < 20 && listed === sc.portals.length, `${sc.portals.length} saved, ${listed} listed`)
   check('the partial portals are complete', (await badBlocks(sc.portals)) === 0)
   recs = readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks'))

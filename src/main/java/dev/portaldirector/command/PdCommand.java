@@ -9,10 +9,11 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 
 /** Routes /pd to its subcommands, checks permissions and turns mistakes into friendly messages. */
 public final class PdCommand implements CommandExecutor, TabCompleter {
@@ -21,7 +22,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
     }
 
     private final PortalDirectorPlugin pl;
-    private final Map<String, Entry> subs = new LinkedHashMap<>();
+    private final Map<String, Entry> subs = new TreeMap<>();
 
     public PdCommand(PortalDirectorPlugin pl) {
         this.pl = pl;
@@ -32,11 +33,11 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         PortalCommands portal = new PortalCommands(pl);
         String g = "portaldirector.generate";
 
-        subs.put("generate", new Entry(gen.generate(), g));
+        subs.put("create", new Entry(createCommand(gen.generate(), portal.create()), g));
+        subs.put("remove", new Entry(portal.remove(), g));
         subs.put("set", new Entry(setCommand(gen.set(), gen.centerCmd(), staging()), g));
         subs.put("settings", new Entry(gen.settings(), g));
         subs.put("list", new Entry(scene.portals(), g));
-        subs.put("portal", new Entry(portal.portal(), g));
         subs.put("clear", new Entry(scene.clearShortcut(), "portaldirector.scene"));
         subs.put("group", new Entry(group.group(), "portaldirector.group"));
         subs.put("tnt", new Entry(tnt.tnt(), "portaldirector.tnt"));
@@ -47,6 +48,35 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
             Msg.ok(s, "Config and groups reloaded.");
         }, "portaldirector.admin"));
     }
+
+    /** /pd create builds the selected layout; /pd create portal <name> ... builds one named portal. */
+    private Sub createCommand(Sub layout, Sub portal) {
+        return new Sub() {
+            private boolean single(List<String> a) {
+                return !a.isEmpty() && a.get(0).equalsIgnoreCase("portal");
+            }
+
+            @Override
+            public void run(CommandSender s, List<String> a) {
+                if (single(a)) portal.run(s, a.subList(1, a.size()));
+                else layout.run(s, a);
+            }
+
+            @Override
+            public List<String> tab(CommandSender s, List<String> a) {
+                if (single(a)) return a.size() > 1 ? portal.tab(s, a.subList(1, a.size())) : List.of();
+                List<String> out = new ArrayList<>(layout.tab(s, a));
+                if (a.size() == 1) out.add("portal");
+                return out;
+            }
+        };
+    }
+
+    /** Alphabetical, ignoring case: the order Minecraft shows suggestions in. */
+    public static final Comparator<String> ALPHABETICAL = (x, y) -> {
+        int c = x.compareToIgnoreCase(y);
+        return c != 0 ? c : x.compareTo(y);
+    };
 
     /** /pd set is the one place for configuration: generation settings, the center and the staging area. */
     private Sub setCommand(Sub settings, Sub center, Sub staging) {
@@ -170,39 +200,47 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
             }
         }
         out.removeIf(o -> !o.toLowerCase(Locale.ROOT).startsWith(prefix));
-        return out;
+        return out.stream().distinct().sorted(ALPHABETICAL).toList();
     }
 
     private void help(CommandSender s, String topic) {
         switch (topic.toLowerCase(Locale.ROOT)) {
-            case "portals", "generate", "settings" -> {
-                Msg.head(s, "Building portals");
-                Msg.cmd(s, "/pd generate", "build the current layout around you (/pd settings shows it)");
-                Msg.cmd(s, "/pd generate add", "build another set and keep the portals you have");
-                Msg.cmd(s, "/pd generate replace", "remove the old portals and build new ones");
-                Msg.cmd(s, "/pd list", "the id and coordinates of every portal");
+            case "portals", "create", "generate" -> {
+                Msg.head(s, "Building portals (A to Z)");
+                Msg.cmd(s, "/pd clear", "remove every portal and put the ground back");
+                Msg.cmd(s, "/pd create", "build the current layout around you (/pd settings shows it)");
+                Msg.cmd(s, "/pd create add", "build another set and keep the portals you have");
+                Msg.cmd(s, "/pd create portal <name> here <direction>", "one named portal exactly where you stand, e.g. /pd create portal EntranceA here north");
+                Msg.cmd(s, "/pd create portal <name> <x> <y> <z> <direction>", "one named portal at exact coordinates (x y z is the lower bottom block inside the doorway)");
+                Msg.cmd(s, "/pd create replace", "remove the old portals and build new ones");
+                Msg.cmd(s, "/pd list", "the name and coordinates of every portal");
+                Msg.cmd(s, "/pd remove <name>", "take one portal down and restore its blocks");
+                Msg.cmd(s, "/pd remove <x> <y> <z>", "the same, by the coordinates shown in /pd list");
                 Msg.cmd(s, "/pd settings", "see every setting and its value");
+                Msg.cmd(s, "/pd stop", "cancel a build or removal that is running");
+                Msg.line(s, "  Generated portals are named portal-1, portal-2 ... so you can remove them one by one too. Settings: /pd help set.");
+                Msg.line(s, "  If you cannot see portals that exist, the view distance of the server is probably smaller than the formation.");
+            }
+            case "set", "settings" -> {
+                Msg.head(s, "/pd set (A to Z)");
+                Msg.cmd(s, "/pd set center here|<x> <y> <z>|reset", "where the formation is centered");
+                Msg.cmd(s, "/pd set facing north|south|east|west|random", "which way portals face and where players and minecarts come out");
+                Msg.cmd(s, "/pd set generation delay 0.5", "seconds between portals when delayed (0.2, 0.5, 1, 2 ...)");
+                Msg.cmd(s, "/pd set generation effects on", "a soft sound and particles as each portal appears");
+                Msg.cmd(s, "/pd set generation instant|delayed", "build everything at once, or reveal the portals one by one");
+                Msg.cmd(s, "/pd set generation order <order>", "left-to-right, bottom-to-top, top-to-bottom, clockwise, counterclockwise, random or auto");
                 Msg.cmd(s, "/pd set layout random|grid|square|wave", "pick the formation (/pd help layouts)");
                 Msg.cmd(s, "/pd set mode ground|air", "stand on the terrain, or float around the center height");
                 Msg.cmd(s, "/pd set spacing horizontal 10", "least empty blocks between portals side by side");
                 Msg.cmd(s, "/pd set spacing vertical 5", "least empty blocks between rows and layers above each other");
-                Msg.cmd(s, "/pd set facing north|south|east|west|random", "which way portals face and where players and minecarts come out");
-                Msg.cmd(s, "/pd set center here|<x> <y> <z>|reset", "where the formation is centered");
-                Msg.cmd(s, "/pd set generation instant|delayed", "build everything at once, or reveal the portals one by one");
-                Msg.cmd(s, "/pd set generation delay 0.5", "seconds between portals when delayed (0.2, 0.5, 1, 2 ...)");
-                Msg.cmd(s, "/pd set generation order left-to-right|bottom-to-top|top-to-bottom|clockwise|counterclockwise|random|auto", "which portal appears next");
-                Msg.cmd(s, "/pd set generation effects on", "a soft sound and particles as each portal appears");
                 Msg.line(s, "  Delayed reveal: every portal is planned and checked first, then built whole, one at a time. /pd stop cancels and keeps the portals that exist.");
                 Msg.line(s, "  Orders: grid and wave use left-to-right, bottom-to-top or top-to-bottom; a square uses clockwise, counterclockwise, bottom-to-top or top-to-bottom (layer by layer).");
-                Msg.cmd(s, "/pd portal create here north", "one portal exactly where you stand");
-                Msg.cmd(s, "/pd portal remove 3", "take one portal down");
-                Msg.line(s, "  If you cannot see portals that exist, the server's view distance is probably smaller than the formation.");
             }
             case "layouts", "layout" -> {
-                Msg.head(s, "Layouts");
-                Msg.line(s, "  Pick one with /pd set layout <name>, set its numbers, then run /pd generate. The number of portals is worked out for you.");
-                Msg.cmd(s, "random", "portals scattered within /pd set radius; /pd set count 50 or /pd generate 50");
+                Msg.head(s, "Layouts (A to Z)");
+                Msg.line(s, "  Pick one with /pd set layout <name>, set its numbers, then run /pd create. The number of portals is worked out for you.");
                 Msg.cmd(s, "grid", "a vertical wall: /pd set grid rows 4, /pd set grid columns 5 = 20 portals");
+                Msg.cmd(s, "random", "portals scattered within /pd set radius; /pd set count 50 or /pd create 50");
                 Msg.cmd(s, "square", "a square perimeter: /pd set square per-side 5, /pd set square layers 3 = 60 portals");
                 Msg.cmd(s, "wave", "rows that rise and fall: /pd set wave rows 4, /pd set wave per-row 5 = 20 portals");
                 Msg.line(s, "  Rows and layers go UP, columns and sides go sideways. Horizontal spacing is the gap between portals side by side,");
@@ -213,37 +251,45 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
                 Msg.line(s, "  /pd set mode ground makes the lowest row stand on the terrain. /pd set mode air floats the formation around the center height.");
             }
             case "players", "group", "groups", "entrance" -> {
-                Msg.head(s, "Players walking out of portals");
-                Msg.cmd(s, "/pd group create team", "make a group (then /pd group block set emerald_block)");
-                Msg.line(s, "  Players who step on that block join by themselves and get the next free portal.");
-                Msg.cmd(s, "/pd group info", "who is in the group and which portal is theirs");
+                Msg.head(s, "Players walking out of portals (A to Z)");
+                Msg.cmd(s, "/pd group assign team <portal name> <player>", "one player for one named portal");
                 Msg.cmd(s, "/pd group assign team auto", "portal 1 for player 1, portal 2 for player 2, ...");
+                Msg.cmd(s, "/pd group create team", "make a group (then /pd group block set emerald_block)");
+                Msg.cmd(s, "/pd group info", "who is in the group and which portal is theirs");
                 Msg.cmd(s, "/pd group prepare team", "move everyone into their portal and hold them there");
                 Msg.cmd(s, "/pd group release team", "everyone walks out at the same moment");
                 Msg.cmd(s, "/pd group release team staggered 10", "a few players every 10 seconds");
                 Msg.cmd(s, "/pd group reset team", "cancel and send everybody back");
                 Msg.cmd(s, "/pd set staging here", "hold prepared players at your position instead of in their portals");
+                Msg.line(s, "  Players who step on the block of the group join by themselves and get the next free portal.");
                 Msg.line(s, "  Square layouts can also release clockwise, opposite-sides or side-by-side.");
                 Msg.line(s, "  Everyone else can still use the portals normally to travel to the Nether.");
             }
             case "tnt" -> {
-                Msg.head(s, "TNT minecarts");
-                Msg.cmd(s, "/pd tnt launch all", "one minecart out of every portal");
-                Msg.cmd(s, "/pd tnt wave 5 20", "5 waves, 20 seconds apart");
-                Msg.cmd(s, "/pd tnt mode safe|real", "safe: nothing explodes; real: they explode");
-                Msg.cmd(s, "/pd tnt fuse 3", "explode 3 seconds after launch");
-                Msg.cmd(s, "/pd tnt status", "what is on, how many, which mode");
+                Msg.head(s, "TNT minecarts (A to Z)");
                 Msg.cmd(s, "/pd tnt clear", "stop and remove every TNT minecart");
+                Msg.cmd(s, "/pd tnt fuse 3", "explode 3 seconds after launch");
+                Msg.cmd(s, "/pd tnt launch all", "one minecart out of every portal (or one portal: /pd tnt launch EntranceA)");
+                Msg.cmd(s, "/pd tnt mode safe|real", "safe: nothing explodes; real: they explode");
+                Msg.cmd(s, "/pd tnt status", "what is on, how many, which mode");
+                Msg.cmd(s, "/pd tnt wave 5 20", "5 waves, 20 seconds apart");
                 Msg.line(s, "  /pd tnt shows the full list. Nothing ever launches unless you type a launch command.");
             }
             default -> {
-                Msg.head(s, "Portal Director - quick start");
-                Msg.line(s, " 1. /pd set layout grid, /pd set grid rows 4, /pd set grid columns 5, then /pd generate   (or just /pd generate 30 for scattered portals)");
-                Msg.line(s, " 2. /pd list                the id and coordinates of every portal");
-                Msg.line(s, " 3. players: /pd group create team, /pd group block set emerald_block, then /pd group prepare team and /pd group release team");
-                Msg.line(s, "    TNT: /pd tnt launch all   (/pd tnt mode real makes them explode)");
-                Msg.line(s, " 4. /pd clear               remove everything and restore the ground, then generate something new");
-                Msg.line(s, "More help: /pd help portals | layouts | players | tnt");
+                Msg.head(s, "Portal Director - every command, A to Z");
+                Msg.cmd(s, "/pd clear", "remove every portal and restore the ground");
+                Msg.cmd(s, "/pd create", "build the selected layout (/pd create 50 for random)");
+                Msg.cmd(s, "/pd create portal <name> ...", "build one named portal");
+                Msg.cmd(s, "/pd group", "players: assign, create, prepare, release, reset ...");
+                Msg.cmd(s, "/pd help [topic]", "this page; topics: group, layouts, portals, set, tnt");
+                Msg.cmd(s, "/pd list", "every portal with its name and coordinates");
+                Msg.cmd(s, "/pd reload", "reload the config");
+                Msg.cmd(s, "/pd remove <name>|<x> <y> <z>", "take one portal down");
+                Msg.cmd(s, "/pd set <setting> <value>", "change a setting (generation, layout, spacing ...)");
+                Msg.cmd(s, "/pd settings", "show the settings");
+                Msg.cmd(s, "/pd stop", "cancel a running build or removal");
+                Msg.cmd(s, "/pd tnt", "TNT minecarts: clear, fuse, launch, mode, wave ...");
+                Msg.line(s, "Quick start: /pd set layout grid, /pd set grid rows 4, /pd set grid columns 5, then /pd create   (or /pd create 30 for scattered portals)");
             }
         }
     }

@@ -260,7 +260,7 @@ async function main () {
   await run('pd set grid columns 5')
   out = await run('pd settings')
   check('settings for grid show rows, columns and the expected total', /Layout: grid: 4 rows x 5 columns = 20 portals/.test(out) && /grid rows\s+4/.test(out) && /grid columns\s+5/.test(out) && /spacing horizontal/.test(out) && /spacing vertical/.test(out) && /facing/.test(out))
-  out = await run('pd generate 30')
+  out = await run('pd create 30')
   check('generate with a number is refused for grid and points at rows and columns', /works out the number of portals itself/.test(out) && /grid rows/.test(out), out.trim().split('\n').pop().slice(0, 120))
   out = await run('pd help layouts')
   check('layout help explains rows, columns, layers, per-side and spacing', /grid rows 4/.test(out) && /square layers 3/.test(out) && /wave per-row 5/.test(out) && /vertical spacing/.test(out))
@@ -276,7 +276,7 @@ async function main () {
       const FACING = facing.toUpperCase()
       await run(`pd set layout ${kind}`)
       await run(`pd set facing ${facing}`)
-      out = await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
+      out = await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
       const sc = readScene()
       const expected = kind === 'grid'
         ? expectGrid({ rows: 4, cols: 5, gapH: 8, gapV: 5, facing: FACING, CX, CZ, cy: CY })
@@ -323,7 +323,7 @@ async function main () {
   // random facing keeps the grid positions
   await run('pd set layout grid')
   await run('pd set facing random')
-  await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
+  await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
   {
     const sc = readScene()
     const faces = new Set(sc.portals.map(p => p.facing))
@@ -338,7 +338,7 @@ async function main () {
   await run('pd set layout grid')
   await run('pd set spacing horizontal 3')
   await run('pd set spacing vertical 9')
-  await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
+  await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
   {
     const sc = readScene()
     const exp = expectGrid({ rows: 4, cols: 5, gapH: 3, gapV: 9, facing: 'SOUTH', CX, CZ, cy: CY })
@@ -351,7 +351,7 @@ async function main () {
   await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000)
   await run('pd set spacing horizontal 12')
   await run('pd set spacing vertical 2')
-  await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
+  await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
   {
     const sc = readScene()
     const cols = [...new Set(sc.portals.map(p => p.x))].sort((a, b) => a - b)
@@ -366,7 +366,7 @@ async function main () {
   await run('pd set layout wave')
   await run('pd set wave rows 4')
   await run('pd set wave per-row 5')
-  await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
+  await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
   {
     const sc = readScene()
     const rowsOf = r => sc.portals.filter(p => p.id > r * 5 && p.id <= r * 5 + 5)
@@ -384,7 +384,7 @@ async function main () {
   await run('pd set facing inward')
   out = await run('pd settings')
   check('settings for square show per-side, layers and 60 portals', /square: 5 per side x 4 sides x 3 layers = 60 portals/.test(out))
-  out = await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 180000)
+  out = await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 180000)
   {
     const sc = readScene()
     const n = 5
@@ -410,7 +410,7 @@ async function main () {
     await sleep(1200)
     check('tnt launch side east reaches the east portals of all three layers', (await count('@e[type=minecraft:tnt_minecart]')) === 15, out.trim().split('\n').pop().slice(0, 100))
     await run('pd tnt clear', 300)
-    out = await run('pd generate')
+    out = await run('pd create')
     check('generate on an existing square explains replace and clear', /already a square|already 60 portals/.test(out) && /replace/.test(out) && /\/pd clear/.test(out), out.trim().split('\n').pop().slice(0, 120))
   }
   // outward
@@ -418,7 +418,7 @@ async function main () {
   {
     firstSquare.push(...readBlocks(path.join(PLUGIN_DIR, 'scenes', 'default.blocks')))
     await run('pd set facing outward')
-    await runUntil('pd generate replace', /Built \d+ of \d+ expected portals|cannot be built/, 240000)
+    await runUntil('pd create replace', /Built \d+ of \d+ expected portals|cannot be built/, 240000)
     const sc = readScene()
     const midX = sc.square['center-x']
     const midZ = sc.square['center-z']
@@ -437,7 +437,7 @@ async function main () {
     await srv.waitForLine(/Done \(/, 240000, 0, 'restart')
     await sleep(8000)
     out = await run('pd list', 800)
-    check('after a restart the 60 portals are listed with ids and coordinates', /60 portals/.test(out) && (out.match(/#\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length >= 25, out.split('\n')[1] || '')
+    check('after a restart the 60 portals are listed with names and coordinates', /60 portals/.test(out) && (out.match(/portal-\d+\s+-?\d+ -?\d+ -?\d+/g) || []).length >= 25, out.split('\n')[1] || '')
     await run('pd tnt mode safe')
     await run('pd tnt launch side north', 500)
     await sleep(1500)
@@ -455,13 +455,13 @@ async function main () {
     await run('pd set layout grid')
     await run('pd set facing south')
     await run(`setblock ${CX} ${CY} ${CZ} minecraft:stone_bricks`, 300)
-    out = await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built|Nothing fits/, 120000)
+    out = await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built|Nothing fits/, 120000)
     check('a protected build in the way stops the whole formation and says why', /cannot be built here, so nothing was built/.test(out) || /cannot be built/.test(out), out.replace(/^\[[^\]]*\] /, '').slice(0, 160))
     const keep = await run(`execute if block ${CX} ${CY} ${CZ} minecraft:stone_bricks`, 400)
     check('the protected block was not overwritten', /passed/i.test(keep))
     check('nothing else was changed (no portal exists)', (await run('pd list', 500)).includes('no portals'))
     await run(`setblock ${CX} ${CY} ${CZ} minecraft:air`, 300)
-    out = await runUntil('pd generate', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
+    out = await runUntil('pd create', /Built \d+ of \d+ expected portals|cannot be built/, 120000)
     check('without the build in the way the same command works', /Built 20 of 20/.test(out), out.replace(/^\[[^\]]*\] /, ''))
     await runUntil('pd clear', /[Cc]leared: \d+ blocks restored/, 120000)
   }
@@ -471,7 +471,7 @@ async function main () {
     await run('pd set grid rows 2')
     await run('pd set grid columns 3')
     await run(`pd set center ${CX + 60} ${CY} ${CZ + 60} world`)
-    out = await runUntil('pd generate partial', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
+    out = await runUntil('pd create partial', /Built \d+ of \d+ expected portals|cannot be built|went wrong|Nothing fits/, 120000)
     const sc = readScene()
     check('ground mode with partial builds the portals that fit and says what was blocked', sc.portals.length >= 3, `${sc.portals.length} of 6; ` + out.replace(/^\[[^\]]*\] /, ''))
     if (sc.portals.length >= 3) {

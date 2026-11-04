@@ -11,8 +11,9 @@ gradlew build
 powershell -File scripts\setup-test-server.ps1 -AcceptEula
 cd bot-test
 npm install --ignore-scripts
-node ux-test.js      # commands, plains generation, Nether travel, TNT explosions
 node layout-test.js  # grid, square and wave layouts: coordinates, spacing, facings, entrances, TNT, restore
+node reveal-test.js  # delayed reveal: timing, order, stop, restart in the middle
+node names-test.js   # named portals: create in four directions, remove by name and coordinates, tab order, old scene files
 ```
 
 Results go to `reports/latest.json` and the server console to `reports/server-console.log`.

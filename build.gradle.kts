@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.portaldirector"
-version = "1.0.0"
+version = "1.1.0"
 description = "Mass Nether portal scenes, synchronized player entrances and TNT minecart waves."
 
 // Pinned versions for reproducible builds.

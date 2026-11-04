@@ -23,7 +23,7 @@ final class TargetParser {
     }
 
     static Result parse(PortalDirectorPlugin pl, Scene scene, List<String> args, int from) {
-        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, square, side <north|east|south|west>, group <name> or ids like 1,4,10-15.");
+        if (from >= args.size()) throw new IllegalArgumentException("Say which portals: all, floating, ground, group <name>, side <north|east|south|west>, square, or portal names like EntranceA,EntranceB.");
         String t = args.get(from).toLowerCase(Locale.ROOT);
         List<PortalSpec> all = new ArrayList<>(scene.portals().values());
         switch (t) {
@@ -54,7 +54,7 @@ final class TargetParser {
     }
 
     private static List<PortalSpec> squarePortals(Scene scene, Integer side) {
-        if (scene.square() == null) throw new IllegalArgumentException("There is no square. /pd set layout square and /pd generate build one.");
+        if (scene.square() == null) throw new IllegalArgumentException("There is no square. /pd set layout square and /pd create build one.");
         List<Integer> ids = side == null ? scene.square().ids() : scene.square().side(side);
         return ids.stream().map(id -> scene.portals().get(id)).filter(p -> p != null).toList();
     }
@@ -63,7 +63,10 @@ final class TargetParser {
         Set<Integer> ids = new LinkedHashSet<>();
         try {
             for (String part : text.split(",")) {
-                if (part.contains("-")) {
+                PortalSpec named = scene.byName(part);
+                if (named != null) {
+                    ids.add(named.id());
+                } else if (part.matches("\\d+-\\d+")) {
                     String[] r = part.split("-");
                     int lo = Integer.parseInt(r[0]);
                     int hi = Integer.parseInt(r[1]);
@@ -73,14 +76,14 @@ final class TargetParser {
                 }
             }
         } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-            throw new IllegalArgumentException("'" + text + "' is not a portal selection. Use all, floating, ground, group <name> or ids like 1,4,10-15.");
+            throw new IllegalArgumentException("'" + text + "' is not a portal name or selection. Use all, floating, ground, group <name>, portal names like EntranceA,EntranceB, or portal-1 style numbers like 1,4,10-15. /pd list shows the names.");
         }
         List<PortalSpec> out = new ArrayList<>();
         for (int id : ids) {
             PortalSpec p = scene.portals().get(id);
             if (p != null) out.add(p);
         }
-        if (out.isEmpty()) throw new IllegalArgumentException("None of those portal ids exist. /pd list shows the ids.");
+        if (out.isEmpty()) throw new IllegalArgumentException("None of those portals exist. /pd list shows the names.");
         return out;
     }
 }

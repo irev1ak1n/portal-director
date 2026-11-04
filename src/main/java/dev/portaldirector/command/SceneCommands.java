@@ -23,7 +23,7 @@ final class SceneCommands {
 
     private Scene requireCurrent() {
         Scene s = pl.scenes().current();
-        if (s == null) throw new IllegalArgumentException("There are no portals yet. /pd generate 30 builds some.");
+        if (s == null) throw new IllegalArgumentException("There are no portals yet. /pd create 30 builds some.");
         return s;
     }
 
@@ -48,7 +48,7 @@ final class SceneCommands {
             if (result.cancelled()) {
                 Msg.info(s, "Stopped. " + result.restored() + " blocks restored; run /pd clear again to finish.");
             } else {
-                sc.portals().clear();
+                sc.clearPortals();
                 sc.assignments().clear();
                 sc.square(null);
                 Msg.ok(s, "Cleared: " + result.restored() + " blocks restored"
@@ -88,7 +88,7 @@ final class SceneCommands {
         return (s, a) -> {
             Scene sc = pl.scenes().current();
             if (sc == null || sc.portals().isEmpty()) {
-                Msg.info(s, "There are no portals yet. /pd generate 30 builds some.");
+                Msg.info(s, "There are no portals yet. /pd create 30 builds some.");
                 return;
             }
             int page = 1;
@@ -105,7 +105,7 @@ final class SceneCommands {
             page = Math.min(page, pages);
             Msg.head(s, all.size() + " portals" + (pages > 1 ? " (page " + page + " of " + pages + ", /pd list " + Math.min(pages, page + 1) + " for more)" : ""));
             for (PortalSpec p : all.subList((page - 1) * per, Math.min(all.size(), page * per))) {
-                Msg.line(s, "  #" + p.id() + "   " + p.anchorX() + " " + p.anchorY() + " " + p.anchorZ());
+                Msg.line(s, String.format("  %-24s %d %d %d   %s", sc.nameOf(p.id()), p.anchorX(), p.anchorY(), p.anchorZ(), p.facing().name().toLowerCase(java.util.Locale.ROOT)));
             }
         };
     }

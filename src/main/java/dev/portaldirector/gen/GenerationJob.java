@@ -205,7 +205,7 @@ public final class GenerationJob implements Job {
         while (buildIndex < toBuild.size() && buildTicks >= (long) Math.floor(buildIndex * delayTicks)) {
             PortalSpec p = toBuild.get(buildIndex++);
             for (PortalEdits.Edit e : PortalEdits.forPortal(world, p, settings.gen.maxSlope + 1)) PortalEdits.apply(world, scene.blocks(), e);
-            scene.portals().put(p.id(), p);
+            scene.addPortal(p);
             completed++;
             if (settings.gen.effects) reveal(p);
             break;
@@ -237,7 +237,7 @@ public final class GenerationJob implements Job {
                     return;
                 }
                 current = toBuild.get(buildIndex++);
-                scene.portals().put(current.id(), current);
+                scene.addPortal(current);
                 pending.addAll(PortalEdits.forPortal(world, current, settings.gen.maxSlope + 1));
             }
             PortalEdits.Edit e = pending.poll();
