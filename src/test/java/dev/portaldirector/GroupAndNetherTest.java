@@ -286,6 +286,32 @@ class GroupAndNetherTest {
     }
 
     @Test
+    void searchingFromARememberedCenterGivesTheSameCoordinatesAgain() {
+        FakeNether grid = new FakeNether();
+        // other pairs crowd the aimed spot, so the first site is not simply the aimed one
+        List<PortalSpec> taken = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            taken.add(NetherSite.find(grid, i + 1, 100 + i, 100, 64, Axis.X, BlockFace.SOUTH, taken, 32));
+        }
+        PortalSpec first = NetherSite.find(grid, 7, 100, 100, 64, Axis.X, BlockFace.SOUTH, taken, 32);
+        assertNotNull(first);
+        int cx = (int) Math.floor(first.centerX());
+        int cz = (int) Math.floor(first.centerZ());
+        // the portal is deleted and built again at the same Overworld spot: the search starts where its partner stood
+        PortalSpec again = NetherSite.find(grid, 8, cx, cz, first.y(), Axis.X, BlockFace.SOUTH, taken, 32);
+        assertNotNull(again);
+        assertEquals(first.anchorX(), again.anchorX());
+        assertEquals(first.anchorY(), again.anchorY());
+        assertEquals(first.anchorZ(), again.anchorZ());
+        for (BlockFace f : new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.WEST}) {
+            Axis axis = f == BlockFace.NORTH ? Axis.X : Axis.Z;
+            PortalSpec p = NetherSite.find(grid, 9, 40, 40, 64, axis, f, List.of(), 8);
+            assertEquals(40, (int) Math.floor(p.centerX()), "the center cell round-trips for " + f);
+            assertEquals(40, (int) Math.floor(p.centerZ()), "the center cell round-trips for " + f);
+        }
+    }
+
+    @Test
     void theSiteKeepsTheOverworldFacing() {
         for (BlockFace f : new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST}) {
             Axis axis = f == BlockFace.NORTH || f == BlockFace.SOUTH ? Axis.X : Axis.Z;

@@ -66,8 +66,8 @@ final class GroupCommands {
 
     private void help(CommandSender s) {
         Msg.head(s, "Groups");
-        Msg.cmd(s, "/pd group create Group1", "make a group");
         Msg.cmd(s, "/pd group assign-to-group <player> <group>", "add a player");
+        Msg.cmd(s, "/pd group create Group1", "make a group");
         Msg.cmd(s, "/pd group link-to-portal <player> <portal>", "give them a portal");
         Msg.cmd(s, "/pd group prepare", "stand everyone in their portal");
         Msg.line(s, "More: /pd help group");

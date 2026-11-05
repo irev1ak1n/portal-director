@@ -30,6 +30,10 @@ import java.util.Map;
  * pair is stored, and {@link PortalTravelListener} points the vanilla teleport at exactly the partner.
  *
  * <p>The Nether-side blocks are logged like a scene, so removing a portal restores them, and only them.
+ *
+ * <p>Where a Nether partner went is remembered per Overworld spot, even after the pair is taken down. Building a portal
+ * at the same coordinates again looks for its partner at those same Nether coordinates first, so delete and rebuild
+ * gives the same Nether portal in the same place (as long as that place is still free and safe).
  */
 public final class NetherLinks {
 
@@ -42,11 +46,18 @@ public final class NetherLinks {
     private final Scene nether;
     /** "scene/portal id" to the id of the partner in {@link #nether}. */
     private final Map<String, Integer> pairs = new LinkedHashMap<>();
+    /** "world|x|y|z" of an Overworld anchor to where its partner stood: Nether center x, floor y, center z. */
+    private final Map<String, int[]> remembered = new LinkedHashMap<>();
+    private final File memoryFile;
+    private static final int MEMORY_LIMIT = 5000;
+    private int pendingRemovals;
+    private final List<Runnable> whenSettled = new ArrayList<>();
 
     public NetherLinks(Plugin plugin, File dir) {
         this.plugin = plugin;
         this.store = new SceneStore(dir);
         this.pairsFile = new File(dir, "pairs.yml");
+        this.memoryFile = new File(dir, "memory.yml");
         Scene loaded = null;
         try {
             if (store.exists("links")) loaded = store.load("links");
@@ -61,6 +72,23 @@ public final class NetherLinks {
                 for (String k : section.getKeys(false)) pairs.put(k.replace('|', '/'), section.getInt(k));
             }
         }
+        if (memoryFile.exists()) {
+            YamlConfiguration y = YamlConfiguration.loadConfiguration(memoryFile);
+            for (String line : y.getStringList("spots")) {
+                String[] part = line.split("=");
+                if (part.length != 2) continue;
+                String[] v = part[1].split(",");
+                try {
+                    if (v.length == 3) remembered.put(part[0], new int[]{Integer.parseInt(v[0]), Integer.parseInt(v[1]), Integer.parseInt(v[2])});
+                } catch (NumberFormatException ignored) {
+                    // a damaged line is skipped
+                }
+            }
+        }
+    }
+
+    private static String spotKey(String world, PortalSpec p) {
+        return world + "|" + p.anchorX() + "|" + p.anchorY() + "|" + p.anchorZ();
     }
 
     private static String key(String scene, int id) {
@@ -81,6 +109,13 @@ public final class NetherLinks {
             for (Map.Entry<String, Integer> e : pairs.entrySet()) y.set("pairs." + e.getKey().replace('/', '|'), e.getValue());
             if (pairs.isEmpty()) y.createSection("pairs");
             y.save(pairsFile);
+            YamlConfiguration m = new YamlConfiguration();
+            List<String> lines = new ArrayList<>();
+            for (Map.Entry<String, int[]> e : remembered.entrySet()) {
+                lines.add(e.getKey() + "=" + e.getValue()[0] + "," + e.getValue()[1] + "," + e.getValue()[2]);
+            }
+            m.set("spots", lines);
+            m.save(memoryFile);
             store.save(nether);
         } catch (IOException e) {
             plugin.getLogger().severe("Could not save the Nether portal pairs: " + e.getMessage());
@@ -132,20 +167,25 @@ public final class NetherLinks {
         if (nid != null) {
             PortalSpec existing = nether.portals().get(nid);
             if (existing != null) {
+                remembered.putIfAbsent(spotKey(scene.worldName(), p),
+                        new int[]{(int) Math.floor(existing.centerX()), existing.y(), (int) Math.floor(existing.centerZ())});
                 if (!intact(nw, existing)) build(nw, existing);
                 return existing;
             }
             pairs.remove(k);
         }
+        String spot = spotKey(scene.worldName(), p);
+        int[] before = remembered.get(spot);
         int cx = (int) Math.floor(p.centerX());
         int cz = (int) Math.floor(p.centerZ());
-        int tx = Math.floorDiv(cx, 8);
-        int tz = Math.floorDiv(cz, 8);
+        // The spot its partner had last time, otherwise one eighth of the coordinates.
+        int tx = before != null ? before[0] : Math.floorDiv(cx, 8);
+        int tz = before != null ? before[2] : Math.floorDiv(cz, 8);
         int reach = SEARCH_RADIUS + 6;
         for (int x = (tx - reach) >> 4; x <= (tx + reach) >> 4; x++) {
             for (int z = (tz - reach) >> 4; z <= (tz + reach) >> 4; z++) nw.getChunkAt(x, z);
         }
-        int preferred = Math.max(40, Math.min(100, p.y()));
+        int preferred = before != null ? before[1] : Math.max(40, Math.min(100, p.y()));
         PortalSpec found = NetherSite.find(new BukkitNetherGrid(nw), nether.nextId(), tx, tz, preferred, p.axis(), p.facing(),
                 new ArrayList<>(nether.portals().values()), SEARCH_RADIUS);
         if (found == null) {
@@ -156,6 +196,9 @@ public final class NetherLinks {
         build(nw, found);
         nether.addPortal(found);
         pairs.put(k, found.id());
+        remembered.remove(spot);
+        remembered.put(spot, new int[]{(int) Math.floor(found.centerX()), found.y(), (int) Math.floor(found.centerZ())});
+        while (remembered.size() > MEMORY_LIMIT) remembered.remove(remembered.keySet().iterator().next());
         save();
         plugin.getLogger().info("Paired " + scene.nameOf(p.id()) + " with a new Nether portal at " + found.anchorX() + " " + found.anchorY() + " " + found.anchorZ() + ".");
         return found;
@@ -174,11 +217,22 @@ public final class NetherLinks {
     }
 
     /** The partner of one portal is taken down and its blocks restored; nothing else in the Nether is touched. */
-    public void unlink(String sceneName, int id) {
+    public PortalSpec unlink(String sceneName, int id) {
         Integer nid = pairs.remove(key(sceneName, id));
-        if (nid == null) return;
+        if (nid == null) return null;
+        PortalSpec partner = nether.portals().get(nid);
         removeNetherPortal(nid);
         save();
+        return partner;
+    }
+
+    /**
+     * Runs the action once every Nether portal that is being taken down is gone, so a portal rebuilt right after a
+     * removal finds its old Nether spot free again.
+     */
+    public void whenSettled(Runnable action) {
+        if (pendingRemovals == 0) action.run();
+        else whenSettled.add(action);
     }
 
     public void unlinkScene(String sceneName) {
@@ -211,9 +265,22 @@ public final class NetherLinks {
         for (BlockLog.Rec r : nether.blocks().all()) {
             if (ns.contains(r.pos().x(), r.pos().y(), r.pos().z())) mine.add(r);
         }
+        pendingRemovals++;
         new RemovalJob(plugin, nw, nether, 400, mine, result -> {
             nether.dropPortal(nid);
             save();
+            pendingRemovals--;
+            if (pendingRemovals == 0) {
+                List<Runnable> run = new ArrayList<>(whenSettled);
+                whenSettled.clear();
+                for (Runnable r : run) {
+                    try {
+                        r.run();
+                    } catch (RuntimeException e) {
+                        plugin.getLogger().warning("A Nether follow-up failed: " + e.getMessage());
+                    }
+                }
+            }
         }).start();
     }
 }

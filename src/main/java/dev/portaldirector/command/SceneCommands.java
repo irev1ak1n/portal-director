@@ -105,7 +105,9 @@ final class SceneCommands {
             page = Math.min(page, pages);
             Msg.head(s, all.size() + " portals" + (pages > 1 ? " (page " + page + " of " + pages + ", /pd list " + Math.min(pages, page + 1) + " for more)" : ""));
             for (PortalSpec p : all.subList((page - 1) * per, Math.min(all.size(), page * per))) {
-                Msg.line(s, String.format("  %-24s %d %d %d   %s", sc.nameOf(p.id()), p.anchorX(), p.anchorY(), p.anchorZ(), p.facing().name().toLowerCase(java.util.Locale.ROOT)));
+                PortalSpec partner = pl.netherLinks().partnerOf(sc.name(), p.id());
+                Msg.line(s, String.format("  %-24s %d %d %d   %-5s%s", sc.nameOf(p.id()), p.anchorX(), p.anchorY(), p.anchorZ(), p.facing().name().toLowerCase(java.util.Locale.ROOT),
+                        partner == null ? "" : "  Nether " + partner.anchorX() + " " + partner.anchorY() + " " + partner.anchorZ()));
             }
         };
     }

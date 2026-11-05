@@ -57,18 +57,17 @@ public final class TntDirector implements Listener {
             while (index < launches.size() && launches.get(index).tick() <= tick) {
                 if (spawned >= settings.tntSpawnsPerTick) break;
                 TntSchedule.Launch l = launches.get(index++);
-                if (active.size() >= settings.tntMaxActive) {
+                if (launchedTotal >= settings.tntMaxActive) {
                     skipped++;
-                } else {
-                    spawn(world, portals.get(l.portalIndex()));
+                } else if (spawn(world, portals.get(l.portalIndex()))) {
                     spawned++;
                 }
             }
             tick++;
             if (index >= launches.size()) {
                 if (skipped > 0 && sender != null) {
-                    Msg.info(sender, skipped + " minecarts were not launched because " + settings.tntMaxActive
-                            + " were already alive. Raise the limit with /pd tnt limit " + (settings.tntMaxActive * 2) + ", or use fewer per portal.");
+                    Msg.info(sender, skipped + " minecarts were not launched: the limit of " + settings.tntMaxActive
+                            + " launched in total was reached. /pd tnt limit " + (settings.tntMaxActive + skipped) + " allows these too, or /pd tnt clear starts the count again.");
                 }
                 stopSequence(this);
             }
@@ -81,6 +80,8 @@ public final class TntDirector implements Listener {
     private final NamespacedKey tagKey;
     private final Map<UUID, Integer> active = new HashMap<>();
     private final List<Sequence> sequences = new ArrayList<>();
+    /** Every minecart launched since the last /pd tnt clear, whether it exploded or not. */
+    private int launchedTotal;
     private BukkitTask sweeper;
 
     public TntDirector(Plugin plugin, Settings settings, SceneManager scenes) {
@@ -103,6 +104,11 @@ public final class TntDirector implements Listener {
         return active.size();
     }
 
+    /** Minecarts launched since the last /pd tnt clear. They count against the limit even after they explode. */
+    public int launchedTotal() {
+        return launchedTotal;
+    }
+
     public int runningSequences() {
         return sequences.size();
     }
@@ -119,9 +125,9 @@ public final class TntDirector implements Listener {
         return new Summary(plan.size(), waves, duration, settings.tntPreview);
     }
 
-    private void spawn(World world, PortalSpec p) {
+    private boolean spawn(World world, PortalSpec p) {
         Location loc = new Location(world, p.centerX(), p.standY(), p.centerZ(), p.yaw(), 0f);
-        if (!world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) return;
+        if (!world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) return false;
         ExplosiveMinecart cart = world.spawn(loc, ExplosiveMinecart.class, c -> {
             c.getPersistentDataContainer().set(tagKey, PersistentDataType.BYTE, (byte) 1);
             c.setMaxSpeed(Math.max(c.getMaxSpeed(), settings.tntSpeed));
@@ -132,6 +138,8 @@ public final class TntDirector implements Listener {
             cart.setFuseTicks((int) Math.round(settings.tntFuseSeconds * 20));
         }
         active.put(cart.getUniqueId(), Bukkit.getCurrentTick());
+        launchedTotal++;
+        return true;
     }
 
     private void stopSequence(Sequence s) {
@@ -159,6 +167,7 @@ public final class TntDirector implements Listener {
             }
         }
         active.clear();
+        launchedTotal = 0;
         return removed;
     }
 

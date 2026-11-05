@@ -55,7 +55,7 @@ final class TntCommands {
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
                 if (a.size() == 1) {
-                    return List.of("launch", "wave", "stop", "clear", "status", "mode", "fuse", "limit", "terrain-damage", "portal-protection", "speed");
+                    return List.of("clear", "fuse", "launch", "limit", "mode", "portal-protection", "speed", "status", "stop", "terrain-damage", "wave");
                 }
                 String sub = a.get(0).toLowerCase(Locale.ROOT);
                 if (a.size() == 2) {
@@ -82,18 +82,19 @@ final class TntCommands {
 
     private void help(CommandSender s) {
         Msg.head(s, "TNT minecarts");
-        Msg.cmd(s, "/pd tnt launch all", "one minecart out of every portal, all at once");
-        Msg.cmd(s, "/pd tnt launch all 3", "three per portal");
-        Msg.cmd(s, "/pd tnt launch 1,4,10-15", "only those portals (also: floating, ground, square, side east, or portal names)");
-        Msg.cmd(s, "/pd tnt launch all 2 stagger 0.5", "half a second between portals");
-        Msg.cmd(s, "/pd tnt wave 5 20", "5 waves, 20 seconds apart");
-        Msg.cmd(s, "/pd tnt mode safe|real", "safe: nothing explodes, real: they explode");
+        Msg.cmd(s, "/pd tnt clear", "stop and remove every TNT minecart, and start the launch count again");
         Msg.cmd(s, "/pd tnt fuse 3", "seconds after launch until they explode (off = only when they crash)");
-        Msg.cmd(s, "/pd tnt limit 300", "most minecarts alive at once");
-        Msg.cmd(s, "/pd tnt terrain-damage on|off", "should explosions break blocks");
-        Msg.cmd(s, "/pd tnt stop", "stop launching (minecarts already out keep going)");
-        Msg.cmd(s, "/pd tnt clear", "stop and remove every TNT minecart");
+        Msg.cmd(s, "/pd tnt launch 1,4,10-15", "only those portals (also: floating, ground, square, side east, or portal names)");
+        Msg.cmd(s, "/pd tnt launch all", "one minecart out of every portal, all at once");
+        Msg.cmd(s, "/pd tnt launch all 2 stagger 0.5", "half a second between portals");
+        Msg.cmd(s, "/pd tnt launch all 3", "three per portal");
+        Msg.cmd(s, "/pd tnt limit 300", "most minecarts launched in total, exploded or not");
+        Msg.cmd(s, "/pd tnt mode safe|real", "safe: nothing explodes, real: they explode");
+        Msg.cmd(s, "/pd tnt speed 1.3", "launch speed");
         Msg.cmd(s, "/pd tnt status", "see all of these settings");
+        Msg.cmd(s, "/pd tnt stop", "stop launching (minecarts already out keep going)");
+        Msg.cmd(s, "/pd tnt terrain-damage on|off", "should explosions break blocks");
+        Msg.cmd(s, "/pd tnt wave 5 20", "5 waves, 20 seconds apart");
     }
 
     private String modeLine() {
@@ -176,8 +177,10 @@ final class TntCommands {
                 + (waves > 1 ? " in " + waves + " waves, " + Durations.format(delay) + " apart" : "")
                 + (stagger > 0 ? ", " + Durations.format(stagger) + " between portals" : ", all portals at once") + ".");
         Msg.info(s, modeLine());
-        if (r.minecarts() + pl.tnt().activeCount() > pl.settings().tntMaxActive) {
-            Msg.info(s, "Heads up: at most " + pl.settings().tntMaxActive + " minecarts can exist at once, so some will be skipped. /pd tnt limit " + (r.minecarts() + pl.tnt().activeCount()) + " raises it.");
+        int total = r.minecarts() + pl.tnt().launchedTotal();
+        if (total > pl.settings().tntMaxActive) {
+            Msg.info(s, "Heads up: the limit is " + pl.settings().tntMaxActive + " minecarts launched in total (" + pl.tnt().launchedTotal()
+                    + " so far), so the last " + (total - pl.settings().tntMaxActive) + " will be skipped. /pd tnt limit " + total + " allows them all, /pd tnt clear starts the count again.");
         }
     }
 
@@ -220,12 +223,13 @@ final class TntCommands {
 
     private void limit(CommandSender s, List<String> a) {
         if (a.isEmpty()) {
-            Msg.info(s, "At most " + pl.settings().tntMaxActive + " TNT minecarts can be alive at once. Change it with /pd tnt limit <number>.");
+            Msg.info(s, "At most " + pl.settings().tntMaxActive + " TNT minecarts are launched in total, whether they explode or not (" + pl.tnt().launchedTotal()
+                    + " so far). Change it with /pd tnt limit <number>; /pd tnt clear starts the count again.");
             return;
         }
         pl.settings().options().get("tnt.max-active").set(a.get(0));
         pl.saveSettings();
-        Msg.ok(s, "At most " + pl.settings().tntMaxActive + " TNT minecarts can be alive at once now.");
+        Msg.ok(s, "At most " + pl.settings().tntMaxActive + " TNT minecarts will be launched in total now (" + pl.tnt().launchedTotal() + " so far).");
     }
 
     private void terrain(CommandSender s, List<String> a) {
@@ -264,7 +268,8 @@ final class TntCommands {
         Settings st = pl.settings();
         Msg.head(s, "TNT minecarts");
         Msg.line(s, "  " + modeLine());
-        Msg.line(s, "  Alive now: " + pl.tnt().activeCount() + " of at most " + st.tntMaxActive + " (/pd tnt limit), running launches: " + pl.tnt().runningSequences());
+        Msg.line(s, "  Launched: " + pl.tnt().launchedTotal() + " of at most " + st.tntMaxActive + " (/pd tnt limit; /pd tnt clear starts the count again), alive now: "
+                + pl.tnt().activeCount() + ", running launches: " + pl.tnt().runningSequences());
         Msg.line(s, "  Portals are " + (st.protectPortals ? "protected" : "NOT protected") + " from explosions (/pd tnt portal-protection on|off)");
         Msg.line(s, "  Each launch: " + st.tntPerPortal + " per portal, " + st.tntWaves + " wave(s), speed " + st.tntSpeed
                 + ". More settings: /pd settings tnt");

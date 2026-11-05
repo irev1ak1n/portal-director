@@ -142,7 +142,7 @@ final class HelpCommand implements Sub {
                             e("/pd tnt fuse 3", "/pd tnt fuse 3", "explode this many seconds after launch (or off)"),
                             e("/pd tnt launch all", "/pd tnt launch all", "one per portal; also floating or ground"),
                             e("/pd tnt launch <name>", "/pd tnt launch EntranceA", "or named portals, e.g. EntranceA,EntranceB"),
-                            e("/pd tnt limit 300", "/pd tnt limit 300", "most minecarts alive at once"),
+                            e("/pd tnt limit 300", "/pd tnt limit 300", "most minecarts launched in total"),
                             e("/pd tnt mode safe", "/pd tnt mode safe", "safe: no explosions; real: they explode"),
                             e("/pd tnt speed 1.3", "/pd tnt speed 1.3", "launch speed"),
                             e("/pd tnt status", "/pd tnt status", "what is on, how many, which mode"),

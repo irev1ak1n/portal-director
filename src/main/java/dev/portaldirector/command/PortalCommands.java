@@ -6,6 +6,7 @@ import dev.portaldirector.gen.NaturalBlocks;
 import dev.portaldirector.gen.PortalEdits;
 import dev.portaldirector.gen.PortalPlanner;
 import dev.portaldirector.model.PortalSpec;
+import dev.portaldirector.nether.NetherLinks;
 import dev.portaldirector.scene.BlockLog;
 import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
@@ -214,6 +215,21 @@ final class PortalCommands {
         pl.saveSettings();
         Msg.ok(s, "Portal " + name + " built at " + x + ", " + y + ", " + z + " facing " + facing.name().toLowerCase(Locale.ROOT)
                 + (floating ? " (floating)" : " (on the ground)") + ". /pd remove " + name + " takes it down again.");
+        linkToNether(s, world, scene, spec, name);
+    }
+
+    /** Builds the Nether partner now, so the link is there from the start and its coordinates are known. */
+    private void linkToNether(CommandSender s, World world, Scene scene, PortalSpec spec, String name) {
+        if (NetherLinks.netherWorld(world) == null) return;
+        pl.netherLinks().whenSettled(() -> {
+            try {
+                PortalSpec partner = pl.netherLinks().ensure(world, scene, spec);
+                Msg.ok(s, name + " is linked to the Nether portal at " + partner.anchorX() + ", " + partner.anchorY() + ", " + partner.anchorZ()
+                        + ". Removing " + name + " removes that one too; building it here again puts its Nether portal back at the same coordinates.");
+            } catch (IllegalStateException e) {
+                Msg.err(s, name + " was built, but its Nether portal was not: " + e.getMessage());
+            }
+        });
     }
 
     private void removePortal(CommandSender s, List<String> a) {
@@ -248,10 +264,11 @@ final class PortalCommands {
             pl.activeJob(null);
             sc.dropPortal(id);
             pl.groups().forgetPortal(name);
-            pl.netherLinks().unlink(sc.name(), id);
+            PortalSpec partner = pl.netherLinks().unlink(sc.name(), id);
             pl.scenes().save(sc);
             Msg.ok(s, "Portal " + name + " removed: " + result.restored() + " blocks restored"
-                    + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : "."));
+                    + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : ".")
+                    + (partner == null ? "" : " Its Nether portal at " + partner.anchorX() + ", " + partner.anchorY() + ", " + partner.anchorZ() + " is being removed too."));
         });
         pl.activeJob(job);
         job.start();

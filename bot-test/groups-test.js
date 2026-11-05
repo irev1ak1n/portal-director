@@ -445,7 +445,8 @@ async function main () {
   const allOk = []
   for (const p of ps) allOk.push(await portalComplete(p, 'minecraft:the_nether'))
   check('each Nether portal is a complete frame with an active interior', allOk.length === 4 && allOk.every(Boolean))
-  check('the pairing is saved to disk', Object.keys(pairs()).length === 4, JSON.stringify(pairs()))
+  // single portals get their Nether partner when they are created, so every portal has one
+  check('the pairing is saved to disk', Object.keys(pairs()).length === overworld().portals.length && Object.keys(pairs()).length >= 4, JSON.stringify(pairs()))
 
   // ---- nether-travel true for a linked member
   log('nether travel on')

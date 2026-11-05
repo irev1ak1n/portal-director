@@ -215,7 +215,7 @@ public final class Settings {
         boolOpt("tnt.preview", "spawn minecarts that never explode", () -> tntPreview, v -> tntPreview = v);
         boolOpt("tnt.protect-terrain", "explosions hurt entities but break no blocks", () -> protectTerrain, v -> protectTerrain = v);
         boolOpt("tnt.protect-portals", "portals survive explosions even when terrain damage is on", () -> protectPortals, v -> protectPortals = v);
-        intOpt("tnt.max-active", "most minecarts alive at once", 1, 5000, () -> tntMaxActive, v -> tntMaxActive = v);
+        intOpt("tnt.max-active", "most minecarts launched in total, exploded or not", 1, 5000, () -> tntMaxActive, v -> tntMaxActive = v);
         intOpt("tnt.lifetime-seconds", "minecarts that have not exploded are removed after this", 5, 3600, () -> tntLifetimeSeconds, v -> tntLifetimeSeconds = v);
         intOpt("tnt.spawns-per-tick", "most minecarts spawned in a single tick", 1, 500, () -> tntSpawnsPerTick, v -> tntSpawnsPerTick = v);
         dblOpt("tnt.fuse-seconds", "seconds after launch until a minecart explodes, 0 for vanilla behaviour (explodes only when it crashes)", 0, 60, () -> tntFuseSeconds, v -> tntFuseSeconds = v);

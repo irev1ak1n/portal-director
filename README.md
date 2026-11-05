@@ -6,7 +6,7 @@ PortalDirector is a Minecraft server plugin for content creators. It builds whol
 
 **[Download PortalDirector from GitHub Releases](https://github.com/irev1ak1n/portal-director/releases/latest)**
 
-On that page, scroll to **Assets** and click `PortalDirector-1.4.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.4.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.4.0/PortalDirector-1.4.0.jar).
+On that page, scroll to **Assets** and click `PortalDirector-1.5.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.5.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.5.0/PortalDirector-1.5.0.jar).
 
 ## Who installs it?
 
@@ -19,7 +19,7 @@ Only the **server owner or admin** installs PortalDirector, once, on the server.
 
 ## Install it
 
-1. Download `PortalDirector-1.4.0.jar` (see above).
+1. Download `PortalDirector-1.5.0.jar` (see above).
 2. Put it in your server's **`plugins`** folder:
    - **Hosting panel** (for example Pterodactyl or Apex): open the **File Manager**, open the `plugins` folder, click **Upload** and choose the jar.
    - **Your own computer or server:** copy the file into the `plugins` folder next to `paper.jar`.
@@ -209,6 +209,7 @@ Options can be combined with a count in any order, for example `/pd create 30 mo
 - **The coordinates are the anchor:** the lower of the two bottom blocks inside the doorway, the block a player's feet are in when standing in it. The obsidian floor is the block below it, so the frame reaches from `y-1` to `y+3`. North and south portals are 4 blocks wide along x, east and west portals along z. `/pd list` shows the anchor of every portal.
 - `/pd remove <x> <y> <z>` only removes the portal whose anchor is exactly that block. Coordinates that match nothing remove nothing, and the message names the closest portal.
 - A portal is refused when it is closer than one empty block to another portal, outside the build height or world border, or would replace blocks that look player-built (add `force` at the end to override that last check). From the console add the world name: `/pd create portal EntranceA 0 100 0 north world`.
+- **Nether link.** A single portal gets its Nether partner right away, and the message gives its coordinates; `/pd list` shows them next to the portal. `/pd remove` takes the Nether portal down too. The Nether coordinates are remembered for that Overworld spot: remove a portal and build it again at the same coordinates, and its Nether portal comes back at the same Nether coordinates (unless something has been built there in the meantime, in which case the nearest safe spot is used). See "Nether portals" below.
 - Named portals work everywhere generated ones do: TNT (`/pd tnt launch EntranceA`), saving, restarts and restoring the ground.
 
 ### Cinematic reveal
@@ -248,7 +249,7 @@ Base command: `/pd` (alias `/portaldirector`). Every command and every Tab sugge
 | `/pd create portal <name> <x> <y> <z> <direction> [world] [force]` | Build one named portal at exact coordinates |
 | `/pd group ...` | Groups, portals for players, preparing and visibility (see below) |
 | `/pd help [page or topic]` | Short, clickable help pages (see "Built-in help") |
-| `/pd list [page]` | The name and anchor coordinates of every portal |
+| `/pd list [page]` | The name and anchor coordinates of every portal, and the Nether portal it is linked to |
 | `/pd reload` | Reload `config.yml` |
 | `/pd remove <name>` | Take one portal down and restore its blocks |
 | `/pd remove <x> <y> <z>` | The same, by the anchor coordinates shown in `/pd list` |
@@ -308,13 +309,13 @@ Old groups are kept. Player assignments saved by older versions in scene files b
 
 | Command | Description |
 |---|---|
-| `/pd tnt clear` | Stop and remove every TNT minecart |
+| `/pd tnt clear` | Stop and remove every TNT minecart, and start the launch count again |
 | `/pd tnt fuse 3` | Explode 3 seconds after launch (`off`: only when they crash) |
 | `/pd tnt launch <all\|floating\|ground\|side <dir>\|square\|portal names>` | Send a minecart out of the chosen portals, for example `/pd tnt launch EntranceA,EntranceB` |
-| `/pd tnt limit 300` | Most minecarts alive at once |
+| `/pd tnt limit 300` | Most minecarts launched in total, exploded or not. `/pd tnt clear` starts the count again |
 | `/pd tnt mode safe\|real` | Safe: minecarts fly but never explode. Real: they explode |
 | `/pd tnt speed 1.3` | Launch speed |
-| `/pd tnt status` | Are explosions on? How many minecarts? What is the limit? |
+| `/pd tnt status` | Are explosions on? How many launched so far, and what is the limit? |
 | `/pd tnt stop` | Stop launching; minecarts already out keep going |
 | `/pd tnt terrain-damage on\|off` | Explosions break blocks (off by default: they only hurt) |
 | `/pd tnt wave <waves> <seconds>` | Several launches in a row, for example `/pd tnt wave 5 20` |
@@ -346,7 +347,9 @@ When a player walks into a PortalDirector portal, the plugin sends them to that 
 
 **What PortalDirector does.** The first time someone uses a portal, it builds that portal's partner in the Nether at a safe spot as near as possible to the Overworld coordinates divided by 8 (up to 32 blocks away) and remembers the pair in `plugins/PortalDirector/nether/`. Partners keep at least 3 empty blocks between them, face the same way as the Overworld portal, and are only placed in open natural space on solid ground: never next to lava, never within 2 blocks of a fortress, bastion, chest or someone's build, and never close to another portal. If there is no such place, the player stays where they are and is told why; the portal is never linked to another one. Removing a portal (`/pd remove`, `/pd clear`) restores the Nether blocks of its partner and nothing else.
 
-**What to know.** The Nether partners are created on first use, not when the Overworld portals are built, so nothing is changed in your Nether until someone travels. The first trip through a new portal loads and may generate some Nether chunks, which takes a moment. A vanilla portal built within about 128 Overworld blocks of one of ours can end up in one of our Nether portals, and then returns to ours; keep vanilla portals away from PortalDirector areas if that matters.
+**Same spot every time.** Where a partner stood is remembered for its Overworld anchor, even after the pair is removed. Build a portal at the same coordinates again and the search starts at those Nether coordinates, so you get the same Nether portal in the same place whenever it is still free and safe. Single portals made with `/pd create portal` get their partner immediately and report its coordinates; `/pd list` shows them.
+
+**What to know.** Portals from layouts (`/pd create`) get their Nether partner on first use, so nothing is changed in your Nether until someone travels. The first trip through a new portal loads and may generate some Nether chunks, which takes a moment. A vanilla portal built within about 128 Overworld blocks of one of ours can end up in one of our Nether portals, and then returns to ours; keep vanilla portals away from PortalDirector areas if that matters.
 
 ## Permissions
 

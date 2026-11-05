@@ -27,11 +27,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
 /** Generating portals and the settings that shape them. */
@@ -598,7 +600,9 @@ final class GenerateCommands {
 
     private void section(CommandSender s, String title, String... keys) {
         Msg.line(s, "  " + title);
-        for (String k : keys) row(s, k);
+        List<String> ordered = new ArrayList<>(List.of(keys));
+        ordered.sort(Comparator.comparing(k -> shortName(pl.settings().options().get(k))));
+        for (String k : ordered) row(s, k);
     }
 
     Sub settings() {
@@ -621,58 +625,67 @@ final class GenerateCommands {
                 }
                 Msg.line(s, "  Layout: " + describeLayout(g) + "  (/pd create builds this)");
                 Msg.line(s, "  Change with /pd set <name> <value>.");
+                // Sections are listed A to Z, and so are the settings inside each one.
+                Map<String, Runnable> sections = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
                 switch (g.layout) {
-                    case GRID -> section(s, "Grid", "generate.layout", "generate.grid-rows", "generate.grid-columns");
-                    case SQUARE -> section(s, "Square", "generate.layout", "generate.square-per-side", "generate.square-layers");
-                    case WAVE -> section(s, "Wave", "generate.layout", "generate.wave-rows", "generate.wave-per-row");
-                    default -> section(s, "Random", "generate.layout", "generate.count");
+                    case GRID -> sections.put("Grid", () -> section(s, "Grid", "generate.layout", "generate.grid-rows", "generate.grid-columns"));
+                    case SQUARE -> sections.put("Square", () -> section(s, "Square", "generate.layout", "generate.square-per-side", "generate.square-layers"));
+                    case WAVE -> sections.put("Wave", () -> section(s, "Wave", "generate.layout", "generate.wave-rows", "generate.wave-per-row"));
+                    default -> sections.put("Random", () -> section(s, "Random", "generate.layout", "generate.count"));
                 }
-                Msg.line(s, "  Area");
-                Msg.line(s, "    Radius: " + radiusText(g));
-                Msg.line(s, "    Portals stay within x and z +/- " + g.effectiveRadius() + " of the center, frames included.");
-                section(s, "Placement", "generate.placement", "generate.facing");
-                section(s, "Spacing", "generate.spacing-horizontal", "generate.spacing-vertical");
-                Msg.line(s, "  Heights (optional, the defaults suit most worlds)");
-                if (g.layout == Layout.RANDOM) {
-                    row(s, "generate.altitude-min");
-                    row(s, "generate.altitude-max");
-                }
-                row(s, "generate.world-y-min");
-                row(s, "generate.world-y-max");
-                section(s, "Timing", "generate.generation");
-                if (g.generation == GenerationMode.DELAYED) {
-                    row(s, "generate.generation-delay");
-                    row(s, "generate.generation-order");
-                    row(s, "generate.generation-effects");
-                }
-                if (which.equals("all")) {
-                    if (g.layout != Layout.RANDOM) {
-                        section(s, "Other layouts", "generate.count", "generate.grid-rows", "generate.grid-columns", "generate.square-per-side",
-                                "generate.square-layers", "generate.wave-rows", "generate.wave-per-row");
-                    } else {
-                        section(s, "Other layouts", "generate.grid-rows", "generate.grid-columns", "generate.square-per-side",
-                                "generate.square-layers", "generate.wave-rows", "generate.wave-per-row");
-                        Msg.line(s, "    (altitude settings are shown above)");
-                    }
-                    if (g.layout != Layout.RANDOM) {
-                        row(s, "generate.altitude-min");
+                sections.put("Area", () -> {
+                    Msg.line(s, "  Area");
+                    Msg.line(s, "    Radius: " + radiusText(g));
+                    Msg.line(s, "    Portals stay within x and z +/- " + g.effectiveRadius() + " of the center, frames included.");
+                });
+                sections.put("Placement", () -> section(s, "Placement", "generate.facing", "generate.placement"));
+                sections.put("Spacing", () -> section(s, "Spacing", "generate.spacing-horizontal", "generate.spacing-vertical"));
+                sections.put("Heights", () -> {
+                    Msg.line(s, "  Heights (optional, the defaults suit most worlds)");
+                    if (g.layout == Layout.RANDOM) {
                         row(s, "generate.altitude-max");
+                        row(s, "generate.altitude-min");
                     }
+                    row(s, "generate.world-y-max");
+                    row(s, "generate.world-y-min");
+                });
+                sections.put("Timing", () -> {
+                    section(s, "Timing", "generate.generation");
+                    if (g.generation == GenerationMode.DELAYED) {
+                        row(s, "generate.generation-delay");
+                        row(s, "generate.generation-effects");
+                        row(s, "generate.generation-order");
+                    }
+                });
+                if (which.equals("all")) {
+                    sections.put("Other layouts", () -> {
+                        if (g.layout != Layout.RANDOM) {
+                            section(s, "Other layouts", "generate.count", "generate.grid-columns", "generate.grid-rows", "generate.square-layers",
+                                    "generate.square-per-side", "generate.wave-per-row", "generate.wave-rows");
+                            row(s, "generate.altitude-max");
+                            row(s, "generate.altitude-min");
+                        } else {
+                            section(s, "Other layouts", "generate.grid-columns", "generate.grid-rows", "generate.square-layers",
+                                    "generate.square-per-side", "generate.wave-per-row", "generate.wave-rows");
+                            Msg.line(s, "    (altitude settings are shown above)");
+                        }
+                    });
                     if (g.generation != GenerationMode.DELAYED) {
-                        section(s, "Delayed generation", "generate.generation-delay", "generate.generation-order", "generate.generation-effects");
+                        sections.put("Delayed generation", () -> section(s, "Delayed generation", "generate.generation-delay", "generate.generation-effects", "generate.generation-order"));
                     }
-                    section(s, "Limits", "generate.blocks-per-tick", "generate.max-chunks", "generate.max-portals");
-                    tntRows(s, st);
-                } else {
+                    sections.put("Limits", () -> section(s, "Limits", "generate.blocks-per-tick", "generate.max-chunks", "generate.max-portals"));
+                    sections.put("TNT", () -> tntRows(s, st));
+                }
+                sections.values().forEach(Runnable::run);
+                if (!which.equals("all")) {
                     Msg.line(s, "  More: /pd settings tnt | all. Tips and examples: /pd help set");
                 }
             }
 
             private void tntRows(CommandSender s, Settings st) {
                 Msg.line(s, "  TNT");
-                for (Settings.Option o : st.options().values()) {
-                    if (o.key.startsWith("tnt.")) Msg.line(s, String.format("    %-24s %-8s %s", o.key, o.display(), o.hint));
-                }
+                st.options().values().stream().filter(o -> o.key.startsWith("tnt.")).sorted(Comparator.comparing((Settings.Option o) -> o.key))
+                        .forEach(o -> Msg.line(s, String.format("    %-24s %-8s %s", o.key, o.display(), o.hint)));
                 Msg.line(s, "  " + (st.tntPreview ? "SAFE MODE is on (nothing explodes)." : "Real explosions are on.") + " Details: /pd tnt status");
             }
 
