@@ -193,7 +193,7 @@ async function main () {
   log('settings view')
   out = await run('pd settings', 900)
   const pos = k => out.indexOf(k)
-  check('settings for the random layout lead with the layout, then area, placement, spacing, heights', ['Random', 'count', 'Area', 'Radius: ', 'Placement', 'mode', 'facing', 'Spacing', 'Heights', 'altitude-min', 'altitude-max', 'world-y-min', 'world-y-max'].every(k => pos(k) >= 0) && pos('Random') < pos('Area') && pos('Area') < pos('Placement') && pos('Placement') < pos('Spacing') && pos('Spacing') < pos('Heights'), '')
+  check('settings are grouped in sections listed A to Z: area, heights, placement, the layout, spacing', ['Random', 'count', 'Area', 'Radius: ', 'Placement', 'mode', 'facing', 'Spacing', 'Heights', 'altitude-min', 'altitude-max', 'world-y-min', 'world-y-max'].every(k => pos(k) >= 0) && pos('Area') < pos('Heights') && pos('Heights') < pos('Placement') && pos('Placement') < pos('Random') && pos('Random') < pos('Spacing'), '')
   check('settings show the effective radius with the automatic margin', /Radius: 100 blocks \(105 effective with automatic 5% margin\)/.test(out) && /Portals stay within x and z \+\/- 105 of the center/.test(out))
   check('settings say the heights are optional', /Heights \(optional/.test(out))
   check('settings no longer list removed options', !/orientation|air-ratio|slope|min-y |max-y |entrance|staging|auto-assign|announce/.test(out))

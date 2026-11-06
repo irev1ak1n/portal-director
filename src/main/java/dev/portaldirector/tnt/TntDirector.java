@@ -125,15 +125,44 @@ public final class TntDirector implements Listener {
         return new Summary(plan.size(), waves, duration, settings.tntPreview);
     }
 
+    /** What {@link #launchOne} did. */
+    public enum Launch { LAUNCHED, LIMIT, UNLOADED }
+
+    /** How many more minecarts the cumulative launch limit allows. */
+    public int remainingLaunches() {
+        return Math.max(0, settings.tntMaxActive - launchedTotal);
+    }
+
+    /**
+     * Launches one minecart now, for a sequence. It counts against the cumulative limit like every other launch and never
+     * goes past it. {@code safe} overrides the global safe/real mode for this minecart only; null follows the global mode.
+     */
+    public Launch launchOne(World world, PortalSpec p, Boolean safe) {
+        if (launchedTotal >= settings.tntMaxActive) return Launch.LIMIT;
+        return spawn(world, p, safe) ? Launch.LAUNCHED : Launch.UNLOADED;
+    }
+
+    private boolean isSafe(Entity e) {
+        Byte mode = e.getPersistentDataContainer().get(tagKey, PersistentDataType.BYTE);
+        if (mode != null && mode == 2) return true;
+        if (mode != null && mode == 3) return false;
+        return settings.tntPreview;
+    }
+
     private boolean spawn(World world, PortalSpec p) {
+        return spawn(world, p, null);
+    }
+
+    private boolean spawn(World world, PortalSpec p, Boolean safe) {
+        boolean preview = safe != null ? safe : settings.tntPreview;
         Location loc = new Location(world, p.centerX(), p.standY(), p.centerZ(), p.yaw(), 0f);
         if (!world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) return false;
         ExplosiveMinecart cart = world.spawn(loc, ExplosiveMinecart.class, c -> {
-            c.getPersistentDataContainer().set(tagKey, PersistentDataType.BYTE, (byte) 1);
+            c.getPersistentDataContainer().set(tagKey, PersistentDataType.BYTE, safe == null ? (byte) 1 : safe ? (byte) 2 : (byte) 3);
             c.setMaxSpeed(Math.max(c.getMaxSpeed(), settings.tntSpeed));
         });
         cart.setVelocity(new Vector(p.stepX() * settings.tntSpeed, settings.tntLift, p.stepZ() * settings.tntSpeed));
-        if (settings.tntFuseSeconds > 0 && !settings.tntPreview) {
+        if (settings.tntFuseSeconds > 0 && !preview) {
             cart.ignite();
             cart.setFuseTicks((int) Math.round(settings.tntFuseSeconds * 20));
         }
@@ -199,7 +228,7 @@ public final class TntDirector implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     public void onPrime(ExplosionPrimeEvent e) {
-        if (settings.tntPreview && isOurs(e.getEntity())) e.setCancelled(true);
+        if (isOurs(e.getEntity()) && isSafe(e.getEntity())) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

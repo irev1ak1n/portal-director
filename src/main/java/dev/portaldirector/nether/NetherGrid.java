@@ -26,4 +26,9 @@ public interface NetherGrid {
     boolean isReady(int x, int z);
 
     Cell cell(int x, int y, int z);
+
+    /** Fire or anything else that hurts someone standing in this block. */
+    default boolean isHazard(int x, int y, int z) {
+        return false;
+    }
 }

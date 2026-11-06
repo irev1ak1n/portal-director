@@ -50,4 +50,11 @@ public final class BukkitNetherGrid implements NetherGrid {
         if (PLANTS.contains(m)) return Cell.PLANT;
         return Cell.BLOCKED;
     }
+
+    @Override
+    public boolean isHazard(int x, int y, int z) {
+        Material m = world.getBlockAt(x, y, z).getType();
+        return m == Material.FIRE || m == Material.SOUL_FIRE || m == Material.CAMPFIRE || m == Material.SOUL_CAMPFIRE
+                || m == Material.WITHER_ROSE || m == Material.SWEET_BERRY_BUSH || m == Material.POWDER_SNOW;
+    }
 }

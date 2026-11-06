@@ -29,6 +29,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         GenerateCommands gen = new GenerateCommands(pl, scene);
         GroupCommands group = new GroupCommands(pl);
         TntCommands tnt = new TntCommands(pl);
+        SequenceCommands sequence = new SequenceCommands(pl);
         PortalCommands portal = new PortalCommands(pl);
         String g = "portaldirector.generate";
 
@@ -40,6 +41,7 @@ public final class PdCommand implements CommandExecutor, TabCompleter {
         subs.put("clear", new Entry(scene.clearShortcut(), "portaldirector.scene"));
         subs.put("group", new Entry(group.group(), "portaldirector.group"));
         subs.put("tnt", new Entry(tnt.tnt(), "portaldirector.tnt"));
+        subs.put("sequence", new Entry(sequence.sequence(), "portaldirector.sequence"));
         subs.put("stop", new Entry(scene.stop(), g));
         subs.put("help", new Entry(new HelpCommand(), null));
         subs.put("reload", new Entry((s, a) -> {

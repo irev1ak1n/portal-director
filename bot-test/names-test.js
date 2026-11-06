@@ -199,7 +199,7 @@ async function main () {
   log('tab completion')
   try {
     const main = await tab(bot, '/pd ')
-    check('/pd suggests the commands in alphabetical order', JSON.stringify(main) === JSON.stringify(['clear', 'create', 'group', 'help', 'list', 'reload', 'remove', 'set', 'settings', 'stop', 'tnt']), main.join(' '))
+    check('/pd suggests the commands in alphabetical order', JSON.stringify(main) === JSON.stringify(['clear', 'create', 'group', 'help', 'list', 'reload', 'remove', 'sequence', 'set', 'settings', 'stop', 'tnt']), main.join(' '))
     for (const [cmd, must] of [['/pd create ', 'portal'], ['/pd set ', 'generation'], ['/pd group ', 'block'], ['/pd tnt ', 'launch'], ['/pd set generation ', 'order'], ['/pd remove ', 'EntranceA'], ['/pd tnt launch ', 'EntranceC']]) {
       const l = await tab(bot, cmd)
       check(`${cmd}suggestions are alphabetical${must ? ' and include ' + must : ''}`, l.length > 0 && isSorted(l) && (!must || l.includes(must)), l.slice(0, 14).join(' '))

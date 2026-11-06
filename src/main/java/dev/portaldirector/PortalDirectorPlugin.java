@@ -5,6 +5,7 @@ import dev.portaldirector.group.Cinematic;
 import dev.portaldirector.group.GroupManager;
 import dev.portaldirector.group.JoinBlockListener;
 import dev.portaldirector.nether.NetherLinks;
+import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
@@ -27,6 +28,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private TntDirector tnt;
     private Cinematic cinematic;
     private NetherLinks netherLinks;
+    private SequenceManager sequences;
     private Job activeJob;
     private BukkitTask progress;
 
@@ -47,6 +49,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(cinematic, this);
         getServer().getPluginManager().registerEvents(new PortalTravelListener(this), this);
         netherLinks.cleanOrphans();
+        sequences = new SequenceManager(this);
+        getServer().getPluginManager().registerEvents(sequences, this);
         tnt.start();
         PdCommand command = new PdCommand(this);
         PluginCommand pd = getCommand("pd");
@@ -60,6 +64,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (activeJob != null) activeJob.cancel();
+        if (sequences != null) sequences.shutdown();
         if (tnt != null) tnt.shutdown();
         if (cinematic != null) cinematic.shutdown();
         if (netherLinks != null) netherLinks.save();
@@ -99,6 +104,10 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public NetherLinks netherLinks() {
         return netherLinks;
+    }
+
+    public SequenceManager sequences() {
+        return sequences;
     }
 
     public TntDirector tnt() {

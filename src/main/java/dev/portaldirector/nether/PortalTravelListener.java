@@ -38,6 +38,11 @@ public final class PortalTravelListener implements Listener {
     public void onPortal(PlayerPortalEvent e) {
         if (e.getCause() != PlayerTeleportEvent.TeleportCause.NETHER_PORTAL) return;
         Player player = e.getPlayer();
+        // Someone staged by a sequence stays where the sequence put them until it ends.
+        if (pl.sequences().isHeld(player.getUniqueId())) {
+            e.setCancelled(true);
+            return;
+        }
         World from = player.getWorld();
         BoundingBox body = player.getBoundingBox();
 
@@ -58,7 +63,8 @@ public final class PortalTravelListener implements Listener {
         if (hit != null) {
             Group g = pl.groups().groupOf(player.getUniqueId());
             String linked = g == null ? null : g.portals().get(player.getUniqueId());
-            if (g != null && !g.netherTravel() && linked != null && linked.equalsIgnoreCase(hitScene.nameOf(hit.id()))) {
+            boolean sequencePortal = pl.sequences().allowsTravel(hitScene.name(), hit.id());
+            if (g != null && !g.netherTravel() && !sequencePortal && linked != null && linked.equalsIgnoreCase(hitScene.nameOf(hit.id()))) {
                 e.setCancelled(true);
                 pl.getLogger().fine(player.getName() + " stays in " + linked + " (Nether travel is off for " + g.name() + ")");
                 return;

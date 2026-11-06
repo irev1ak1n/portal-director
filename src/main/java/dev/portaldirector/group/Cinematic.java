@@ -148,6 +148,16 @@ public final class Cinematic implements Listener {
         if (tasks != null) tasks.forEach(BukkitTask::cancel);
     }
 
+    /** Hides a player from everyone else (used by sequences). {@link #forget} or {@link #reveal} shows them again. */
+    public void conceal(Player p) {
+        hide(p);
+    }
+
+    /** Shows a player who was hidden with {@link #conceal}. */
+    public void reveal(Player p) {
+        if (hidden.contains(p.getUniqueId())) show(p);
+    }
+
     private void hide(Player p) {
         hidden.add(p.getUniqueId());
         for (Player viewer : Bukkit.getOnlinePlayers()) {

@@ -1,10 +1,7 @@
 package dev.portaldirector.command;
 
 import dev.portaldirector.PortalDirectorPlugin;
-import dev.portaldirector.gen.BukkitTerrain;
-import dev.portaldirector.gen.NaturalBlocks;
-import dev.portaldirector.gen.PortalEdits;
-import dev.portaldirector.gen.PortalPlanner;
+import dev.portaldirector.gen.SinglePortal;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.nether.NetherLinks;
 import dev.portaldirector.scene.BlockLog;
@@ -140,33 +137,10 @@ final class PortalCommands {
         if (pl.activeJob() != null) throw pl.busy();
 
         Scene scene = pl.scenes().currentOrCreate(world);
-        if (!scene.portals().isEmpty() && !scene.worldName().equals(world.getName())) {
-            throw new IllegalArgumentException("The existing portals are in world " + scene.worldName() + ". Run /pd clear first to build in " + world.getName() + ".");
-        }
-        scene.checkName(name);
-        if (scene.portals().size() >= pl.settings().maxPortals) {
-            throw new IllegalArgumentException("There are already " + pl.settings().maxPortals + " portals, the most allowed. /pd clear removes them.");
-        }
-        PortalSpec probe = PortalSpec.fromAnchor(scene.nextId(), x, y, z, facing, false);
-        if (probe.y() < world.getMinHeight() + 1 || probe.y() + PortalSpec.HEIGHT >= world.getMaxHeight() - 1) {
-            throw new IllegalArgumentException("y " + y + " is outside the build limits (" + (world.getMinHeight() + 2) + " to " + (world.getMaxHeight() - 6) + ").");
-        }
-        int[] box = probe.box();
-        for (int bx : new int[]{box[0], box[3]}) {
-            for (int bz : new int[]{box[2], box[5]}) {
-                if (!world.getWorldBorder().isInside(new org.bukkit.Location(world, bx, y, bz))) {
-                    throw new IllegalArgumentException("That is outside the world border.");
-                }
-            }
-        }
-        checkSpacing(scene, world, probe);
-        List<CompletableFuture<?>> loads = new ArrayList<>();
-        for (int cx = box[0] >> 4; cx <= box[3] >> 4; cx++) {
-            for (int cz = box[2] >> 4; cz <= box[5] >> 4; cz++) loads.add(world.getChunkAtAsync(cx, cz, true));
-        }
+        PortalSpec probe = SinglePortal.check(pl, world, scene, name, x, y, z, facing);
         final World w = world;
         final boolean forced = force;
-        CompletableFuture.allOf(loads.toArray(new CompletableFuture<?>[0])).whenComplete((v, err) ->
+        SinglePortal.load(world, probe).whenComplete((v, err) ->
                 pl.getServer().getScheduler().runTask(pl, () -> {
                     try {
                         build(s, w, scene, name, x, y, z, facing, forced);
@@ -176,43 +150,9 @@ final class PortalCommands {
                 }));
     }
 
-    private void checkSpacing(Scene scene, World world, PortalSpec probe) {
-        for (PortalSpec other : pl.scenes().portalsIn(world.getName())) {
-            if (!probe.separatedFrom(other, 1)) {
-                String near = pl.scenes().current() == null ? "another portal" : pl.scenes().current().nameOf(other.id());
-                throw new IllegalArgumentException("Too close to " + near + " (" + other.anchorX() + ", " + other.anchorY() + ", "
-                        + other.anchorZ() + "). Leave at least one empty block between portals.");
-            }
-        }
-    }
-
     private void build(CommandSender s, World world, Scene scene, String name, int x, int y, int z, BlockFace facing, boolean force) {
-        scene.checkName(name);
-        PortalSpec probe = PortalSpec.fromAnchor(scene.nextId(), x, y, z, facing, false);
-        checkSpacing(scene, world, probe);
-        List<int[]> cells = new ArrayList<>(probe.frameBlocks());
-        cells.addAll(probe.interiorBlocks());
-        cells.addAll(probe.corridorBlocks());
-        if (!force) {
-            for (int[] c : cells) {
-                var type = world.getBlockAt(c[0], c[1], c[2]).getType();
-                if (!NaturalBlocks.isNatural(type)) {
-                    throw new IllegalArgumentException("That would replace " + type.name().toLowerCase(Locale.ROOT) + " at " + c[0] + ", " + c[1] + ", " + c[2]
-                            + ", which looks built by a player. Move the portal, or add 'force' to replace it anyway.");
-                }
-            }
-        }
-        BukkitTerrain terrain = new BukkitTerrain(world);
-        int maxTop = Integer.MIN_VALUE;
-        for (int i = 0; i < PortalSpec.WIDTH; i++) maxTop = Math.max(maxTop, terrain.topY(probe.cellX(i), probe.cellZ(i)));
-        int support = PortalPlanner.MAX_SUPPORT;
-        boolean floating = probe.y() - 1 - maxTop > support;
-        PortalSpec spec = new PortalSpec(probe.id(), probe.x(), probe.y(), probe.z(), probe.axis(), probe.facing(), floating);
-        for (PortalEdits.Edit e : PortalEdits.forPortal(world, spec, support)) PortalEdits.apply(world, scene.blocks(), e);
-        scene.addPortal(spec, name);
-        pl.scenes().select(scene);
-        pl.scenes().save(scene);
-        pl.saveSettings();
+        PortalSpec spec = SinglePortal.build(pl, world, scene, name, x, y, z, facing, force);
+        boolean floating = spec.floating();
         Msg.ok(s, "Portal " + name + " built at " + x + ", " + y + ", " + z + " facing " + facing.name().toLowerCase(Locale.ROOT)
                 + (floating ? " (floating)" : " (on the ground)") + ". /pd remove " + name + " takes it down again.");
         linkToNether(s, world, scene, spec, name);

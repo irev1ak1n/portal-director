@@ -6,7 +6,7 @@ PortalDirector is a Minecraft server plugin for content creators. It builds whol
 
 **[Download PortalDirector from GitHub Releases](https://github.com/irev1ak1n/portal-director/releases/latest)**
 
-On that page, scroll to **Assets** and click `PortalDirector-1.5.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.5.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.5.0/PortalDirector-1.5.0.jar).
+On that page, scroll to **Assets** and click `PortalDirector-1.6.0.jar`. That file is the whole plugin. You don't need to clone the repository, install Gradle or compile anything. Direct link: [PortalDirector-1.6.0.jar](https://github.com/irev1ak1n/portal-director/releases/download/v1.6.0/PortalDirector-1.6.0.jar).
 
 ## Who installs it?
 
@@ -19,7 +19,7 @@ Only the **server owner or admin** installs PortalDirector, once, on the server.
 
 ## Install it
 
-1. Download `PortalDirector-1.5.0.jar` (see above).
+1. Download `PortalDirector-1.6.0.jar` (see above).
 2. Put it in your server's **`plugins`** folder:
    - **Hosting panel** (for example Pterodactyl or Apex): open the **File Manager**, open the `plugins` folder, click **Upload** and choose the jar.
    - **Your own computer or server:** copy the file into the `plugins` folder next to `paper.jar`.
@@ -99,6 +99,7 @@ Then send TNT minecarts out of them:
 - **Named portals.** Every portal has a name you can type: generated ones are `portal-1`, `portal-2` and so on, and you choose the names of single portals. Names are not case sensitive.
 - **Cinematic reveal.** Portals appear one by one, left to right, bottom to top, clockwise and more, with an optional sound and particles. `/pd stop` cancels safely.
 - **Cinematic arrivals.** Link each player to a portal, stand them in it with `/pd group prepare`, hide them from everyone else, then reveal them in small staggered groups, as if they just stepped out of the Nether. Nobody is moved or launched.
+- **Sequences.** One command runs a whole scene: `nether-arrival` stages your group beside a Nether portal, `sky-army` fills the sky with floating portals and appears one player in each, `tnt-strike` makes floating portals fire random numbers of TNT minecarts. See [Sequences](#sequences).
 - **Reliable Nether links.** Every PortalDirector portal gets its own Nether partner, so forty close portals no longer share one or two Nether portals. See [Nether portals](#nether-portals).
 - **TNT minecart sequences.** Launch a minecart out of every portal, or in timed waves, with safe and real modes. Minecarts come out the way the portal faces.
 - **Scene management.** PortalDirector remembers every portal and every block it changed, even after a restart. `/pd clear` or `/pd remove` puts the ground back.
@@ -253,6 +254,7 @@ Base command: `/pd` (alias `/portaldirector`). Every command and every Tab sugge
 | `/pd reload` | Reload `config.yml` |
 | `/pd remove <name>` | Take one portal down and restore its blocks |
 | `/pd remove <x> <y> <z>` | The same, by the anchor coordinates shown in `/pd list` |
+| `/pd sequence ...` | Whole scenes with one command (see [Sequences](#sequences)) |
 | `/pd set ...` | Change a setting (see below) |
 | `/pd settings [tnt\|all]` | Show the settings for your layout first; `tnt` and `all` show more |
 | `/pd stop` | Cancel a creation or removal that is running |
@@ -336,8 +338,102 @@ Nothing is ever launched unless you type a launch command.
 | `/pd help portals` | Single named portals |
 | `/pd help reveal` | The cinematic delay |
 | `/pd help scenes` | Listing, removing and clearing |
+| `/pd help sequence` | The three built-in sequences and their commands |
 | `/pd help set` | Every setting, in plain words, including the four height settings |
 | `/pd help tnt` | TNT minecarts |
+
+## Sequences
+
+A sequence is a ready-made scene you run with one command, instead of creating portals, assigning players and setting up effects by hand. There are three, and each keeps **its own settings**: changing a sequence never changes `/pd set`, and never changes another sequence. The manual commands all keep working.
+
+| Sequence | What it does | Players moved automatically? | TNT? | Portal travel? |
+|---|---|---|---|---|
+| `nether-arrival` | Builds one portal and moves your group beside its Nether partner. They walk in when you tell them to. | Yes, once, to the Nether side | No | Yes: that portal lets the group through |
+| `sky-army` | Builds floating portals one by one and makes every group member appear inside one. | Yes, one by one, into the Overworld portals | No | Switched off while they wait |
+| `tnt-strike` | Builds floating portals one by one; each fires a random number of TNT minecarts outward. | No | Yes | No |
+
+| Command | What it does |
+|---|---|
+| `/pd sequence list` | The sequences, what they do and an example for each |
+| `/pd sequence <name> info` | What it does, how to run it, what happens to players, TNT and portal travel, and its current settings |
+| `/pd sequence <name> run <x y z \| here> ...` | Run it (`here` is the block you stand on; from the console add a world name at the end) |
+| `/pd sequence <name> set <option> <value>` | Change a setting of that sequence only |
+| `/pd sequence <name> reset` | Back to its default settings |
+| `/pd sequence status` | What is running or waiting, with progress |
+| `/pd sequence stop` | Cancel the running sequence and let go of anyone it holds |
+
+### nether-arrival
+
+```
+/pd sequence nether-arrival set group NULL
+/pd sequence nether-arrival run here north
+/pd sequence nether-arrival run 100 75 200 north
+```
+
+Builds one portal at that spot, facing north, south, east or west, creates (or reuses) its Nether partner, and teleports every **online** member of the group to safe places beside the Nether portal: two open blocks above natural ground, no lava or fire near, outside the portal and its frame, each on a block of their own and looking at the portal. **Nothing else happens.** Nobody is walked in and nothing is timed: you tell your players when to step into the Nether portal, and it sends them to the portal you built.
+
+For that one portal the group may travel even if `/pd group nether-travel` is false. The group setting itself is never changed, and every other portal keeps obeying it. `/pd sequence stop` ends the allowance (players stay where they are). Running it again at the same spot reuses the portal; the same spot with another direction is refused.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `group` | the only group | Which group is moved |
+| `spawn-distance` | 5 | How many blocks from the Nether portal players wait (2 to 20); places are searched up to 12 blocks beyond |
+
+If a cave is too cramped for everyone, those who fit are moved and the rest are named in the message.
+
+### sky-army
+
+```
+/pd sequence sky-army set group NULL
+/pd sequence sky-army run here
+/pd sequence sky-army run 100 120 200
+```
+
+Plans one **floating** portal for every online member of the group (random layout, each portal facing its own random direction, all inside the radius and within `height-range` blocks above and below the height you give). Portals appear one after another at short random gaps; each player is then teleported into the purple middle of their own portal, a short random time after it appears, and shown to everyone else at that moment (until then they are hidden from other players). Nobody appears before their portal exists, and they face outward.
+
+Everyone is accommodated. If the portals do not all fit, the search widens step by step: a wider area, then a taller band of sky (always inside the world's build height and border), then narrower gaps (never less than one empty block, so frames never touch). If there are still fewer portals than players (or fewer are allowed by `/pd set max-portals`), players share portals evenly: two stand on the two interior blocks, more get slightly different spots. The final message says how many share, or that only part of the group could be staged. It never replaces blocks that are not air, and never touches existing portals.
+
+While staged the players stay in the Overworld and **cannot travel to the Nether**. They wait until you run `/pd sequence stop`, which sends each player back to where they stood before and shows everyone again; the portals stay (`/pd clear` removes them). Existing `/pd group` links and settings are not touched.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `group` | the only group | Which group appears |
+| `height-range` | 30 | Portals float this many blocks above and below the height you give (widens if needed) |
+| `player-delay-max` / `player-delay-min` | 0.5 / 0.1 | Seconds before a player appears in their portal, a random value in between for each |
+| `portal-delay-max` / `portal-delay-min` | 0.55 / 0.15 | Seconds between two portals appearing, a random value in between each time |
+| `radius` | 100 | How far from the center portals may float (an automatic 5% is added, and it grows if they do not all fit, within the chunk limit) |
+
+### tnt-strike
+
+```
+/pd sequence tnt-strike set portals 20
+/pd sequence tnt-strike run here
+/pd sequence tnt-strike run 100 120 200
+```
+
+Builds floating portals the same way (random layout, random facings, one after another at short random gaps). Each portal then fires its own random number of TNT minecarts, 5 to 10 by default, outward the way it faces: the first one a random moment after the portal appears, and each next one a random moment after the one before.
+
+**The limit is checked first.** Every minecart counts against `/pd tnt limit` like any other launch. Before anything is built, the sequence works out how many minecarts it will launch; if the limit does not have room, it tells you and builds nothing. It never goes past the limit and never resets the count (`/pd tnt clear` does, when you decide). Global TNT settings are not changed.
+
+Minecarts are **safe by default**: they fly but never explode, even if `/pd tnt mode` is real. `/pd sequence tnt-strike set tnt-mode real` makes this sequence's minecarts explode (using your fuse, `terrain-damage` and `portal-protection` settings, which keep blocks and portals safe by default).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `height-range` | 30 | Portals float this many blocks above and below the height you give |
+| `launch-delay-max` / `launch-delay-min` | 0.7 / 0.2 | Seconds before a portal's first minecart and between its minecarts |
+| `portal-delay-max` / `portal-delay-min` | 0.55 / 0.15 | Seconds between two portals appearing |
+| `portals` | 20 | How many floating portals to make |
+| `radius` | 100 | How far from the center portals may float |
+| `tnt-max` / `tnt-min` | 10 / 5 | Most and fewest minecarts one portal fires |
+| `tnt-mode` | safe | `safe` or `real` |
+
+### Good to know
+
+- Sequences use the normal portal building, naming (`sky-army-1`, `tnt-strike-3`, `nether-arrival`), tracking and restoring, so `/pd list`, `/pd remove` and `/pd clear` work on them, and every block is put back.
+- Running a sequence again never deletes anything: new portals are added, and existing ones are treated as obstacles. Only one sequence runs at a time (and not while a build or removal is running).
+- `/pd sequence stop` (or `/pd stop`) cancels safely: portals already built stay, players the sequence moved go back, hidden players are shown, and travel restrictions are lifted. Players are also released if they quit, and everything is released when the server stops.
+- Settings are saved in `plugins/PortalDirector/sequences.yml` (only what you changed) and survive restarts. Permission: `portaldirector.sequence`.
+- `tnt-strike` and `sky-army` need loaded chunks: they load the area and keep it loaded while they run. Very large areas are refused with the chunk limit (`/pd set max-chunks`).
 
 ## Nether portals
 
@@ -357,7 +453,7 @@ When a player walks into a PortalDirector portal, the plugin sends them to that 
 
 **Give a trusted creator OP:** the server owner can open their Minecraft hosting panel's **Console** and type `op PlayerName` (for example, `op SpokeIsHere`), **without a slash**. On a self-hosted server, use its server console. This does not require PowerShell when using a hosting panel. **OP grants broad server powers**, so reserve it for trusted administrators.
 
-**Prefer limited access?** With [LuckPerms](https://luckperms.net/), the server admin can grant only the necessary PortalDirector permissions. For example, run `lp user PlayerName permission set portaldirector.generate true` in the server console to allow portal generation without full OP. Grant `portaldirector.group`, `portaldirector.tnt`, or `portaldirector.scene` separately as needed. The table below lists the available permission nodes.
+**Prefer limited access?** With [LuckPerms](https://luckperms.net/), the server admin can grant only the necessary PortalDirector permissions. For example, run `lp user PlayerName permission set portaldirector.generate true` in the server console to allow portal generation without full OP. Grant `portaldirector.group`, `portaldirector.sequence`, `portaldirector.tnt`, or `portaldirector.scene` separately as needed. The table below lists the available permission nodes.
 
 Operators have everything by default. Give players only the parts you want them to have.
 
@@ -367,6 +463,7 @@ Operators have everything by default. Give players only the parts you want them 
 | `portaldirector.generate` | op | `/pd create`, `list`, `remove`, `set`, `settings`, `stop` |
 | `portaldirector.group` | op | `/pd group` |
 | `portaldirector.scene` | op | `/pd clear` |
+| `portaldirector.sequence` | op | `/pd sequence` |
 | `portaldirector.tnt` | op | `/pd tnt` |
 
 `/pd help` is available to everyone.
@@ -379,6 +476,8 @@ Operators have everything by default. Give players only the parts you want them 
 - Grid, wave and square layouts treat `mixed` mode like `ground`: their lowest row stands on the ground and the rest stack above it.
 
 ## Upgrading
+
+**From 1.4.0:** `/pd sequence` is new. `/pd tnt limit` now means the most minecarts launched **in total**, exploded or not (it used to be the most alive at once); `/pd tnt clear` starts the count again, and `/pd tnt status` shows it. `/pd create portal` now builds the Nether partner straight away, `/pd list` shows each portal's Nether coordinates, and a portal rebuilt at the same coordinates gets its Nether portal back at the same Nether coordinates. Nothing in your saved scenes, groups or config needs changing.
 
 **From 1.3.0:** the group commands changed.
 

@@ -113,7 +113,7 @@ class HelpCommandTest {
     @Test
     void topicsResolveToTheirFirstPageAndMatchTabCompletion() {
         for (String name : HelpCommand.topicNames()) assertTrue(HelpCommand.pageOfTopic(name) > 0, name);
-        assertEquals(List.of("create", "examples", "group", "layouts", "portals", "reveal", "scenes", "set", "tnt"), HelpCommand.topicNames());
+        assertEquals(List.of("create", "examples", "group", "layouts", "portals", "reveal", "scenes", "sequence", "set", "tnt"), HelpCommand.topicNames());
         assertEquals(0, HelpCommand.pageOfTopic("start"));
         assertEquals(HelpCommand.pageOfTopic("create"), HelpCommand.pageOfTopic("generate"));
         assertEquals(-1, HelpCommand.pageOfTopic("nonsense"));

@@ -249,7 +249,7 @@ async function main () {
   check('settings shows the layout and how many portals it will make', /Layout: random/.test(out) && /count/.test(out), out.split('\n').find(l => /Layout:/.test(l)) || '')
   out = await run('pd set layout circle')
   check('circle is gone as a layout', /use one of: random, grid, square, wave/.test(out), out.trim().split('\n').pop())
-  out = await run('pd square create 60')
+  out = await run('pd square create 60', 1800)
   check('/pd square is gone', /I don't know/.test(out))
   out = await run('pd preset list')
   check('/pd preset stays gone', /I don't know/.test(out))

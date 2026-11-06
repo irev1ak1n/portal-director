@@ -36,7 +36,8 @@ The unit tests use MockBukkit and plain JUnit. They cover the layout planners, t
 | `scene` | Remembered portals (with their names) and block log, saving to disk, safe removal |
 | `group` | Groups, member-to-portal links, join blocks, `Cinematic` (prepare, hiding, staggered reveal via `RevealPlan`) |
 | `nether` | Portal pairing: `NetherLinks` (saved pairs and their blocks), `NetherSite` (safe-site search, tested over a fake grid), `PortalTravelListener` |
-| `tnt` | TNT minecart launching and waves |
+| `tnt` | TNT minecart launching and waves, and `launchOne` for sequences (counts against the cumulative limit) |
+| `sequence` | The three built-in sequences (`NetherArrival`, `SkyArmy`, `TntStrike`), their settings (`SeqOption`, `SeqSettings`, kept in sequences.yml), `SequenceManager` (what a sequence holds), `FloatingRun` (the shared load, plan and play engine) and the pure parts that are unit tested: `SkyPlanner`, `SeqTimeline`, `ArrivalSpots` |
 
 `Settings.java` is the single list of options behind `/pd set` and `/pd settings`. Renamed and removed config keys are listed at the top of it (`RENAMED`, `REMOVED`) and migrated in `load`; a test in `SettingsMigrationTest` covers each one. Minimum and maximum settings validate each other in `Settings` (and `GenSettings.problem()` before a build).
 
@@ -50,6 +51,8 @@ How the rules are kept:
 - **Heights.** `altitude-min/max` are blocks above the local terrain (floating portals); `world-y-min/max` are absolute and apply to every portal frame.
 
 Portals keep an internal numeric id (assignments and block records use it) and a name that people type. `Scene.addPortal` gives generated portals `portal-<id>`; `PortalCommands` handles `/pd create portal` and `/pd remove`. All Tab suggestions go through one alphabetical sort in `PdCommand.onTabComplete`, and `subs` there is a sorted map, so a new command only needs to be added once.
+
+Sequences are plain classes: a `Sequence` has a name, a summary, a list of `SeqOption`s, its run arguments and the plain-language facts shown by `info`. To add one, extend `Sequence`, register it in `SequenceManager`, and add a line to the `sequence` help topic. `SkyPlanner.Run` drives the existing `PortalPlanner.Session` through widening stages, `SeqTimeline` turns portal counts and ranges into a tick schedule before the run starts (a player or minecart is never scheduled before its portal), and `FloatingRun` plays it, building each portal into the scene as its tick comes. Anything a sequence holds (players kept from using portals, portals that let a group through) lives in `SequenceManager` and is released by `stop`, on quit and on shutdown; `PortalTravelListener` asks it before applying group rules. Sequences never write to `Settings` or `GroupManager`.
 
 Help lives in `HelpCommand`: change an entry in its `TOPICS` list (short text, A to Z inside a topic); `HelpCommandTest` checks page length, order and the Previous/Next controls. The words `/pd create` accepts are `CREATE_OPTIONS` in `GenerateCommands`, used for parsing and Tab completion alike, and where portals stand is only ever `/pd set mode`.
 
@@ -66,9 +69,12 @@ node reveal-test.js
 node names-test.js
 node simplify-test.js
 node groups-test.js
+node nether-link-test.js
+node sequence-test.js
+node sky-army-test.js
 ```
 
-`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `groups-test.js` covers groups, preparing, hiding and the staggered reveal as seen by other bots, Nether travel on and off, one Nether partner per portal with the way back, removal, restart and migration of old group data. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
+`setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `groups-test.js` covers groups, preparing, hiding and the staggered reveal as seen by other bots, Nether travel on and off, one Nether partner per portal with the way back, removal, restart and migration of old group data. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. `nether-link-test.js` covers single portals and their Nether partners (same Nether coordinates after a rebuild), the cumulative TNT limit and A to Z listings. `sequence-test.js` covers the sequence commands, settings, tab completion, nether-arrival and tnt-strike; `sky-army-test.js` runs sky-army with 10, 20 and 40 bot players, an observer client, widening, shared portals and stop. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
 
 Keep test servers and worlds outside this repository.
 

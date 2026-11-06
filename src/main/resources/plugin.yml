@@ -24,6 +24,9 @@ permissions:
   portaldirector.scene:
     description: Save, load and clear scenes.
     default: op
+  portaldirector.sequence:
+    description: Run, configure and stop the built-in sequences.
+    default: op
   portaldirector.admin:
     description: Everything in Portal Director.
     default: op
@@ -32,3 +35,4 @@ permissions:
       portaldirector.group: true
       portaldirector.tnt: true
       portaldirector.scene: true
+      portaldirector.sequence: true
