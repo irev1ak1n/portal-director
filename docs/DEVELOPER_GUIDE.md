@@ -1,6 +1,6 @@
 # Developer Guide
 
-For server owners, the [README](../README.md) is all you need. This page is for building and changing the plugin.
+For server owners, the [README](../README.md) is all you need. This page is for building and changing the plugin. How the settings, groups, sequences and Nether pairing work for users is in the [Reference](REFERENCE.md).
 
 ## Requirements
 
