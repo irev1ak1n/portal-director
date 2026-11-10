@@ -197,6 +197,4 @@ To give limited access instead, use a permissions plugin such as [LuckPerms](htt
 
 ## More documentation
 
-- [Reference](docs/REFERENCE.md): settings in detail, how groups, sequences and Nether pairing work, notes and limits, and what changed in each version.
-- [Developer Guide](docs/DEVELOPER_GUIDE.md): building from source, tests and code layout.
-- [Releases](https://github.com/irev1ak1n/portal-director/releases): download and release notes.
+For developers: See the [Developer Guide](docs/DEVELOPER_GUIDE.md) for source code, building, and testing.
