@@ -77,8 +77,9 @@ Base command: `/pd` (alias `/portaldirector`). `<name>` is required, `[name]` is
 
 | Command | Description |
 |---|---|
-| `/pd create [count] [more\|replacement] [skip-blocked]` | Build the chosen formation around you. A count is for the random layout; `more` keeps existing portals, `replacement` removes them first, `skip-blocked` builds only what fits |
+| `/pd create [count] [more\|replacement] [skip-blocked]` | Build the chosen formation around you. A count is for the random layout; `more` keeps existing portals, `replacement` removes them first, `skip-blocked` builds only what fits. Add `around <player>` to build around where that player is now (instead of around you or the pinned center) |
 | `/pd create portal <name> here <north\|south\|east\|west> [force]` | Build one named portal where you stand |
+| `/pd create portal <name> <player> <direction> [force]` | Build one named portal where that player is right now, even if they are running |
 | `/pd create portal <name> <x> <y> <z> <direction> [world] [force]` | Build one named portal at exact coordinates (add the world from the console) |
 | `/pd list [page]` | Every portal's name, position, facing and Nether partner |
 | `/pd remove <name>` | Remove one portal and its Nether partner, and restore the blocks |
@@ -138,7 +139,7 @@ Commands that don't name a group use the only group.
 |---|---|
 | `/pd sequence list` | The sequences, what they do and an example for each |
 | `/pd sequence <name> info` | What it does, how to run it and its current settings |
-| `/pd sequence <name> run <x y z \| here> ...` | Run it (`here` is the block you stand on; add a world name from the console) |
+| `/pd sequence <name> run <x y z \| here \| player> ...` | Run it at coordinates, where you stand, or where a player is right now (add a world name with coordinates from the console) |
 | `/pd sequence <name> set <option> <value>` | Change a setting of that sequence only |
 | `/pd sequence <name> reset` | Restore its default settings |
 | `/pd sequence status` | What is running or waiting, with progress |

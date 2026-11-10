@@ -56,7 +56,8 @@ final class HelpCommand implements Sub {
                             e("/pd create 30", "/pd create 30", "random layout: how many portals"),
                             e("/pd create more", "/pd create more", "keep the portals you have and build another set"),
                             e("/pd create replacement", "/pd create replacement", "remove the old portals first, then build"),
-                            e("/pd create skip-blocked", "/pd create skip-blocked", "build only the portals that fit, skip blocked spots"))),
+                            e("/pd create skip-blocked", "/pd create skip-blocked", "build only the portals that fit, skip blocked spots"),
+                            e("/pd create around <player>", "/pd create 30 around Steve", "build around where a player is now"))),
                     List.of("Combine them: /pd create 30 more skip-blocked", "Ground or sky? /pd set mode. Size? /pd set radius."),
                     false),
             new Topic("examples", "Examples", List.of("example", "recipes"),
@@ -72,6 +73,7 @@ final class HelpCommand implements Sub {
                     sorted(List.of(
                             e("/pd create portal <name> here <direction>", "/pd create portal EntranceA here north", "build it where you stand"),
                             e("/pd create portal <name> <x> <y> <z> <direction>", "/pd create portal EntranceB 150 100 -200 east", "build it at exact coordinates"),
+                            e("/pd create portal <name> <player> <direction>", "/pd create portal EntranceC Steve north", "build it where that player is now"),
                             e("/pd list", "/pd list", "names and coordinates of every portal"),
                             e("/pd remove <name>", "/pd remove EntranceA", "take that portal down, not case sensitive"),
                             e("/pd remove <x> <y> <z>", "/pd remove 150 100 -200", "remove the portal anchored exactly there"))),
@@ -143,7 +145,7 @@ final class HelpCommand implements Sub {
                     sorted(List.of(
                             e("/pd sequence <name> info", "/pd sequence sky-army info", "what it does, how to run it, its settings"),
                             e("/pd sequence <name> reset", "/pd sequence sky-army reset", "restore that sequence's default settings"),
-                            e("/pd sequence <name> run ...", "/pd sequence sky-army run here", "run it (here, or x y z first)"),
+                            e("/pd sequence <name> run ...", "/pd sequence sky-army run here", "run it (here, a player, or x y z)"),
                             e("/pd sequence <name> set <option> <value>", "/pd sequence sky-army set radius 120", "change that sequence only, not /pd set"),
                             e("/pd sequence list", "/pd sequence list", "the sequences and what they do"),
                             e("/pd sequence nether-arrival run here north", "/pd sequence nether-arrival run here north", "one portal; group waits by its Nether portal"),

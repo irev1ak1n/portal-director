@@ -55,7 +55,7 @@ final class TntStrike extends Sequence {
 
     @Override
     public String usage() {
-        return "run <x y z | here> [world]";
+        return "run <x y z | here | player> [world]";
     }
 
     @Override
@@ -78,7 +78,7 @@ final class TntStrike extends Sequence {
 
     @Override
     public void run(CommandSender s, List<String> a) {
-        Target t = target(s, a, "Where? /pd sequence tnt-strike run <x y z | here>. Example: /pd sequence tnt-strike run here");
+        Target t = target(s, a, "Where? /pd sequence tnt-strike run <x y z | here | player>. Example: /pd sequence tnt-strike run here");
         World world = worldFor(t, a, t.next());
         if (world.getEnvironment() != World.Environment.NORMAL) throw new IllegalArgumentException("TNT Strike floats in the Overworld, and " + world.getName() + " is not one.");
         requireIdle();

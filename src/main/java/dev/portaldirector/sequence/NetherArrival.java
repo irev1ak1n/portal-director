@@ -52,7 +52,7 @@ final class NetherArrival extends Sequence {
 
     @Override
     public String usage() {
-        return "run <x y z | here> <north|south|east|west> [world]";
+        return "run <x y z | here | player> <north|south|east|west> [world]";
     }
 
     @Override
@@ -75,7 +75,7 @@ final class NetherArrival extends Sequence {
 
     @Override
     public void run(CommandSender s, List<String> a) {
-        String usage = "Where, and which way? /pd sequence nether-arrival run <x y z | here> <north|south|east|west>. Example: /pd sequence nether-arrival run here north";
+        String usage = "Where, and which way? /pd sequence nether-arrival run <x y z | here | player> <north|south|east|west>. Example: /pd sequence nether-arrival run here north";
         Target t = target(s, a, usage);
         if (t.next() >= a.size()) throw new IllegalArgumentException(usage);
         BlockFace facing = face(a.get(t.next()));

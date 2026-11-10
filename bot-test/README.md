@@ -16,6 +16,7 @@ node reveal-test.js  # delayed reveal: timing, order, stop, restart in the middl
 node names-test.js   # named portals: create in four directions, remove by name and coordinates, tab order, old scene files
 node groups-test.js   # groups, prepare, hiding and reveal timing, Nether travel and pairing, restart, old group data
 node nether-link-test.js # single portals and their Nether partners, same Nether coordinates after rebuild, TNT launch limit, A-Z listings
+node target-test.js # a player's name as a place: portals where a running bot is, around a player, sequence on a player
 node sequence-test.js # sequence commands, settings, tab completion, nether-arrival, tnt-strike, settings after a restart
 node sky-army-test.js # sky-army with 10, 20 and 40 bots and an observer: visibility, timing, widening, shared portals, stop
 node simplify-test.js # facing, exact radius with its automatic 5% margin, mixed mode, altitude and world-y, removed commands, migration, help, TNT, Nether travel

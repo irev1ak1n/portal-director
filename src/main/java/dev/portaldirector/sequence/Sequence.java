@@ -2,6 +2,7 @@ package dev.portaldirector.sequence;
 
 import dev.portaldirector.PortalDirectorPlugin;
 import dev.portaldirector.group.Group;
+import dev.portaldirector.util.PlayerTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
@@ -177,13 +178,20 @@ public abstract class Sequence {
         }
     }
 
-    /** "here" or "x y z", then the index of the next argument. A world name goes after everything else, for the console. */
+    /**
+     * "here", the name of an online player (where they are right now), or "x y z", then the index of the next argument. A world
+     * name goes after everything else, for the console.
+     */
     protected Target target(CommandSender s, List<String> a, String missing) {
         if (a.isEmpty()) throw new IllegalArgumentException(missing);
         Player p = s instanceof Player pp ? pp : null;
         if (a.get(0).equalsIgnoreCase("here")) {
-            if (p == null) throw new IllegalArgumentException("Only players can use 'here'. From the console give x y z and a world name at the end.");
+            if (p == null) throw new IllegalArgumentException("Only players can use 'here'. From the console give a player's name, or x y z and a world name at the end.");
             return new Target(p.getWorld(), p.getLocation().getBlockX(), p.getLocation().getBlockY(), p.getLocation().getBlockZ(), 1);
+        }
+        if (PlayerTarget.looksLikeName(a.get(0))) {
+            Player at = PlayerTarget.online(a.get(0));
+            return new Target(at.getWorld(), at.getLocation().getBlockX(), at.getLocation().getBlockY(), at.getLocation().getBlockZ(), 1);
         }
         if (a.size() < 3) throw new IllegalArgumentException(missing);
         int x = coord(a.get(0), p == null ? 0 : p.getLocation().getBlockX(), p != null);
@@ -203,7 +211,7 @@ public abstract class Sequence {
         return w;
     }
 
-    /** Tab completion for "here | x y z" followed by whatever {@code rest} offers at each later position. */
+    /** Tab completion for "here | a player | x y z" followed by whatever {@code rest} offers at each later position. */
     protected static List<String> targetTab(CommandSender s, List<String> a, IntFunction<List<String>> rest) {
         int i = a.size() - 1;
         Player p = s instanceof Player pp ? pp : null;
@@ -212,11 +220,12 @@ public abstract class Sequence {
             if (p != null) {
                 out.add("here");
                 out.add(String.valueOf(p.getLocation().getBlockX()));
+                out.add("~");
             }
-            out.add("~");
+            out.addAll(PlayerTarget.names());
             return out;
         }
-        if (a.get(0).equalsIgnoreCase("here")) return rest.apply(i - 1);
+        if (a.get(0).equalsIgnoreCase("here") || PlayerTarget.looksLikeName(a.get(0))) return rest.apply(i - 1);
         if (i == 1) return p == null ? List.of() : List.of(String.valueOf(p.getLocation().getBlockY()), "~");
         if (i == 2) return p == null ? List.of() : List.of(String.valueOf(p.getLocation().getBlockZ()), "~");
         return rest.apply(i - 3);

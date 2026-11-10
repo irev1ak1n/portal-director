@@ -19,6 +19,7 @@ import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.scene.SquareInfo;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.PlayerTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -121,18 +122,26 @@ final class GenerateCommands {
 
     /** The words /pd create understands besides a count, A to Z. */
     static final List<String> CREATE_OPTIONS = List.of("more", "replacement", "skip-blocked");
+    /** Also accepted: "around <player>", which takes a name after it. */
+    static final String AROUND = "around";
 
     /** The create options as typed; a count is only for the random layout. Throws for anything else. */
-    record CreateArgs(Integer count, boolean more, boolean replacement, boolean skipBlocked) {
+    record CreateArgs(Integer count, boolean more, boolean replacement, boolean skipBlocked, String around) {
 
         static CreateArgs parse(List<String> a) {
             Integer count = null;
             boolean more = false;
             boolean replacement = false;
             boolean skip = false;
-            for (String t : a) {
+            String around = null;
+            for (int i = 0; i < a.size(); i++) {
+                String t = a.get(i);
                 String l = t.toLowerCase(Locale.ROOT);
-                if (l.equals("more")) {
+                if (l.equals("around")) {
+                    if (around != null) throw new IllegalArgumentException("Give the player once: /pd create 30 around Steve");
+                    if (i + 1 >= a.size()) throw new IllegalArgumentException("Around whom? /pd create 30 around <player> builds the portals around where that player is now.");
+                    around = a.get(++i);
+                } else if (l.equals("more")) {
                     more = true;
                 } else if (l.equals("replacement")) {
                     replacement = true;
@@ -147,12 +156,12 @@ final class GenerateCommands {
                 } else if (l.equals("air") || l.equals("ground") || l.equals("mixed")) {
                     throw new IllegalArgumentException("Where portals stand is a setting now: /pd set mode " + l + ", then /pd create.");
                 } else {
-                    throw new IllegalArgumentException("I did not understand '" + t + "'. /pd create takes a number (random layout only) and the options more, replacement and skip-blocked. "
+                    throw new IllegalArgumentException("I did not understand '" + t + "'. /pd create takes a number (random layout only) and the options more, replacement, skip-blocked and around <player>. "
                             + "Example: /pd create 30 more. /pd help create explains each one.");
                 }
             }
             if (more && replacement) throw new IllegalArgumentException("Choose either 'more' (keep the existing portals) or 'replacement' (remove them first), not both.");
-            return new CreateArgs(count, more, replacement, skip);
+            return new CreateArgs(count, more, replacement, skip, around);
         }
     }
 
@@ -182,7 +191,16 @@ final class GenerateCommands {
                 }
                 if (count != null) st.gen.count = count;
                 pl.saveSettings();
-                Center c = center(s);
+                Center c;
+                if (args.around() != null) {
+                    // Wherever that player is right now, whatever center is pinned. They are not followed while it builds.
+                    Player target = PlayerTarget.online(args.around());
+                    Location tl = target.getLocation();
+                    c = new Center(tl.getWorld(), tl.getBlockX(), tl.getBlockY(), tl.getBlockZ(), false);
+                    Msg.info(s, "Building around where " + PlayerTarget.describe(target) + " is now.");
+                } else {
+                    c = center(s);
+                }
                 Scene scene = pl.scenes().currentOrCreate(c.world());
                 if (pl.activeJob() != null) throw pl.busy();
                 if (!scene.portals().isEmpty() && !scene.worldName().equals(c.world().getName())) {
@@ -215,7 +233,9 @@ final class GenerateCommands {
                 // Suggest what has not been typed yet; the word being typed is filtered by the caller.
                 List<String> typed = a.subList(0, a.size() - 1).stream().map(t -> t.toLowerCase(Locale.ROOT)).toList();
                 List<String> out = new ArrayList<>();
+                if (!typed.isEmpty() && typed.get(typed.size() - 1).equals("around")) return PlayerTarget.names();
                 if (pl.settings().gen.layout == Layout.RANDOM && typed.stream().noneMatch(t -> t.matches("\\d+"))) out.addAll(List.of("10", "30", "50", "100"));
+                if (!typed.contains("around")) out.add("around");
                 for (String o : CREATE_OPTIONS) {
                     boolean clash = (o.equals("more") && typed.contains("replacement")) || (o.equals("replacement") && typed.contains("more"));
                     if (!typed.contains(o) && !clash) out.add(o);

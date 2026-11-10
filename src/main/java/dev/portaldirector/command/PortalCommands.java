@@ -8,6 +8,7 @@ import dev.portaldirector.scene.BlockLog;
 import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.PlayerTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
@@ -40,11 +41,18 @@ final class PortalCommands {
 
             @Override
             public List<String> tab(CommandSender s, List<String> a) {
-                // a: name, then here|x, ...
+                // a: name, then here | a player | x, ...
                 if (a.size() == 1) return List.of();
-                if (a.size() == 2) return s instanceof Player p
-                        ? List.of("here", String.valueOf(p.getLocation().getBlockX()), "~") : List.of("here");
-                if (a.get(1).equalsIgnoreCase("here")) return a.size() == 3 ? FACES : List.of("force");
+                if (a.size() == 2) {
+                    List<String> out = new ArrayList<>(List.of("here"));
+                    out.addAll(PlayerTarget.names());
+                    if (s instanceof Player p) {
+                        out.add(String.valueOf(p.getLocation().getBlockX()));
+                        out.add("~");
+                    }
+                    return out;
+                }
+                if (a.get(1).equalsIgnoreCase("here") || PlayerTarget.looksLikeName(a.get(1))) return a.size() == 3 ? FACES : List.of("force");
                 if (a.size() == 3 && s instanceof Player p) return List.of(String.valueOf(p.getLocation().getBlockY()), "~");
                 if (a.size() == 4 && s instanceof Player p) return List.of(String.valueOf(p.getLocation().getBlockZ()), "~");
                 if (a.size() == 5) return FACES;
@@ -95,7 +103,7 @@ final class PortalCommands {
     }
 
     private void createPortal(CommandSender s, List<String> a) {
-        String usage = "Use /pd create portal <name> here <direction>, or /pd create portal <name> <x> <y> <z> <direction>. Example: /pd create portal EntranceA here north";
+        String usage = "Use /pd create portal <name> here <direction>, /pd create portal <name> <player> <direction>, or /pd create portal <name> <x> <y> <z> <direction>. Example: /pd create portal EntranceA here north";
         if (a.size() < 2) throw new IllegalArgumentException(usage);
         String name = a.get(0);
         Scene known = pl.scenes().current();
@@ -107,6 +115,7 @@ final class PortalCommands {
         BlockFace facing;
         int next;
         World world = p == null ? null : p.getWorld();
+        boolean atPlayer = false;
         if (a.get(1).equalsIgnoreCase("here")) {
             if (p == null) throw new IllegalArgumentException("Only players can use 'here'. From the console give x y z and a world.");
             if (a.size() < 3) throw new IllegalArgumentException("Which way should it face? /pd create portal " + name + " here north");
@@ -115,6 +124,18 @@ final class PortalCommands {
             z = p.getLocation().getBlockZ();
             facing = face(a.get(2));
             next = 3;
+        } else if (PlayerTarget.looksLikeName(a.get(1))) {
+            // Wherever that player is right now; a runner or a flyer is not followed afterwards.
+            Player target = PlayerTarget.online(a.get(1));
+            if (a.size() < 3) throw new IllegalArgumentException("Which way should it face? /pd create portal " + name + " " + target.getName() + " north");
+            x = target.getLocation().getBlockX();
+            y = target.getLocation().getBlockY();
+            z = target.getLocation().getBlockZ();
+            world = target.getWorld();
+            facing = face(a.get(2));
+            next = 3;
+            atPlayer = true;
+            Msg.info(s, "Placing it where " + PlayerTarget.describe(target) + " is now.");
         } else {
             if (a.size() < 5) throw new IllegalArgumentException(usage);
             x = coord(a.get(1), p == null ? 0 : p.getLocation().getBlockX(), p != null);
@@ -127,6 +148,8 @@ final class PortalCommands {
         for (int i = next; i < a.size(); i++) {
             if (a.get(i).equalsIgnoreCase("force")) {
                 force = true;
+            } else if (atPlayer) {
+                throw new IllegalArgumentException("A world name is not needed with a player: the portal goes where they are. Only 'force' can follow the direction.");
             } else {
                 World w = Bukkit.getWorld(a.get(i));
                 if (w == null) throw new IllegalArgumentException("'" + a.get(i) + "' is neither a loaded world nor 'force'.");

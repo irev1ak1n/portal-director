@@ -166,7 +166,7 @@ async function main () {
   let out = await run('pd sequence list')
   check('/pd sequence list names all three with a description and an example', ['nether-arrival', 'sky-army', 'tnt-strike'].every(n => out.includes(n)) && /Try: \/pd sequence sky-army run here/.test(out), last(out))
   out = await run('pd sequence sky-army info')
-  check('info says what it does, how to run it, players, TNT and the settings', /Run it: \/pd sequence sky-army run <x y z \| here>/.test(out) && /teleported automatically/.test(out) && /No TNT/.test(out) && /radius +100/.test(out) && /portal-delay-min +0\.15/.test(out) && /player-delay-max +0\.5/.test(out), last(out))
+  check('info says what it does, how to run it, players, TNT and the settings', /Run it: \/pd sequence sky-army run <x y z \| here \| player>/.test(out) && /teleported automatically/.test(out) && /No TNT/.test(out) && /radius +100/.test(out) && /portal-delay-min +0\.15/.test(out) && /player-delay-max +0\.5/.test(out), last(out))
   const settingRows = out.split('\n').map(body).filter(l => /^ {4}[a-z-]+ /.test(l)).map(l => l.trim().split(/\s+/)[0])
   check('the settings are listed A to Z', settingRows.length >= 6 && isSorted(settingRows), settingRows.join(' '))
   const globalBefore = await run('pd settings all', 800)

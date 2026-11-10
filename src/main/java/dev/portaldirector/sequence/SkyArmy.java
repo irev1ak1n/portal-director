@@ -58,7 +58,7 @@ final class SkyArmy extends Sequence {
 
     @Override
     public String usage() {
-        return "run <x y z | here> [world]";
+        return "run <x y z | here | player> [world]";
     }
 
     @Override
@@ -81,7 +81,7 @@ final class SkyArmy extends Sequence {
 
     @Override
     public void run(CommandSender s, List<String> a) {
-        Target t = target(s, a, "Where? /pd sequence sky-army run <x y z | here>. Example: /pd sequence sky-army run here");
+        Target t = target(s, a, "Where? /pd sequence sky-army run <x y z | here | player>. Example: /pd sequence sky-army run here");
         World world = worldFor(t, a, t.next());
         if (world.getEnvironment() != World.Environment.NORMAL) throw new IllegalArgumentException("Sky Army floats in the Overworld, and " + world.getName() + " is not one.");
         requireIdle();
