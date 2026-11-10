@@ -1,17 +1,26 @@
 # PortalDirector
 
-PortalDirector is a Minecraft server plugin for content creators. It builds cinematic fields of Nether portals in one command, makes your players appear inside them as if they just arrived from the Nether, and can send TNT minecarts out of the same portals. Ready-made sequences run whole scenes with a single command, and everything can be removed again with the ground restored.
+PortalDirector is a Minecraft server plugin designed to make creating large-scale cinematic scenes easier, especially for content creators working with groups of players. Imagine wanting dozens of Nether portals to appear across the sky, an entire army to emerge from them, or TNT minecarts to launch from different directions. Setting up scenes like these manually can take a lot of time and coordination, particularly when you're recording with a large group.
+
+PortalDirector brings these mechanics together in one place. You can generate and customize entire portal formations, coordinate player appearances, and create TNT attacks without having to manage every portal or player individually. It also includes ready-made sequences that handle multiple actions with a single command, allowing creators to spend less time setting things up and more time focusing on the actual scene.
 
 ## Features
 
-- **Four formations.** **Random** scatters portals around a center, **Grid** builds a vertical wall, **Square** builds a ring in stacked layers, and **Wave** builds rows that rise and fall. Portals can stand on the ground, float, or both.
-- **Cinematic reveal.** Portals appear one by one instead of all at once, in several orders, with optional sound and particles.
-- **Automatic Nether pairing.** Every portal gets its own Nether partner, so dozens of close portals don't share one or two. Removing a portal removes its partner.
-- **Group management.** Link players to portals, stand them inside, hide them from everyone else and reveal them in small staggered groups.
-- **Built-in sequences.** `nether-arrival`, `sky-army` and `tnt-strike` run a complete scene with one command.
-- **TNT minecarts.** Launch minecarts out of any portals, in waves, with a safe mode and a launch limit.
-- **Scene restoration.** Every portal and changed block is remembered, even after a restart, so `/pd remove` and `/pd clear` put the ground back.
-- **Safe building.** Portals avoid water, steep ground and player-built structures, and big builds are spread over many ticks.
+1) Customizable portal formations. Generate dozens of Nether portals using four different layouts: Random, Grid, Square, and Wave. You can adjust their spacing, direction, height, and placement to fit the scene you're trying to create, whether that means portals scattered across the ground or floating in the sky.
+
+2) Cinematic portal reveals. Instead of having every portal appear instantly, you can make them generate one after another with adjustable timing, different reveal orders, and optional sounds and particles.
+
+3) Reliable Nether connections. Each generated portal has its own corresponding portal in the Nether, allowing players to travel between the two dimensions without dozens of nearby portals sending everyone to the same destination.
+
+4) Player groups and coordinated appearances. Organize players into groups, assign them to individual portals, and prepare them for a scene. You can also hide players while they're inside their portals and reveal them with short delays to create the effect of an army suddenly appearing.
+
+5) Ready-made cinematic sequences. Run more complex scenes with a single command. Nether Arrival prepares a group to enter through one portal, Sky Army creates floating portals and reveals players inside them, and TNT Strike generates portals that launch waves of TNT minecarts. Each sequence has its own customizable settings.
+
+6) TNT minecart attacks. Launch TNT minecarts from selected portals or entire formations, control their speed and timing, and choose whether they actually explode or simply fly out for visual effect.
+
+7) Easy cleanup and restoration. Remove individual portals or clear an entire formation when you're done. PortalDirector remembers the blocks it changed, even after a server restart, and restores the original terrain when the portals are removed.
+
+8) Safer world generation. Portals are placed with surrounding terrain and existing structures in mind, helping avoid unwanted damage. Larger formations are also generated gradually to reduce the impact on server performance.
 
 ## Download and installation
 
