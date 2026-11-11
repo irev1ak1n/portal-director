@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.portaldirector"
-version = "1.7.0"
+version = "1.8.0"
 description = "Mass Nether portal formations and TNT minecart waves for content creators."
 
 // Pinned versions for reproducible builds.

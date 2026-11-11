@@ -290,6 +290,8 @@ When a player walks into a PortalDirector portal, the plugin sends them to that 
 
 ## Upgrading
 
+**From 1.7.0:** `/pd group enrollment true|false` is new: `false` stops players joining a group by stepping on its block (the block and the members are kept), `true` resumes it. Groups saved by older versions stay open. Nothing needs changing.
+
 **From 1.6.0:** a player's name now works wherever `here` or `x y z` does: `/pd create portal <name> <player> <direction>`, `/pd create ... around <player>` and `/pd sequence <name> run <player>`. Nothing needs changing.
 
 **From 1.4.0:** `/pd sequence` is new. `/pd tnt limit` now means the most minecarts launched **in total**, exploded or not (it used to be the most alive at once); `/pd tnt clear` starts the count again, and `/pd tnt status` shows it. `/pd create portal` now builds the Nether partner straight away, `/pd list` shows each portal's Nether coordinates, and a portal rebuilt at the same coordinates gets its Nether portal back at the same Nether coordinates. Nothing in your saved scenes, groups or config needs changing.
