@@ -125,6 +125,7 @@ final class HelpCommand implements Sub {
                             e("/pd group block <block>", "/pd group block obsidian", "Stepping on this block joins the group"),
                             e("/pd group create <name>", "/pd group create Group1", "Make a group"),
                             e("/pd group delete <name>", "/pd group delete Group1", "Delete a group; the portals stay"),
+                            e("/pd group enrollment true|false", "/pd group enrollment false", "false stops joining by the block; members stay"),
                             e("/pd group info", "/pd group info", "Each player and the portal they have"),
                             e("/pd group link-to-portal <player> <portal>", "/pd group link-to-portal Steve portal-1", "Give a player a portal (name or x y z)"),
                             e("/pd group list", "/pd group list", "Every group and its players"),

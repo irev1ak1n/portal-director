@@ -27,7 +27,7 @@ public final class JoinBlockListener implements Listener {
         }
         Material below = to.getWorld().getBlockAt(to.getBlockX(), (int) Math.floor(to.getY() - 0.05), to.getBlockZ()).getType();
         Group g = groups.groupForBlock(below);
-        if (g == null) return;
+        if (g == null || !g.enrollment()) return;
         Player p = e.getPlayer();
         if (groups.groupOf(p.getUniqueId()) != null) return;
         if (groups.join(g, p.getUniqueId(), p.getName())) {

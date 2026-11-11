@@ -49,6 +49,7 @@ public final class GroupManager {
             group.joinBlock(m);
             group.netherTravel(g.getBoolean("nether-travel", false));
             group.visibilityInPortal(g.getBoolean("visibility-in-portal", true));
+            group.enrollment(g.getBoolean("enrollment", true));
             double delay = g.getDouble("visibility-in-portal-delay", Group.DEFAULT_VISIBILITY_DELAY);
             group.visibilityDelay(delay >= 0.05 && delay <= 10 ? delay : Group.DEFAULT_VISIBILITY_DELAY);
             ConfigurationSection members = g.getConfigurationSection("members");
@@ -84,6 +85,7 @@ public final class GroupManager {
             y.set(base + ".join-block", g.joinBlock() == null ? null : g.joinBlock().name());
             y.set(base + ".nether-travel", g.netherTravel());
             y.set(base + ".visibility-in-portal", g.visibilityInPortal());
+            y.set(base + ".enrollment", g.enrollment());
             y.set(base + ".visibility-in-portal-delay", g.visibilityDelay());
             for (Map.Entry<UUID, String> e : g.members().entrySet()) y.set(base + ".members." + e.getKey(), e.getValue());
             if (g.members().isEmpty()) y.createSection(base + ".members");

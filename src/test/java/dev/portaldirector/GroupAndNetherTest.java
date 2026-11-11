@@ -75,7 +75,32 @@ class GroupAndNetherTest {
         assertFalse(g.netherTravel());
         assertTrue(g.visibilityInPortal());
         assertEquals(0.35, g.visibilityDelay());
+        assertTrue(g.enrollment(), "a group from before enrollment existed keeps letting players join");
         assertSame(g, gm.groupForBlock(org.bukkit.Material.EMERALD_BLOCK));
+    }
+
+    @Test
+    void enrollmentIsOpenByDefaultAndClosedStaysClosedAfterASaveAndLoad() {
+        GroupManager gm = groups();
+        Group g = gm.create("NULL");
+        gm.setJoinBlock(g, org.bukkit.Material.OBSIDIAN);
+        UUID steve = UUID.randomUUID();
+        gm.join(g, steve, "Steve");
+        assertTrue(g.enrollment());
+        g.enrollment(false);
+        gm.save();
+        GroupManager back = groups();
+        back.load();
+        Group b = back.get("null");
+        assertFalse(b.enrollment());
+        assertEquals(org.bukkit.Material.OBSIDIAN, b.joinBlock(), "closing enrollment keeps the block");
+        assertTrue(b.has(steve), "and the members");
+        assertSame(b, back.groupForBlock(org.bukkit.Material.OBSIDIAN));
+        b.enrollment(true);
+        back.save();
+        GroupManager again = groups();
+        again.load();
+        assertTrue(again.get("null").enrollment());
     }
 
     @Test

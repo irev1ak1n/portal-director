@@ -44,6 +44,7 @@ final class GroupCommands {
                     case "block" -> block(s, r);
                     case "create" -> create(s, r);
                     case "delete" -> delete(s, r);
+                    case "enrollment" -> enrollment(s, r);
                     case "info" -> info(s, r);
                     case "link-to-portal" -> linkToPortal(s, r);
                     case "list" -> list(s);
@@ -169,6 +170,7 @@ final class GroupCommands {
                 String where = portal == null ? "Not assigned" : sc != null && sc.byName(portal) != null ? sc.nameOf(sc.byName(portal).id()) : portal + " (missing)";
                 Msg.line(s, "  " + m.getValue() + (Bukkit.getPlayer(m.getKey()) == null ? " (offline)" : "") + " → " + where);
             }
+            Msg.line(s, "  Joining block: " + (g.joinBlock() == null ? "none" : g.joinBlock().name().toLowerCase(Locale.ROOT) + ", enrollment " + (g.enrollment() ? "open" : "closed")));
             Msg.line(s, "  Nether travel " + (g.netherTravel() ? "on" : "off") + ", visibility in portal " + (g.visibilityInPortal() ? "on" : "off")
                     + ", delay " + trim(g.visibilityDelay()) + " s");
         }
@@ -284,6 +286,26 @@ final class GroupCommands {
                 : g.name() + " members stay inside their own portals instead of traveling.");
     }
 
+    /** Pauses or resumes joining by stepping on the group's block. Members, links and the block itself are kept. */
+    private void enrollment(CommandSender s, List<String> a) {
+        // No words at all, or just a group name: say how it stands.
+        if (a.isEmpty() || (flag(a.get(0)) == null && pl.groups().get(a.get(0)) != null)) {
+            Group g = group(a, 0, "/pd group enrollment false");
+            Msg.info(s, "Enrollment is " + (g.enrollment() ? "open" : "closed") + " for " + g.name() + (g.joinBlock() == null ? " (it has no joining block yet: /pd group block obsidian)" : "")
+                    + ". Change it with /pd group enrollment true|false.");
+            return;
+        }
+        Boolean on = flag(a.get(0));
+        if (on == null) throw new IllegalArgumentException("Use /pd group enrollment true to let players join by stepping on the block, or /pd group enrollment false to stop it.");
+        Group g = group(a, 1, "/pd group enrollment " + a.get(0));
+        g.enrollment(on);
+        pl.groups().save();
+        String block = g.joinBlock() == null ? "the joining block" : g.joinBlock().name().toLowerCase(Locale.ROOT);
+        Msg.ok(s, on ? "Enrollment is open: players who step on " + block + " join " + g.name() + " again."
+                : "Enrollment is closed: stepping on " + block + " no longer adds players to " + g.name() + ". Its " + g.members().size()
+                + (g.members().size() == 1 ? " member stays" : " members stay") + "; /pd group enrollment true opens it again.");
+    }
+
     private void visibility(CommandSender s, List<String> a) {
         if (a.isEmpty()) {
             Group g = group(a, 0, "/pd group visibility-in-portal true");
@@ -322,7 +344,7 @@ final class GroupCommands {
 
     private List<String> tab(List<String> a) {
         if (a.size() == 1) {
-            return List.of("assign-to-group", "block", "create", "delete", "info", "link-to-portal", "list", "nether-travel", "prepare",
+            return List.of("assign-to-group", "block", "create", "delete", "enrollment", "info", "link-to-portal", "list", "nether-travel", "prepare",
                     "remove-from-group", "unlink-from-portal", "visibility-in-portal", "visibility-in-portal-delay");
         }
         String sub = a.get(0).toLowerCase(Locale.ROOT);
@@ -363,7 +385,7 @@ final class GroupCommands {
             case "block":
                 if (n == 2) return blockNames(a.get(1).toLowerCase(Locale.ROOT));
                 return n == 3 ? groups : List.of();
-            case "nether-travel", "visibility-in-portal":
+            case "enrollment", "nether-travel", "visibility-in-portal":
                 if (n == 2) return List.of("true", "false");
                 return n == 3 ? groups : List.of();
             case "visibility-in-portal-delay":

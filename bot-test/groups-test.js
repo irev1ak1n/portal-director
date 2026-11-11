@@ -196,7 +196,7 @@ async function main () {
   log('group commands')
   try {
     const t = await tab(F, '/pd group ')
-    check('/pd group suggests exactly the new commands, alphabetically', JSON.stringify(t) === JSON.stringify(['assign-to-group', 'block', 'create', 'delete', 'info', 'link-to-portal', 'list', 'nether-travel', 'prepare', 'remove-from-group', 'unlink-from-portal', 'visibility-in-portal', 'visibility-in-portal-delay']), t.join(' '))
+    check('/pd group suggests exactly the new commands, alphabetically', JSON.stringify(t) === JSON.stringify(['assign-to-group', 'block', 'create', 'delete', 'enrollment', 'info', 'link-to-portal', 'list', 'nether-travel', 'prepare', 'remove-from-group', 'unlink-from-portal', 'visibility-in-portal', 'visibility-in-portal-delay']), t.join(' '))
     const c = await tab(F, '/pd group create ')
     check('create suggests Group1 as a placeholder', c.includes('Group1'), c.join(' '))
   } catch (e) { check('group tab completion', false, e.message) }

@@ -140,6 +140,8 @@ If you pick an order that does not fit the layout, `/pd create` tells you why an
 
 A group is a few players who take part in a scene. Each one is linked to a portal; `prepare` stands them in it. Commands that do not name a group use the only group; with several groups add its name at the end. The command list is in the [README](../README.md#pd-group).
 
+**Joining by block.** `/pd group block obsidian` makes every ungrouped player who steps on that block join the group (a player already in a group is never moved to another). `/pd group enrollment false` pauses that without touching the block or the members; `true` opens it again. The setting is saved per group and shown by `/pd group info`.
+
 **Preparing.** `prepare` puts each online player with a portal inside the purple area, looking out of the portal. Players without a portal, offline players and missing portals are skipped and named in the message. Nobody is walked out or launched.
 
 **Nether travel.** With `nether-travel false` (the default), a group member standing in the portal linked to them is not sent to the Nether, so the scene can wait inside the purple. Everybody else, and members in other portals, travel as normal. `true` allows travel, through the correct partner portal.

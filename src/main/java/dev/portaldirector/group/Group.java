@@ -22,6 +22,8 @@ public final class Group {
     private final Map<UUID, String> portals = new LinkedHashMap<>();
     private boolean netherTravel = false;
     private boolean visibilityInPortal = true;
+    /** Whether stepping on the join block adds players. Off pauses joining; members and the block are kept. */
+    private boolean enrollment = true;
     private double visibilityDelay = DEFAULT_VISIBILITY_DELAY;
 
     public Group(String name) {
@@ -67,6 +69,14 @@ public final class Group {
 
     public void visibilityInPortal(boolean visibilityInPortal) {
         this.visibilityInPortal = visibilityInPortal;
+    }
+
+    public boolean enrollment() {
+        return enrollment;
+    }
+
+    public void enrollment(boolean enrollment) {
+        this.enrollment = enrollment;
     }
 
     public double visibilityDelay() {

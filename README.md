@@ -126,6 +126,7 @@ Commands that don't name a group use the only group.
 | `/pd group assign-to-group <player> <group>` | Add a player to a group |
 | `/pd group remove-from-group <player> <group>` | Remove a player and clear their portal link |
 | `/pd group block <block>` | Players who step on this block join the group, for example `obsidian` |
+| `/pd group enrollment true\|false` | `false` stops joining by that block (members stay), `true` resumes it (default `true`) |
 | `/pd group link-to-portal <player> <portal>` | Give a player a portal, by name or by anchor `x y z` |
 | `/pd group unlink-from-portal <player> <portal>` | Take the portal away from the player |
 | `/pd group prepare [name]` | Teleport every online linked player into the middle of their portal |
