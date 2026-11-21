@@ -132,5 +132,5 @@ Random floating portals over flat ground, median of 7 runs.
 
 Planning is cheap until about 1000 portals, so the spatial index matters mostly for very large scenes and for explosions. The largest cost is the synchronous scene save, so background and atomic saves come first.
 
-Unit tests at this point: 183 passed, 2 skipped. Live suites: names had one late-reply flake, simplify had two checks that expected an old tab list and help-page length (both are test problems, not plugin bugs, and are fixed in the regression pass).
+Live suites at the baseline: names had one late-reply flake, simplify had two checks that expected an old tab list and help-page length (both are test problems, not plugin bugs, and are fixed in the regression pass).
 
