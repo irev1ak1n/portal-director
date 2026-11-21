@@ -151,4 +151,5 @@ Live suites at the baseline: names had one late-reply flake, simplify had two ch
 - The preview shows the random layout only.
 - Take reset clears automatically only when the scene was empty at prepare.
 - The take commands wait a few milliseconds on the database from the main thread (small queries); the operation history never waits.
+- Nether Arrival and `/pd remove` are not written to the operation history yet.
 - Nothing has been checked visually in a real client, and no real clients were used for performance.
