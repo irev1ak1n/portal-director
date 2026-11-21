@@ -46,11 +46,28 @@ tasks.processResources {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
     testLogging {
         events("passed", "skipped", "failed")
         showStandardStreams = false
     }
+}
+
+tasks.register<Test>("benchmark") {
+    description = "Times the pure parts of the plugin. Not part of the normal test run."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+    systemProperty("bench.label", (project.findProperty("benchLabel") ?: "run").toString())
+    testLogging {
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
 }
 
 tasks.jar {
