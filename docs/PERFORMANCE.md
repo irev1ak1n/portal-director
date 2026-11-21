@@ -104,6 +104,6 @@ The TNT minecart count differs because the strike is random. Sky Army difference
 ## Recommendations
 
 - Leave `performance.async-saves` on (the default).
-- Keep the per tick block budget (`blocks-per-tick`) low on a busy server. Build time grows with it, tick time grows with it too.
+- Keep the per tick block budget (`generate.blocks-per-tick`, 400 by default) low on a busy server. Build time grows with it, tick time grows with it too.
 - Build very large scenes in several `/pd create` runs rather than one if the server is also busy with players.
 - When something feels slow, run `/pd diagnostics` first, then a Spark profile.
