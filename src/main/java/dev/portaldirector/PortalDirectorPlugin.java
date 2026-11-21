@@ -15,6 +15,8 @@ import dev.portaldirector.take.TakeService;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
 import dev.portaldirector.scene.SceneWriter;
+import dev.portaldirector.util.Msg;
+import java.util.Map;
 import dev.portaldirector.util.Metrics;
 import dev.portaldirector.tnt.TntDirector;
 import dev.portaldirector.util.Job;
@@ -50,6 +52,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         settings.load(getConfig());
+        loadMessages();
         SceneStore sceneStore = new SceneStore(new File(getDataFolder(), "scenes"));
         sceneWriter = getConfig().getBoolean("performance.async-saves", true) ? new SceneWriter(sceneStore, getLogger(), metrics) : null;
         scenes = new SceneManager(sceneStore, getLogger(), sceneWriter, metrics);
@@ -109,9 +112,21 @@ public class PortalDirectorPlugin extends JavaPlugin {
         saveConfig();
     }
 
+    private void loadMessages() {
+        var section = getConfig().getConfigurationSection("messages");
+        Map<String, String> wanted = new java.util.LinkedHashMap<>();
+
+        if (section != null) {
+            for (String key : section.getKeys(false)) wanted.put(key, section.getString(key));
+        }
+
+        Msg.configure(wanted, problem -> getLogger().warning(problem + " The default look is used for it."));
+    }
+
     public void reload() {
         reloadConfig();
         settings.load(getConfig());
+        loadMessages();
         groups.load();
         groups.migrateLegacy(scenes);
     }

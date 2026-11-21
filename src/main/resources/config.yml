@@ -10,6 +10,10 @@
 # generate.spacing-horizontal: least gap between frames across the ground (x/z). spacing-vertical: least gap between floating portals above each other.
 # tnt.protect-terrain: explosions hurt entities but destroy no blocks. tnt.fuse-seconds: 0 means minecarts explode only when they crash.
 # TNT minecarts are never launched unless an admin runs /pd tnt launch or /pd tnt wave.
+# messages.<style>: the look of chat output as MiniMessage. Styles: prefix, ok, info, error, line, head, command. Leave a style out for the default.
+# Use <text> where the message goes (<usage> and <what> for command, <prefix> to repeat the prefix). The words are always plain text.
+#   messages.prefix: "<gold>[PD] </gold>"
+#   messages.ok: "<prefix><green><text></green>"
 # arena.max-blocks: the largest box a take's arena may hold. Needs WorldEdit or FastAsyncWorldEdit.
 # preview.max-portals / max-blocks: the most portals and fake blocks /pd preview show sends to one admin.
 # database.enabled: keep recording takes and a short history of long operations in plugins/PortalDirector/portaldirector.db (SQLite). false switches it off.
