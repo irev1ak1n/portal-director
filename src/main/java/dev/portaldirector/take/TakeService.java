@@ -69,8 +69,14 @@ public final class TakeService {
         return name;
     }
 
-    private Take find(String name) throws java.sql.SQLException {
+    public Take find(String name) throws java.sql.SQLException {
         return pl.database().await(pl.database().read(c -> TakeRepository.find(c, name))).orElseThrow(() -> new IllegalArgumentException("There is no take called '" + name + "'. /pd take list shows them."));
+    }
+
+    /** Writes a changed take back, keeping its creation time. */
+    public void update(Take take) throws java.sql.SQLException {
+        needDatabase();
+        pl.database().await(pl.database().write(c -> TakeRepository.save(c, take)));
     }
 
     // Save

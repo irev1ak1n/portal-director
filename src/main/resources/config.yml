@@ -10,11 +10,14 @@
 # generate.spacing-horizontal: least gap between frames across the ground (x/z). spacing-vertical: least gap between floating portals above each other.
 # tnt.protect-terrain: explosions hurt entities but destroy no blocks. tnt.fuse-seconds: 0 means minecarts explode only when they crash.
 # TNT minecarts are never launched unless an admin runs /pd tnt launch or /pd tnt wave.
+# arena.max-blocks: the largest box a take's arena may hold. Needs WorldEdit or FastAsyncWorldEdit.
 # preview.max-portals / max-blocks: the most portals and fake blocks /pd preview show sends to one admin.
 # database.enabled: keep recording takes and a short history of long operations in plugins/PortalDirector/portaldirector.db (SQLite). false switches it off.
 # performance.async-saves: write scene files on a background thread so saving never pauses the server. false saves on the main thread.
 database:
   enabled: true
+arena:
+  max-blocks: 250000
 preview:
   max-portals: 100
   max-blocks: 8000

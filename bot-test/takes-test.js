@@ -122,6 +122,10 @@ async function main () {
   out = await run('pd take list', 500)
   check('it is listed', /\bt1\b/.test(out), last(out))
 
+  out = await run('pd take arena save t1', 600)
+  check('without WorldEdit the arena commands explain what is missing and nothing breaks', /needs WorldEdit or FastAsyncWorldEdit/.test(out), last(out))
+  out = await runBlock('pd diagnostics', /Operations cut off/)
+  check('diagnostics says arena restore is off', /Arena restore: no WorldEdit/.test(out), last(out))
   out = await run('pd take start t1', 600)
   check('start is refused before prepare', /Prepare it first/.test(out), last(out))
   out = await run('pd take save bad!name', 500)

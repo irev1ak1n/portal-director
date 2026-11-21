@@ -7,6 +7,7 @@ import dev.portaldirector.group.JoinBlockListener;
 import dev.portaldirector.nether.NetherLinks;
 import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
+import dev.portaldirector.arena.ArenaService;
 import dev.portaldirector.db.Database;
 import dev.portaldirector.db.Journal;
 import dev.portaldirector.preview.PreviewManager;
@@ -35,6 +36,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private Journal journal;
     private TakeService takes;
     private PreviewManager preview;
+    private ArenaService arenas;
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
@@ -57,6 +59,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
         journal = new Journal(database, getLogger());
         journal.recover();
         takes = new TakeService(this);
+        arenas = new ArenaService(this);
+        arenas.detect();
         preview = new PreviewManager(this);
         getServer().getPluginManager().registerEvents(preview, this);
         scenes.loadAll(getConfig().getString("scene.current"));
@@ -114,6 +118,10 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public Database database() {
         return database;
+    }
+
+    public ArenaService arenas() {
+        return arenas;
     }
 
     public PreviewManager preview() {

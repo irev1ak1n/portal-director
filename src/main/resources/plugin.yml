@@ -3,6 +3,7 @@ version: '${version}'
 main: dev.portaldirector.PortalDirectorPlugin
 description: '${description}'
 api-version: '26.3'
+softdepend: [WorldEdit, FastAsyncWorldEdit]
 authors: [PortalDirector contributors]
 
 commands:
@@ -26,6 +27,9 @@ permissions:
     default: op
   portaldirector.sequence:
     description: Run, configure and stop the built-in sequences.
+    default: op
+  portaldirector.arena:
+    description: Save and restore a take's arena (needs WorldEdit or FastAsyncWorldEdit).
     default: op
   portaldirector.admin:
     description: Everything in Portal Director.

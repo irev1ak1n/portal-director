@@ -11,14 +11,18 @@ val paperApiVersion = "26.3.build.231-stable"
 val mockBukkitVersion = "4.119.0"
 val junitVersion = "6.1.3"
 val sqliteVersion = "3.49.1.0"
+val worldEditVersion = "7.4.6"
 
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://maven.enginehub.org/repo/")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
+    // Optional at run time: only used when WorldEdit or FastAsyncWorldEdit is installed.
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:$worldEditVersion")
 
     testImplementation("io.papermc.paper:paper-api:$paperApiVersion")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.3:$mockBukkitVersion")

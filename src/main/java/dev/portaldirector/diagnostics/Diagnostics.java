@@ -120,6 +120,7 @@ public final class Diagnostics {
         var db = pl.database().status();
         out.add("  Database: " + (db.available() ? "ok, schema " + db.schemaVersion() + ", " + (db.fileBytes() / 1024) + " KB, " + db.queued() + " waiting" : "off (" + db.detail() + ")")
                 + (db.recovered() ? ", a damaged file was moved aside at start" : ""));
+        out.add("  Arena restore: " + pl.arenas().status());
         out.add("  Operations cut off at the last start: " + pl.journal().interruptedAtStart());
     }
 

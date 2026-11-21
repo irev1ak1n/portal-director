@@ -13,7 +13,7 @@ import java.util.Locale;
 /** /pd take: save, list, info, prepare, stage, start, reset and delete recording setups. */
 final class TakeCommands {
 
-    private static final List<String> VERBS = List.of("save", "list", "info", "prepare", "stage", "start", "reset", "delete");
+    private static final List<String> VERBS = List.of("arena", "save", "list", "info", "prepare", "stage", "start", "reset", "delete");
 
     private final PortalDirectorPlugin pl;
 
@@ -36,6 +36,7 @@ final class TakeCommands {
 
                 try {
                     switch (verb) {
+                        case "arena" -> arena(s, a);
                         case "list" -> svc.list(s);
                         case "save" -> save(s, a);
                         case "info" -> svc.info(s, name(a, "info"));
@@ -57,6 +58,13 @@ final class TakeCommands {
 
                 String verb = a.get(0).toLowerCase(Locale.ROOT);
 
+                if (verb.equals("arena")) {
+                    if (a.size() == 2) return List.of("clear", "info", "restore", "save", "set");
+                    if (a.size() == 3) return names();
+                    if (a.size() == 4 && a.get(1).equalsIgnoreCase("restore")) return List.of("confirm");
+
+                    return List.of();
+                }
                 if (a.size() == 2 && !verb.equals("list") && !verb.equals("save")) return names();
                 if (verb.equals("save") && a.size() == 3) return List.of("sequence", "positions");
                 if (verb.equals("save") && a.size() >= 3 && a.get(a.size() - 2).equalsIgnoreCase("sequence")) {
@@ -81,6 +89,38 @@ final class TakeCommands {
         if (a.size() < 2) throw new IllegalArgumentException("Which take? /pd take " + verb + " <name>. /pd take list shows them.");
 
         return a.get(1);
+    }
+
+    private void arena(CommandSender s, List<String> a) throws SQLException {
+        var arena = pl.arenas();
+
+        if (a.size() < 3) {
+            throw new IllegalArgumentException("Use /pd take arena set <take> <x1 y1 z1 x2 y2 z2> | save <take> | restore <take> confirm | info <take> | clear <take>");
+        }
+
+        String verb = a.get(1).toLowerCase(Locale.ROOT);
+        String take = a.get(2);
+
+        switch (verb) {
+            case "set" -> {
+                if (a.size() != 9) throw new IllegalArgumentException("Give two corners: /pd take arena set " + take + " <x1 y1 z1 x2 y2 z2>");
+
+                int[] c = new int[6];
+
+                try {
+                    for (int i = 0; i < 6; i++) c[i] = Integer.parseInt(a.get(3 + i));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("The corners are whole numbers: /pd take arena set " + take + " <x1 y1 z1 x2 y2 z2>");
+                }
+
+                arena.define(s, take, c);
+            }
+            case "save" -> arena.capture(s, take);
+            case "restore" -> arena.restore(s, take, a.size() > 3 && a.get(3).equalsIgnoreCase("confirm"));
+            case "info" -> arena.info(s, take);
+            case "clear" -> arena.clear(s, take);
+            default -> throw new IllegalArgumentException("'" + a.get(1) + "' is not something arenas do. Use set, save, restore, info or clear.");
+        }
     }
 
     private void save(CommandSender s, List<String> a) throws SQLException {
