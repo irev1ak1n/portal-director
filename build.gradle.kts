@@ -79,3 +79,9 @@ tasks.jar {
         attributes("Implementation-Title" to "PortalDirector", "Implementation-Version" to project.version)
     }
 }
+
+// The same sources give the same jar byte for byte.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
