@@ -9,6 +9,7 @@ import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
 import dev.portaldirector.db.Database;
 import dev.portaldirector.db.Journal;
+import dev.portaldirector.take.TakeService;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
 import dev.portaldirector.scene.SceneWriter;
@@ -31,6 +32,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private SceneWriter sceneWriter;
     private Database database;
     private Journal journal;
+    private TakeService takes;
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
@@ -52,6 +54,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
                 : Database.disabled(getLogger(), metrics, "turned off in config.yml");
         journal = new Journal(database, getLogger());
         journal.recover();
+        takes = new TakeService(this);
         scenes.loadAll(getConfig().getString("scene.current"));
         groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
@@ -79,6 +82,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (activeJob != null) activeJob.cancel();
+        if (takes != null) takes.shutdown();
         if (sequences != null) sequences.shutdown();
         if (tnt != null) tnt.shutdown();
         if (cinematic != null) cinematic.shutdown();
@@ -105,6 +109,10 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public Database database() {
         return database;
+    }
+
+    public TakeService takes() {
+        return takes;
     }
 
     public Journal journal() {
