@@ -1,6 +1,7 @@
 package dev.portaldirector.tnt;
 
 import dev.portaldirector.Settings;
+import dev.portaldirector.gen.PortalIndex;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.util.Msg;
@@ -237,14 +238,9 @@ public final class TntDirector implements Listener {
         if (settings.protectTerrain) {
             e.blockList().clear();
         } else if (settings.protectPortals) {
-            String world = e.getEntity().getWorld().getName();
-            List<PortalSpec> portals = scenes.portalsIn(world);
-            e.blockList().removeIf(b -> {
-                for (PortalSpec p : portals) {
-                    if (p.contains(b.getX(), b.getY(), b.getZ())) return true;
-                }
-                return false;
-            });
+            PortalIndex portals = scenes.portalIndex(e.getEntity().getWorld().getName());
+
+            e.blockList().removeIf(b -> portals.contains(b.getX(), b.getY(), b.getZ()));
         }
         active.remove(e.getEntity().getUniqueId());
     }

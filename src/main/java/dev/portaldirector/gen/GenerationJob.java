@@ -4,6 +4,8 @@ import dev.portaldirector.Settings;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Job;
+import dev.portaldirector.util.Metrics;
+import dev.portaldirector.util.Tasks;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -41,12 +43,14 @@ public final class GenerationJob implements Job {
     private final Scene scene;
     private final Settings settings;
     private final PortalPlanner.Session planner;
+    private final CachedTerrain terrain;
+    private Metrics metrics = new Metrics();
     private final List<PortalSpec> fixed;
     private final int centerX;
     private final int centerZ;
     private final Consumer<Result> onDone;
     private final Deque<long[]> chunksToLoad = new ArrayDeque<>();
-    private final Set<Long> ticketed = new HashSet<>();
+    private final ChunkHold hold;
     private final int totalChunks;
     private int outstandingLoads;
     private int loaded;
@@ -69,13 +73,15 @@ public final class GenerationJob implements Job {
                          List<PortalSpec> existing, Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
+        this.hold = new ChunkHold(plugin, world);
         this.scene = scene;
         this.settings = settings;
         this.onDone = onDone;
         this.fixed = null;
         this.centerX = cx;
         this.centerZ = cz;
-        this.planner = new PortalPlanner.Session(new BukkitTerrain(world), settings.gen, cx, cz,
+        this.terrain = new CachedTerrain(new BukkitTerrain(world));
+        this.planner = new PortalPlanner.Session(terrain, settings.gen, cx, cz,
                 existing, scene.nextId(), new Random());
         int r = settings.gen.effectiveRadius() + 8;
         for (int chunkX = (cx - r) >> 4; chunkX <= (cx + r) >> 4; chunkX++) {
@@ -88,10 +94,12 @@ public final class GenerationJob implements Job {
     public GenerationJob(Plugin plugin, World world, Scene scene, Settings settings, List<PortalSpec> specs, Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
+        this.hold = new ChunkHold(plugin, world);
         this.scene = scene;
         this.settings = settings;
         this.onDone = onDone;
         this.fixed = new ArrayList<>(specs);
+        this.terrain = null;
         this.planner = null;
         this.centerX = 0;
         this.centerZ = 0;
@@ -105,6 +113,12 @@ public final class GenerationJob implements Job {
             }
         }
         this.totalChunks = chunksToLoad.size();
+    }
+
+    public GenerationJob metrics(Metrics metrics) {
+        this.metrics = metrics;
+
+        return this;
     }
 
     /** Number of chunks the area covers, for the safety limit. */
@@ -166,10 +180,11 @@ public final class GenerationJob implements Job {
             int z = (int) c[1];
             outstandingLoads++;
             world.getChunkAtAsync(x, z, true).whenComplete((chunk, err) ->
-                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Tasks.mainThread(plugin, () -> {
                         outstandingLoads--;
                         loaded++;
-                        if (err == null && ticketed.add(key(x, z))) world.addPluginChunkTicket(x, z, plugin);
+
+                        if (err == null) hold.add(x, z);
                     }));
         }
         if (chunksToLoad.isEmpty() && outstandingLoads == 0) {
@@ -183,8 +198,13 @@ public final class GenerationJob implements Job {
     }
 
     private void planStep() {
+        long start = metrics.start();
         planner.step(settings.plannerBudget);
+        metrics.stop("generation.plan.tick", start);
+
         if (!planner.done()) return;
+
+        terrain.clear();
         List<PortalSpec> placed = new ArrayList<>(planner.placed());
         if (settings.gen.generation == GenerationMode.DELAYED) {
             RevealOrder.Info info = new RevealOrder.Info(BlockFace.SOUTH, 1, 0, 1, centerX, centerZ);
@@ -195,8 +215,12 @@ public final class GenerationJob implements Job {
     }
 
     private void buildStep() {
+        long start = metrics.start();
+
         if (settings.gen.generation == GenerationMode.DELAYED) delayedStep();
         else instantStep();
+
+        metrics.stop("generation.build.tick", start);
     }
 
     /** Portal number k appears k delays after the first one, which appears at once. */
@@ -259,8 +283,7 @@ public final class GenerationJob implements Job {
             completed++;
         }
         current = null;
-        for (long k : ticketed) world.removePluginChunkTicket((int) (k >> 32), (int) k, plugin);
-        ticketed.clear();
+        hold.releaseAll();
         onDone.accept(new Result(planner != null ? planner.requested() : toBuild.size(), completed, planner == null ? 0 : planner.rejected(), cancelled, error != null, error,
                 planner == null ? Map.of() : planner.reasons()));
     }

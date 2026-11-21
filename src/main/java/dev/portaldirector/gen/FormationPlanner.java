@@ -160,6 +160,7 @@ public final class FormationPlanner {
                             boolean ground, int support, int lowestFloor) {
         List<PortalSpec> usable = new ArrayList<>();
         List<String> problems = new ArrayList<>();
+        PortalIndex index = new PortalIndex(existing);
         int lowest = Math.max(minY, terrain.minY() + 1);
         int highest = Math.min(maxY, terrain.maxY() - 2);
         for (PortalSpec raw : specs) {
@@ -199,13 +200,8 @@ public final class FormationPlanner {
                 problems.add(where + ": something built is in the way");
                 continue;
             }
-            PortalSpec clash = null;
-            for (PortalSpec other : existing) {
-                if (!p.separatedFrom(other, 1)) {
-                    clash = other;
-                    break;
-                }
-            }
+            PortalSpec clash = index.firstClash(p, 1);
+
             if (clash != null) {
                 problems.add(where + ": too close to existing portal " + clash.id());
                 continue;

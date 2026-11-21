@@ -7,6 +7,7 @@ import dev.portaldirector.nether.BukkitNetherGrid;
 import dev.portaldirector.nether.NetherLinks;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.Tasks;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
@@ -128,7 +129,7 @@ final class NetherArrival extends Sequence {
         Msg.ok(s, "Nether Arrival: " + (existing != null ? "using the portal " + name : "building " + name) + " at " + t.x() + " " + t.y() + " " + t.z() + " facing "
                 + facing.name().toLowerCase(Locale.ROOT) + ", then moving " + players.size() + " players of " + g.name() + " beside its Nether partner.");
         CompletableFuture<Void> loaded = existing != null ? CompletableFuture.completedFuture(null) : SinglePortal.load(world, probe);
-        loaded.whenComplete((v, err) -> pl.getServer().getScheduler().runTask(pl, () -> {
+        loaded.whenComplete((v, err) -> Tasks.mainThread(pl, () -> {
             try {
                 PortalSpec spec = existing != null ? existing : SinglePortal.build(pl, world, scene, portalName, t.x(), t.y(), t.z(), facing, false);
                 pl.netherLinks().whenSettled(() -> arrive(s, world, scene, spec, portalName, g, distance));

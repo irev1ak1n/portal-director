@@ -19,6 +19,7 @@ import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.scene.SquareInfo;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.Tasks;
 import dev.portaldirector.util.PlayerTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -292,6 +293,7 @@ final class GenerateCommands {
             throw new IllegalArgumentException("A radius of " + radiusText(st.gen) + " covers " + job.chunkCount() + " chunks, more than the limit of " + st.maxChunks
                     + ". Use a smaller radius, for example /pd set radius " + Math.max(8, st.gen.radius / 2) + ".");
         }
+        job.metrics(pl.metrics());
         job.autosave(() -> pl.scenes().save(scene));
         pl.activeJob(job);
         pl.scenes().select(scene);
@@ -381,7 +383,7 @@ final class GenerateCommands {
             for (int cz = (minZ - 8) >> 4; cz <= (maxZ + 8) >> 4; cz++) loads.add(c.world().getChunkAtAsync(cx, cz, true));
         }
         CompletableFuture.allOf(loads.toArray(new CompletableFuture<?>[0])).whenComplete((v, err) ->
-                pl.getServer().getScheduler().runTask(pl, () -> {
+                Tasks.mainThread(pl, () -> {
                     try {
                         buildFormation(s, scene, c, layoutPlan, ground, partial);
                     } catch (IllegalArgumentException | IllegalStateException e) {
@@ -453,6 +455,7 @@ final class GenerateCommands {
                 Report.formation(s, pl, scene);
             }
         });
+        job.metrics(pl.metrics());
         job.autosave(() -> pl.scenes().save(scene));
         pl.activeJob(job);
         job.start();

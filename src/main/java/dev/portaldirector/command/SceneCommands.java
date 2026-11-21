@@ -63,6 +63,7 @@ final class SceneCommands {
                 }
             }
         });
+        job.metrics(pl.metrics());
         pl.activeJob(job);
         Msg.ok(s, "Removing the portals and putting the terrain back (" + sc.blocks().size() + " blocks). Blocks you changed since are left alone.");
         job.start();

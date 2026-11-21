@@ -8,6 +8,7 @@ import dev.portaldirector.scene.BlockLog;
 import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.Tasks;
 import dev.portaldirector.util.PlayerTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -164,7 +165,7 @@ final class PortalCommands {
         final World w = world;
         final boolean forced = force;
         SinglePortal.load(world, probe).whenComplete((v, err) ->
-                pl.getServer().getScheduler().runTask(pl, () -> {
+                Tasks.mainThread(pl, () -> {
                     try {
                         build(s, w, scene, name, x, y, z, facing, forced);
                     } catch (IllegalArgumentException | IllegalStateException e) {
@@ -233,6 +234,7 @@ final class PortalCommands {
                     + (result.kept() > 0 ? ", " + result.kept() + " left alone because they were changed since." : ".")
                     + (partner == null ? "" : " Its Nether portal at " + partner.anchorX() + ", " + partner.anchorY() + ", " + partner.anchorZ() + " is being removed too."));
         });
+        job.metrics(pl.metrics());
         pl.activeJob(job);
         job.start();
     }
@@ -264,12 +266,21 @@ final class PortalCommands {
     static List<BlockLog.Rec> recordsOf(Scene sc, PortalSpec p) {
         List<BlockLog.Rec> mine = new ArrayList<>();
         int[] box = p.box();
-        for (BlockLog.Rec r : sc.blocks().all()) {
-            BlockLog.Pos q = r.pos();
-            boolean support = q.y() < p.y() && q.y() >= p.y() - 5 && q.x() >= box[0] && q.x() <= box[3] && q.z() >= box[2] && q.z() <= box[5]
-                    && onFrameColumn(p, q.x(), q.z());
-            if (p.contains(q.x(), q.y(), q.z()) || support) mine.add(r);
+
+        for (int x = box[0]; x <= box[3]; x++) {
+            for (int y = Math.min(box[1], p.y() - 5); y <= box[4]; y++) {
+                for (int z = box[2]; z <= box[5]; z++) {
+                    BlockLog.Rec r = sc.blocks().get(x, y, z);
+
+                    if (r == null) continue;
+
+                    boolean support = y < p.y() && y >= p.y() - 5 && onFrameColumn(p, x, z);
+
+                    if (p.contains(x, y, z) || support) mine.add(r);
+                }
+            }
         }
+
         return mine;
     }
 

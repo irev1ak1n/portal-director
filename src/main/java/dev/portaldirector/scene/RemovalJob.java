@@ -1,6 +1,9 @@
 package dev.portaldirector.scene;
 
+import dev.portaldirector.gen.ChunkHold;
 import dev.portaldirector.util.Job;
+import dev.portaldirector.util.Metrics;
+import dev.portaldirector.util.Tasks;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -35,7 +38,7 @@ public final class RemovalJob implements Job {
     private int currentIndex;
     private boolean loading;
     private int waited;
-    private final java.util.Set<Long> held = new java.util.HashSet<>();
+    private final ChunkHold hold;
     private int chunkX;
     private int chunkZ;
     private boolean cancelled;
@@ -44,6 +47,7 @@ public final class RemovalJob implements Job {
     private int kept;
     private int processed;
     private BukkitTask task;
+    private Metrics metrics = new Metrics();
 
     public RemovalJob(Plugin plugin, World world, Scene scene, int blocksPerTick, Consumer<Result> onDone) {
         this(plugin, world, scene, blocksPerTick, new ArrayList<>(scene.blocks().all()), onDone);
@@ -54,6 +58,7 @@ public final class RemovalJob implements Job {
                       Consumer<Result> onDone) {
         this.plugin = plugin;
         this.world = world;
+        this.hold = new ChunkHold(plugin, world);
         this.scene = scene;
         this.blocksPerTick = blocksPerTick;
         this.onDone = onDone;
@@ -66,6 +71,12 @@ public final class RemovalJob implements Job {
         }
         chunks.addAll(byChunk.values());
         totalBlocks = all.size();
+    }
+
+    public RemovalJob metrics(Metrics metrics) {
+        this.metrics = metrics;
+
+        return this;
     }
 
     public void start() {
@@ -83,6 +94,12 @@ public final class RemovalJob implements Job {
     }
 
     private void tick() {
+        long start = metrics.start();
+        step();
+        metrics.stop("removal.tick", start);
+    }
+
+    private void step() {
         if (done) return;
         if (cancelled) {
             finish();
@@ -107,24 +124,20 @@ public final class RemovalJob implements Job {
                     final int cx = chunkX;
                     final int cz = chunkZ;
                     world.getChunkAtAsync(cx, cz, true).whenComplete((c, err) ->
-                            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                                // The ticket keeps the chunk loaded until its blocks are done, so it cannot unload again.
-                                if (err == null && world.addPluginChunkTicket(cx, cz, plugin)) held.add(key(cx, cz));
+                            Tasks.mainThread(plugin, () -> {
+                                if (err == null) hold.add(cx, cz);
+
                                 loading = false;
                             }));
                 }
                 return;
             }
-            if (held.contains(key(chunkX, chunkZ))) {
-                // already ticketed
-            } else if (world.addPluginChunkTicket(chunkX, chunkZ, plugin)) {
-                held.add(key(chunkX, chunkZ));
-            }
+            hold.add(chunkX, chunkZ);
             BlockLog.Rec r = current.get(currentIndex++);
             restoreOne(r);
             budget--;
             processed++;
-            if (currentIndex >= current.size()) release(chunkX, chunkZ);
+            if (currentIndex >= current.size()) hold.release(chunkX, chunkZ);
         }
     }
 
@@ -140,19 +153,10 @@ public final class RemovalJob implements Job {
         scene.blocks().remove(r.pos());
     }
 
-    private static long key(int x, int z) {
-        return ((long) x << 32) | (z & 0xFFFFFFFFL);
-    }
-
-    private void release(int cx, int cz) {
-        if (held.remove(key(cx, cz))) world.removePluginChunkTicket(cx, cz, plugin);
-    }
-
     private void finish() {
         if (done) return;
         done = true;
-        for (long k : new java.util.ArrayList<>(held)) world.removePluginChunkTicket((int) (k >> 32), (int) k, plugin);
-        held.clear();
+        hold.releaseAll();
         if (task != null) task.cancel();
         onDone.accept(new Result(restored, kept, cancelled));
     }

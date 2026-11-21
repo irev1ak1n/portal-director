@@ -2,12 +2,15 @@ package dev.portaldirector.sequence;
 
 import dev.portaldirector.PortalDirectorPlugin;
 import dev.portaldirector.gen.BukkitTerrain;
+import dev.portaldirector.gen.CachedTerrain;
+import dev.portaldirector.gen.ChunkHold;
 import dev.portaldirector.gen.PortalEdits;
 import dev.portaldirector.gen.PortalPlanner;
 import dev.portaldirector.gen.Terrain;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.util.Msg;
+import dev.portaldirector.util.Tasks;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
@@ -64,12 +67,16 @@ public final class FloatingRun implements SequenceManager.Active {
 
     /** {@link Terrain} that treats everything outside the world border as not ready. */
     private static final class Bordered implements Terrain {
-        private final BukkitTerrain inner;
+        private final CachedTerrain inner;
         private final World world;
 
         Bordered(World world) {
-            this.inner = new BukkitTerrain(world);
+            this.inner = new CachedTerrain(new BukkitTerrain(world));
             this.world = world;
+        }
+
+        void clearCache() {
+            inner.clear();
         }
 
         @Override
@@ -124,10 +131,11 @@ public final class FloatingRun implements SequenceManager.Active {
     private final int cz;
     private final Strategy strategy;
     private final RandomGenerator rnd = new Random();
+    private final Bordered terrain;
     private final SkyPlanner.Run planner;
     private final Deque<long[]> chunksToLoad = new ArrayDeque<>();
     private final Set<Long> requested = new HashSet<>();
-    private final Set<Long> ticketed = new HashSet<>();
+    private final ChunkHold hold;
     private int outstanding;
     private int loaded;
     private int totalChunks;
@@ -151,6 +159,7 @@ public final class FloatingRun implements SequenceManager.Active {
                        int cx, int cy, int cz, Strategy strategy) {
         this.pl = pl;
         this.mgr = mgr;
+        this.hold = new ChunkHold(pl, world);
         this.sender = sender;
         this.sequence = sequence;
         this.world = world;
@@ -160,7 +169,8 @@ public final class FloatingRun implements SequenceManager.Active {
         this.cz = cz;
         this.strategy = strategy;
         List<PortalSpec> existing = new ArrayList<>(pl.scenes().portalsIn(world.getName()));
-        this.planner = new SkyPlanner.Run(new Bordered(world), cx, cy, cz, strategy.need(), existing, scene.nextId(),
+        this.terrain = new Bordered(world);
+        this.planner = new SkyPlanner.Run(terrain, cx, cy, cz, strategy.need(), existing, scene.nextId(),
                 strategy.radius(), strategy.halfHeight(), maxRadiusFor(pl.settings().maxChunks), rnd);
         request(planner.currentRadius());
     }
@@ -303,10 +313,11 @@ public final class FloatingRun implements SequenceManager.Active {
             int z = (int) c[1];
             outstanding++;
             world.getChunkAtAsync(x, z, true).whenComplete((chunk, err) ->
-                    pl.getServer().getScheduler().runTask(pl, () -> {
+                    Tasks.mainThread(pl, () -> {
                         outstanding--;
                         loaded++;
-                        if (err == null && ticketed.add(key(x, z))) world.addPluginChunkTicket(x, z, pl);
+
+                        if (err == null) hold.add(x, z);
                     }));
         }
         if (chunksToLoad.isEmpty() && outstanding == 0) phase = Phase.PLAN;
@@ -317,11 +328,16 @@ public final class FloatingRun implements SequenceManager.Active {
             request(planner.currentRadius());
             return;
         }
+        long start = pl.metrics().start();
         planner.step(pl.settings().plannerBudget);
+        pl.metrics().stop("sequence.plan.tick", start);
+
         List<String> notes = planner.notes();
         while (notesShown < notes.size()) Msg.info(sender, sequence + ": " + notes.get(notesShown++));
         if (!planner.done()) return;
+        terrain.clearCache();
         placed = new ArrayList<>(planner.placed());
+
         if (placed.isEmpty()) {
             error = "No floating portal fits around " + cx + " " + cy + " " + cz + ": " + why();
             finish();
@@ -342,6 +358,12 @@ public final class FloatingRun implements SequenceManager.Active {
     }
 
     private void runStep() {
+        long start = pl.metrics().start();
+        play();
+        pl.metrics().stop("sequence.run.tick", start);
+    }
+
+    private void play() {
         while (eventIndex < events.size() && events.get(eventIndex).tick() <= tick) {
             SeqTimeline.Event e = events.get(eventIndex++);
             if (e.kind() == SeqTimeline.Kind.PORTAL) build(e.index());
@@ -377,8 +399,7 @@ public final class FloatingRun implements SequenceManager.Active {
         if (phase == Phase.DONE) return;
         phase = Phase.DONE;
         if (task != null) task.cancel();
-        for (long k : ticketed) world.removePluginChunkTicket((int) (k >> 32), (int) k, pl);
-        ticketed.clear();
+        hold.releaseAll();
         pl.scenes().select(scene);
         pl.scenes().save(scene);
         pl.saveSettings();

@@ -94,7 +94,7 @@ public final class PortalPlanner {
         private final Terrain terrain;
         private final GenSettings s;
         private final Bounds bounds;
-        private final List<PortalSpec> blockers;
+        private final PortalIndex blockers;
         private final List<PortalSpec> placed = new ArrayList<>();
         private final RandomGenerator rnd;
         private int nextId;
@@ -112,7 +112,7 @@ public final class PortalPlanner {
             this.terrain = terrain;
             this.s = settings.copy();
             this.bounds = Bounds.around(cx, cz, s.effectiveRadius());
-            this.blockers = new ArrayList<>(existing);
+            this.blockers = new PortalIndex(existing);
             this.nextId = firstId;
             this.rnd = rnd;
             this.attemptsLeft = s.count * 60 + 300;
@@ -228,9 +228,8 @@ public final class PortalPlanner {
             if (!bounds.containsFrame(spec)) return fail("outside the radius");
             if (!PortalPlanner.volumeFree(terrain, spec, air)) return fail(air ? "something in the way" : "trees, water or buildings in the way");
             if (!air && !PortalPlanner.openAbove(terrain, spec)) return fail("under a tree or a ledge");
-            for (PortalSpec other : blockers) {
-                if (!spec.separatedFrom(other, gapH(), gapV())) return fail("too close to another portal");
-            }
+            if (!blockers.isClear(spec, gapH(), gapV())) return fail("too close to another portal");
+
             return spec;
         }
 
