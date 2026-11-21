@@ -9,6 +9,7 @@ import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
 import dev.portaldirector.db.Database;
 import dev.portaldirector.db.Journal;
+import dev.portaldirector.preview.PreviewManager;
 import dev.portaldirector.take.TakeService;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
@@ -33,6 +34,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private Database database;
     private Journal journal;
     private TakeService takes;
+    private PreviewManager preview;
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
@@ -55,6 +57,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
         journal = new Journal(database, getLogger());
         journal.recover();
         takes = new TakeService(this);
+        preview = new PreviewManager(this);
+        getServer().getPluginManager().registerEvents(preview, this);
         scenes.loadAll(getConfig().getString("scene.current"));
         groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
@@ -82,6 +86,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (activeJob != null) activeJob.cancel();
+        if (preview != null) preview.shutdown();
         if (takes != null) takes.shutdown();
         if (sequences != null) sequences.shutdown();
         if (tnt != null) tnt.shutdown();
@@ -109,6 +114,10 @@ public class PortalDirectorPlugin extends JavaPlugin {
 
     public Database database() {
         return database;
+    }
+
+    public PreviewManager preview() {
+        return preview;
     }
 
     public TakeService takes() {
