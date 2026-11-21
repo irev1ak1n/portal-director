@@ -7,6 +7,8 @@ import dev.portaldirector.group.JoinBlockListener;
 import dev.portaldirector.nether.NetherLinks;
 import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
+import dev.portaldirector.db.Database;
+import dev.portaldirector.db.Journal;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
 import dev.portaldirector.scene.SceneWriter;
@@ -27,6 +29,8 @@ public class PortalDirectorPlugin extends JavaPlugin {
     private final Settings settings = new Settings();
     private final Metrics metrics = new Metrics();
     private SceneWriter sceneWriter;
+    private Database database;
+    private Journal journal;
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
@@ -43,6 +47,11 @@ public class PortalDirectorPlugin extends JavaPlugin {
         SceneStore sceneStore = new SceneStore(new File(getDataFolder(), "scenes"));
         sceneWriter = getConfig().getBoolean("performance.async-saves", true) ? new SceneWriter(sceneStore, getLogger(), metrics) : null;
         scenes = new SceneManager(sceneStore, getLogger(), sceneWriter, metrics);
+        database = getConfig().getBoolean("database.enabled", true)
+                ? Database.open(new File(getDataFolder(), "portaldirector.db").toPath(), getLogger(), metrics)
+                : Database.disabled(getLogger(), metrics, "turned off in config.yml");
+        journal = new Journal(database, getLogger());
+        journal.recover();
         scenes.loadAll(getConfig().getString("scene.current"));
         groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
@@ -76,6 +85,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
         if (netherLinks != null) netherLinks.save();
         if (scenes != null) scenes.saveAll();
         if (sceneWriter != null) sceneWriter.close();
+        if (database != null) database.close();
         if (groups != null) groups.save();
         saveSettings();
     }
@@ -91,6 +101,14 @@ public class PortalDirectorPlugin extends JavaPlugin {
         settings.load(getConfig());
         groups.load();
         groups.migrateLegacy(scenes);
+    }
+
+    public Database database() {
+        return database;
+    }
+
+    public Journal journal() {
+        return journal;
     }
 
     public SceneWriter sceneWriter() {

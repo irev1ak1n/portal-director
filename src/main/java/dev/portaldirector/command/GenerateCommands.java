@@ -9,6 +9,7 @@ import dev.portaldirector.gen.FormationPlanner;
 import dev.portaldirector.gen.GenSettings;
 import dev.portaldirector.gen.GenerationMode;
 import dev.portaldirector.gen.RevealOrder;
+import dev.portaldirector.db.Journal;
 import dev.portaldirector.gen.GenerationJob;
 import dev.portaldirector.gen.Layout;
 import dev.portaldirector.gen.Placement;
@@ -272,7 +273,9 @@ final class GenerateCommands {
         scene.worldName(c.world().getName());
         List<PortalSpec> existing = new ArrayList<>(pl.scenes().portalsIn(c.world().getName()));
         int before = scene.portals().size();
+        Journal.Token operation = pl.journal().begin("create", st.gen.count + " portals");
         GenerationJob job = new GenerationJob(pl, c.world(), scene, st, c.x(), c.z(), existing, result -> {
+            pl.journal().end(operation, result.failed() ? "FAILED" : result.cancelled() ? "CANCELLED" : "DONE");
             pl.activeJob(null);
             pl.scenes().save(scene);
             if (result.failed()) {
@@ -443,7 +446,9 @@ final class GenerateCommands {
             ordered = ordered.stream().map(p -> byId.get(p.id())).toList();
         }
         Msg.ok(s, "Building " + fit.usable().size() + " of " + total + " portals. " + revealNote(g));
+        Journal.Token operation = pl.journal().begin("create", g.layout.name().toLowerCase(Locale.ROOT) + " formation");
         GenerationJob job = new GenerationJob(pl, c.world(), scene, st, ordered, result -> {
+            pl.journal().end(operation, result.failed() ? "FAILED" : result.cancelled() ? "CANCELLED" : "DONE");
             pl.activeJob(null);
             pl.scenes().save(scene);
             if (result.cancelled()) {

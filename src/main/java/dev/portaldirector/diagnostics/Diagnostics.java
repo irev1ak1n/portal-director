@@ -116,6 +116,11 @@ public final class Diagnostics {
         }
 
         out.add("  Failed saves: " + pl.metrics().counter("scene.save.failed"));
+
+        var db = pl.database().status();
+        out.add("  Database: " + (db.available() ? "ok, schema " + db.schemaVersion() + ", " + (db.fileBytes() / 1024) + " KB, " + db.queued() + " waiting" : "off (" + db.detail() + ")")
+                + (db.recovered() ? ", a damaged file was moved aside at start" : ""));
+        out.add("  Operations cut off at the last start: " + pl.journal().interruptedAtStart());
     }
 
     private void server(List<String> out) {

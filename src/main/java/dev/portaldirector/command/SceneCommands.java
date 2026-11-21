@@ -1,6 +1,7 @@
 package dev.portaldirector.command;
 
 import dev.portaldirector.PortalDirectorPlugin;
+import dev.portaldirector.db.Journal;
 import dev.portaldirector.model.PortalSpec;
 import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
@@ -42,7 +43,9 @@ final class SceneCommands {
             return;
         }
         pl.tnt().stop();
+        Journal.Token operation = pl.journal().begin("clear", sc.portals().size() + " portals");
         RemovalJob job = new RemovalJob(pl, w, sc, pl.settings().blocksPerTick, result -> {
+            pl.journal().end(operation, result.cancelled() ? "CANCELLED" : "DONE");
             pl.activeJob(null);
             if (result.cancelled()) {
                 Msg.info(s, "Stopped. " + result.restored() + " blocks restored; run /pd clear again to finish.");

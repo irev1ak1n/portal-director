@@ -68,6 +68,14 @@ public final class Database {
         return open(file, log, metrics, Migrations.ALL);
     }
 
+    /** A database that is switched off on purpose. Every task fails with the reason. */
+    public static Database disabled(Logger log, Metrics metrics, String reason) {
+        Database db = new Database(null, log, metrics, Migrations.ALL);
+        db.detail = reason;
+
+        return db;
+    }
+
     /** Opens the file, repairs what can be repaired and brings the schema up to date. Always returns; check {@link #available()}. */
     public static Database open(Path file, Logger log, Metrics metrics, List<Migrations.Step> steps) {
         Database db = new Database(file, log, metrics, steps);
@@ -231,7 +239,7 @@ public final class Database {
         long bytes = 0;
 
         try {
-            if (Files.exists(file)) bytes = Files.size(file);
+            if (file != null && Files.exists(file)) bytes = Files.size(file);
         } catch (IOException ignored) {
             // size is only informational
         }

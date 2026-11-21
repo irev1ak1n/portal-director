@@ -1,6 +1,7 @@
 package dev.portaldirector.sequence;
 
 import dev.portaldirector.PortalDirectorPlugin;
+import dev.portaldirector.db.Journal;
 import dev.portaldirector.gen.BukkitTerrain;
 import dev.portaldirector.gen.CachedTerrain;
 import dev.portaldirector.gen.ChunkHold;
@@ -154,6 +155,7 @@ public final class FloatingRun implements SequenceManager.Active {
     private int milestone;
     private boolean cancelled;
     private String error;
+    private Journal.Token operation;
 
     public FloatingRun(PortalDirectorPlugin pl, SequenceManager mgr, CommandSender sender, String sequence, World world, Scene scene,
                        int cx, int cy, int cz, Strategy strategy) {
@@ -241,6 +243,7 @@ public final class FloatingRun implements SequenceManager.Active {
     // Running
 
     public void start() {
+        operation = pl.journal().begin("sequence", sequence);
         strategy.begin(this);
         mgr.active(this);
         pl.activeJob(this);
@@ -400,6 +403,7 @@ public final class FloatingRun implements SequenceManager.Active {
         phase = Phase.DONE;
         if (task != null) task.cancel();
         hold.releaseAll();
+        pl.journal().end(operation, error != null ? "FAILED" : cancelled ? "CANCELLED" : "DONE");
         pl.scenes().select(scene);
         pl.scenes().save(scene);
         pl.saveSettings();

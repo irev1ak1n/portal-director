@@ -21,6 +21,11 @@ Thumbs.db
 run/
 server/
 
+# SQLite databases hold real player data
+*.db
+*.db-wal
+*.db-shm
+
 # Local Paper test servers
 test-server/
 syncequip-test-server/
