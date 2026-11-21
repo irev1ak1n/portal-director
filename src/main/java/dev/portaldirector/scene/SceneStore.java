@@ -2,6 +2,7 @@ package dev.portaldirector.scene;
 
 import dev.portaldirector.gen.SquareFacing;
 import dev.portaldirector.model.PortalSpec;
+import dev.portaldirector.util.AtomicFiles;
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.ConfigurationSection;
@@ -46,13 +47,21 @@ public final class SceneStore {
     }
 
     public void save(Scene scene) throws IOException {
+        save(SceneSnapshot.of(scene));
+    }
+
+    /** Blocks first, then the portal list: if a crash falls in between, the log has too much (safe to restore) and never too little. */
+    public void save(SceneSnapshot scene) throws IOException {
+        AtomicFiles.write(blocksFile(scene.name()).toPath(), out -> BlockLog.write(new DataOutputStream(out), scene.blocks()));
+
         YamlConfiguration y = new YamlConfiguration();
-        y.set("world", scene.worldName());
+        y.set("world", scene.world());
         List<Map<String, Object>> list = new ArrayList<>();
-        for (PortalSpec p : scene.portals().values()) {
+        for (SceneSnapshot.Portal portal : scene.portals()) {
+            PortalSpec p = portal.spec();
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", p.id());
-            m.put("name", scene.nameOf(p.id()));
+            m.put("name", portal.name());
             m.put("x", p.x());
             m.put("y", p.y());
             m.put("z", p.z());
@@ -63,6 +72,7 @@ public final class SceneStore {
         }
         y.set("portals", list);
         SquareInfo sq = scene.square();
+
         if (sq != null) {
             y.set("square.center-x", sq.centerX());
             y.set("square.center-z", sq.centerZ());
@@ -73,13 +83,7 @@ public final class SceneStore {
             y.set("square.facing", sq.facing().name());
             y.set("square.ids", sq.ids());
         }
-        y.save(yml(scene.name()));
-        File blocks = blocksFile(scene.name());
-        File tmp = new File(dir, scene.name() + ".blocks.tmp");
-        try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(tmp.toPath())))) {
-            scene.blocks().write(out);
-        }
-        Files.move(tmp.toPath(), blocks.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        AtomicFiles.writeString(yml(scene.name()).toPath(), y.saveToString());
     }
 
     public Scene load(String name) throws IOException {

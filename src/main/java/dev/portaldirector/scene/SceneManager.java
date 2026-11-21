@@ -1,6 +1,8 @@
 package dev.portaldirector.scene;
 
+import dev.portaldirector.gen.PortalIndex;
 import dev.portaldirector.model.PortalSpec;
+import dev.portaldirector.util.Metrics;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -21,12 +23,21 @@ public final class SceneManager {
 
     private final SceneStore store;
     private final Logger log;
+    private final SceneWriter writer;
+    private final Metrics metrics;
     private final Map<String, Scene> scenes = new LinkedHashMap<>();
     private Scene current;
 
     public SceneManager(SceneStore store, Logger log) {
+        this(store, log, null, new Metrics());
+    }
+
+    /** With a writer, saves are handed to a background thread; without one they are written on the calling thread. */
+    public SceneManager(SceneStore store, Logger log, SceneWriter writer, Metrics metrics) {
         this.store = store;
         this.log = log;
+        this.writer = writer;
+        this.metrics = metrics;
     }
 
     public void loadAll(String currentName) {
@@ -87,22 +98,39 @@ public final class SceneManager {
     }
 
     public void save(Scene scene) {
+        long start = metrics.start();
+        SceneSnapshot snapshot = SceneSnapshot.of(scene);
+
+        if (writer != null) writer.submit(snapshot);
+        else saveNow(snapshot);
+
+        metrics.stop("scene.save.main", start);
+    }
+
+    private void saveNow(SceneSnapshot snapshot) {
         try {
-            store.save(scene);
-        } catch (IOException e) {
-            log.severe("Could not save scene " + scene.name() + ": " + e.getMessage());
+            store.save(snapshot);
+        } catch (IOException | RuntimeException e) {
+            log.severe("Could not save scene " + snapshot.name() + ": " + e.getMessage());
         }
     }
 
+    /** Writes every scene before returning. Used when the plugin stops. */
     public void saveAll() {
-        for (Scene s : scenes.values()) save(s);
+        if (writer != null) writer.flush(30_000);
+
+        for (Scene s : scenes.values()) saveNow(SceneSnapshot.of(s));
     }
 
     public Scene rename(Scene scene, String newName) {
         String n = normalize(newName);
         if (scenes.containsKey(n)) throw new IllegalArgumentException("A scene called " + n + " already exists.");
         String old = scene.name();
-        save(scene);
+
+        if (writer != null) writer.flush(10_000);
+
+        saveNow(SceneSnapshot.of(scene));
+
         try {
             store.rename(old, n);
         } catch (IOException e) {
@@ -116,8 +144,29 @@ public final class SceneManager {
 
     public void delete(Scene scene) {
         scenes.remove(scene.name());
+        Scene.touch();
+
+        if (writer != null) writer.forget(scene.name());
+
         store.delete(scene.name());
         if (current == scene) current = null;
+    }
+
+    private final Map<String, PortalIndex> indexes = new java.util.HashMap<>();
+    private final Map<String, Long> indexStamps = new java.util.HashMap<>();
+
+    /** The portals of a world in a spatial grid. It is rebuilt only when some scene gained or lost a portal. */
+    public PortalIndex portalIndex(String worldName) {
+        long stamp = Scene.changes();
+        Long built = indexStamps.get(worldName);
+
+        if (built != null && built == stamp) return indexes.get(worldName);
+
+        PortalIndex index = new PortalIndex(portalsIn(worldName));
+        indexes.put(worldName, index);
+        indexStamps.put(worldName, stamp);
+
+        return index;
     }
 
     /** Every portal in a world, across all scenes. */

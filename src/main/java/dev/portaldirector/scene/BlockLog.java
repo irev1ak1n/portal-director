@@ -29,6 +29,15 @@ public final class BlockLog {
         records.put(pos, new Rec(pos, old != null ? old.original() : original, placed));
     }
 
+    /** A copy of every record, safe to hand to another thread. */
+    public List<Rec> snapshot() {
+        return new ArrayList<>(records.values());
+    }
+
+    public Rec get(int x, int y, int z) {
+        return records.get(new Pos(x, y, z));
+    }
+
     public Collection<Rec> all() {
         return records.values();
     }
@@ -50,15 +59,19 @@ public final class BlockLog {
     }
 
     public void write(DataOutput out) throws IOException {
+        write(out, records.values());
+    }
+
+    public static void write(DataOutput out, Collection<Rec> records) throws IOException {
         Map<String, Integer> palette = new LinkedHashMap<>();
-        for (Rec r : records.values()) {
+        for (Rec r : records) {
             palette.putIfAbsent(r.original(), palette.size());
             palette.putIfAbsent(r.placed(), palette.size());
         }
         out.writeInt(palette.size());
         for (String s : palette.keySet()) out.writeUTF(s);
         out.writeInt(records.size());
-        for (Rec r : records.values()) {
+        for (Rec r : records) {
             out.writeInt(r.pos().x());
             out.writeInt(r.pos().y());
             out.writeInt(r.pos().z());

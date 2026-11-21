@@ -2,6 +2,7 @@ package dev.portaldirector.group;
 
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.scene.SceneManager;
+import dev.portaldirector.util.AtomicFiles;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -92,7 +93,7 @@ public final class GroupManager {
             for (Map.Entry<UUID, String> e : g.portals().entrySet()) y.set(base + ".portals." + e.getKey(), e.getValue());
         }
         try {
-            y.save(file);
+            AtomicFiles.writeString(file.toPath(), y.saveToString());
         } catch (IOException e) {
             log.severe("Could not save groups: " + e.getMessage());
         }

@@ -1,5 +1,6 @@
 package dev.portaldirector.sequence;
 
+import dev.portaldirector.util.AtomicFiles;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -44,7 +45,7 @@ public final class SeqSettings {
         }
         try {
             file.getParentFile().mkdirs();
-            y.save(file);
+            AtomicFiles.writeString(file.toPath(), y.saveToString());
         } catch (IOException ex) {
             log.severe("Could not save the sequence settings: " + ex.getMessage());
         }

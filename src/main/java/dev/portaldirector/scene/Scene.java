@@ -24,6 +24,7 @@ public final class Scene {
     private final Map<String, TreeMap<Integer, UUID>> legacyAssignments = new LinkedHashMap<>();
     private final BlockLog blocks = new BlockLog();
     private SquareInfo square;
+    private static final java.util.concurrent.atomic.AtomicLong CHANGES = new java.util.concurrent.atomic.AtomicLong();
 
     public Scene(String name, String worldName) {
         this.name = name;
@@ -84,8 +85,18 @@ public final class Scene {
         addPortal(spec, null);
     }
 
+    /** Goes up whenever any scene gains or loses a portal, so a cached lookup knows when it is out of date. */
+    public static long changes() {
+        return CHANGES.get();
+    }
+
+    public static void touch() {
+        CHANGES.incrementAndGet();
+    }
+
     /** Adds a portal; with no name it gets the default, or a variant of it if that is taken. */
     public void addPortal(PortalSpec spec, String name) {
+        touch();
         portals.put(spec.id(), spec);
         String n = name != null ? name : defaultName(spec.id());
         while (name == null && byName(n) != null && byName(n).id() != spec.id()) n = n + "-b";
@@ -113,6 +124,7 @@ public final class Scene {
     }
 
     public void clearPortals() {
+        touch();
         portals.clear();
         names.clear();
     }
@@ -138,6 +150,7 @@ public final class Scene {
     }
 
     public void dropPortal(int id) {
+        touch();
         portals.remove(id);
         names.remove(id);
     }

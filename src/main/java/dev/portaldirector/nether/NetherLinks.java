@@ -6,6 +6,7 @@ import dev.portaldirector.scene.BlockLog;
 import dev.portaldirector.scene.RemovalJob;
 import dev.portaldirector.scene.Scene;
 import dev.portaldirector.scene.SceneStore;
+import dev.portaldirector.util.AtomicFiles;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -108,14 +109,14 @@ public final class NetherLinks {
             YamlConfiguration y = new YamlConfiguration();
             for (Map.Entry<String, Integer> e : pairs.entrySet()) y.set("pairs." + e.getKey().replace('/', '|'), e.getValue());
             if (pairs.isEmpty()) y.createSection("pairs");
-            y.save(pairsFile);
+            AtomicFiles.writeString(pairsFile.toPath(), y.saveToString());
             YamlConfiguration m = new YamlConfiguration();
             List<String> lines = new ArrayList<>();
             for (Map.Entry<String, int[]> e : remembered.entrySet()) {
                 lines.add(e.getKey() + "=" + e.getValue()[0] + "," + e.getValue()[1] + "," + e.getValue()[2]);
             }
             m.set("spots", lines);
-            m.save(memoryFile);
+            AtomicFiles.writeString(memoryFile.toPath(), m.saveToString());
             store.save(nether);
         } catch (IOException e) {
             plugin.getLogger().severe("Could not save the Nether portal pairs: " + e.getMessage());

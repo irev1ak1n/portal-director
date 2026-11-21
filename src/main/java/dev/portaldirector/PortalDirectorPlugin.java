@@ -9,6 +9,8 @@ import dev.portaldirector.sequence.SequenceManager;
 import dev.portaldirector.nether.PortalTravelListener;
 import dev.portaldirector.scene.SceneManager;
 import dev.portaldirector.scene.SceneStore;
+import dev.portaldirector.scene.SceneWriter;
+import dev.portaldirector.util.Metrics;
 import dev.portaldirector.tnt.TntDirector;
 import dev.portaldirector.util.Job;
 import net.kyori.adventure.text.Component;
@@ -23,6 +25,8 @@ import java.io.File;
 public class PortalDirectorPlugin extends JavaPlugin {
 
     private final Settings settings = new Settings();
+    private final Metrics metrics = new Metrics();
+    private SceneWriter sceneWriter;
     private SceneManager scenes;
     private GroupManager groups;
     private TntDirector tnt;
@@ -36,7 +40,9 @@ public class PortalDirectorPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         settings.load(getConfig());
-        scenes = new SceneManager(new SceneStore(new File(getDataFolder(), "scenes")), getLogger());
+        SceneStore sceneStore = new SceneStore(new File(getDataFolder(), "scenes"));
+        sceneWriter = getConfig().getBoolean("performance.async-saves", true) ? new SceneWriter(sceneStore, getLogger(), metrics) : null;
+        scenes = new SceneManager(sceneStore, getLogger(), sceneWriter, metrics);
         scenes.loadAll(getConfig().getString("scene.current"));
         groups = new GroupManager(new File(getDataFolder(), "groups.yml"), getLogger());
         groups.load();
@@ -69,6 +75,7 @@ public class PortalDirectorPlugin extends JavaPlugin {
         if (cinematic != null) cinematic.shutdown();
         if (netherLinks != null) netherLinks.save();
         if (scenes != null) scenes.saveAll();
+        if (sceneWriter != null) sceneWriter.close();
         if (groups != null) groups.save();
         saveSettings();
     }
@@ -84,6 +91,14 @@ public class PortalDirectorPlugin extends JavaPlugin {
         settings.load(getConfig());
         groups.load();
         groups.migrateLegacy(scenes);
+    }
+
+    public SceneWriter sceneWriter() {
+        return sceneWriter;
+    }
+
+    public Metrics metrics() {
+        return metrics;
     }
 
     public Settings settings() {
