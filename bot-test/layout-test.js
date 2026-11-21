@@ -10,7 +10,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const mineflayer = require('@wp2508/mineflayer')
-const { TestServer } = require('./lib/server')
+const { TestServer, settle } = require('./lib/server')
 
 const PORT = +(process.env.PD_PORT || 25591)
 const HOST = '127.0.0.1'
@@ -63,6 +63,7 @@ async function count (selector) {
 }
 
 function readScene (name = 'default') {
+  settle()
   const lines = fs.readFileSync(path.join(PLUGIN_DIR, 'scenes', name + '.yml'), 'utf8').split(/\r?\n/)
   const scene = { portals: [], square: {} }
   let section = ''
@@ -138,6 +139,7 @@ async function badBlocks (portals) {
   return srv.lines.filter(l => /\[Server\] BAD \d+/.test(l)).length
 }
 function readBlocks (file) {
+  settle()
   const buf = fs.readFileSync(file)
   let o = 0
   const int = () => { const v = buf.readInt32BE(o); o += 4; return v }

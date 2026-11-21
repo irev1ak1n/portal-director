@@ -91,3 +91,6 @@ class TestServer extends EventEmitter {
 }
 
 module.exports = { TestServer }
+
+// The plugin saves scenes in the background, so files lag the command by a moment.
+module.exports.settle = (ms = 1500) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)

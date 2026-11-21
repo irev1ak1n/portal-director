@@ -8,7 +8,7 @@
  */
 const fs = require('node:fs')
 const path = require('node:path')
-const { TestServer } = require('./lib/server')
+const { TestServer, settle } = require('./lib/server')
 
 const PORT = +(process.env.PD_PORT || 25591)
 const HOST = '127.0.0.1'
@@ -62,6 +62,7 @@ async function waitFor (fn, ms, step = 250) {
 const last = out => out.trim().split('\n').pop().slice(0, 240)
 
 function readScene () {
+  settle()
   const f = path.join(PLUGIN_DIR, 'scenes', 'default.yml')
   if (!fs.existsSync(f)) return []
   const out = []

@@ -7,7 +7,7 @@
  */
 const fs = require('node:fs')
 const path = require('node:path')
-const { TestServer } = require('./lib/server')
+const { TestServer, settle } = require('./lib/server')
 
 const PORT = +(process.env.PD_PORT || 25591)
 const HOST = '127.0.0.1'
@@ -46,6 +46,7 @@ async function runUntil (cmd, regex, timeout = 120000) {
 }
 
 function readScene (name = 'default') {
+  settle()
   const lines = fs.readFileSync(path.join(PLUGIN_DIR, 'scenes', name + '.yml'), 'utf8').split(/\r?\n/)
   const scene = { portals: [] }
   let section = ''
@@ -89,6 +90,7 @@ async function badBlocks (portals) {
   return srv.lines.filter(l => /\[Server\] BAD \d+/.test(l)).length
 }
 function readBlocks (file) {
+  settle()
   const buf = fs.readFileSync(file)
   let o = 0
   const int = () => { const v = buf.readInt32BE(o); o += 4; return v }
@@ -199,7 +201,7 @@ async function main () {
   log('tab completion')
   try {
     const main = await tab(bot, '/pd ')
-    check('/pd suggests the commands in alphabetical order', JSON.stringify(main) === JSON.stringify(['clear', 'create', 'group', 'help', 'list', 'reload', 'remove', 'sequence', 'set', 'settings', 'stop', 'tnt']), main.join(' '))
+    check('/pd suggests the commands in alphabetical order', JSON.stringify(main) === JSON.stringify(['clear', 'create', 'diagnostics', 'group', 'help', 'list', 'reload', 'remove', 'sequence', 'set', 'settings', 'stop', 'tnt']), main.join(' '))
     for (const [cmd, must] of [['/pd create ', 'portal'], ['/pd set ', 'generation'], ['/pd group ', 'block'], ['/pd tnt ', 'launch'], ['/pd set generation ', 'order'], ['/pd remove ', 'EntranceA'], ['/pd tnt launch ', 'EntranceC']]) {
       const l = await tab(bot, cmd)
       check(`${cmd}suggestions are alphabetical${must ? ' and include ' + must : ''}`, l.length > 0 && isSorted(l) && (!must || l.includes(must)), l.slice(0, 14).join(' '))

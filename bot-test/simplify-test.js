@@ -7,7 +7,7 @@
  */
 const fs = require('node:fs')
 const path = require('node:path')
-const { TestServer } = require('./lib/server')
+const { TestServer, settle } = require('./lib/server')
 
 const PORT = +(process.env.PD_PORT || 25591)
 const HOST = '127.0.0.1'
@@ -33,7 +33,7 @@ function prepareServer () {
   fs.rmSync(path.join(SERVER_DIR, 'world'), { recursive: true, force: true })
 }
 
-async function run (cmd, settle = 600) {
+async function run (cmd, settle = 1200) {
   const from = srv.lines.length
   srv.command(cmd)
   await sleep(settle)
@@ -47,6 +47,7 @@ async function runUntil (cmd, regex, timeout = 120000) {
 const last = out => out.trim().split('\n').pop().replace(/^\[[^\]]*\] /, '').slice(0, 170)
 
 function readScene () {
+  settle()
   const lines = fs.readFileSync(path.join(PLUGIN_DIR, 'scenes', 'default.yml'), 'utf8').split(/\r?\n/)
   const scene = { portals: [] }
   let section = ''
@@ -109,6 +110,7 @@ async function groundProblems (portals) {
   return [...new Set(srv.lines.filter(l => /\[Server\] (GAP|BURIED) \d+/.test(l)).map(l => l.match(/(GAP|BURIED) (\d+)/)[0]))]
 }
 function readBlocks (file) {
+  settle()
   const buf = fs.readFileSync(file)
   let o = 0
   const int = () => { const v = buf.readInt32BE(o); o += 4; return v }
@@ -180,7 +182,7 @@ async function main () {
     check('/pd set suggests nothing that was removed', !setTabs.some(n => /radius-margin|orientation|air-ratio|slope|height|min-y|max-y|staging|entrance|groups/.test(n)), setTabs.join(' '))
     check('/pd set suggestions are alphabetical', isSorted(setTabs), setTabs.slice(0, 8).join(' '))
     const groupTabs = await tab(bot, '/pd group ')
-    check('/pd group suggests only the supported group commands', JSON.stringify(groupTabs) === JSON.stringify(['assign-to-group', 'block', 'create', 'delete', 'info', 'link-to-portal', 'list', 'nether-travel', 'prepare', 'remove-from-group', 'unlink-from-portal', 'visibility-in-portal', 'visibility-in-portal-delay']), groupTabs.join(' '))
+    check('/pd group suggests only the supported group commands', JSON.stringify(groupTabs) === JSON.stringify(['assign-to-group', 'block', 'create', 'delete', 'enrollment', 'info', 'link-to-portal', 'list', 'nether-travel', 'prepare', 'remove-from-group', 'unlink-from-portal', 'visibility-in-portal', 'visibility-in-portal-delay']), groupTabs.join(' '))
     const facingTabs = await tab(bot, '/pd set facing ')
     check('/pd set facing suggests compass directions and random for the random layout', JSON.stringify(facingTabs) === JSON.stringify(['east', 'north', 'random', 'south', 'west']), facingTabs.join(' '))
     const fcheck = await tab(bot, '/pd set altitude-')
