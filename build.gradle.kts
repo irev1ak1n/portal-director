@@ -10,6 +10,7 @@ description = "Mass Nether portal formations and TNT minecart waves for content 
 val paperApiVersion = "26.3.build.231-stable"
 val mockBukkitVersion = "4.119.0"
 val junitVersion = "6.1.3"
+val sqliteVersion = "3.49.1.0"
 
 repositories {
     mavenCentral()
@@ -24,6 +25,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:$junitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // The same SQLite driver that Paper bundles, so the database tests run here exactly as they do on a server.
+    testRuntimeOnly("org.xerial:sqlite-jdbc:$sqliteVersion")
 }
 
 java {
