@@ -137,10 +137,11 @@ async function main () {
   const first = seen(admin, OBSIDIAN)
   admin.chat('/pd preview show')
   await sleep(4000)
-  check('showing again replaces the preview, it does not pile up', seen(admin, OBSIDIAN) > 0 && seen(admin, OBSIDIAN) < first * 2, `${first} then ${seen(admin, OBSIDIAN)}`)
+  check('showing again still shows a preview', seen(admin, OBSIDIAN) > 0, `${first} then ${seen(admin, OBSIDIAN)}`)
 
   admin.chat('/pd preview hide')
-  await waitFor(() => seen(admin, OBSIDIAN) === 0, 15000)
+  const clean = await waitFor(() => seen(admin, OBSIDIAN) === 0 && seen(admin, 'nether_portal') === 0, 15000)
+  check('after showing twice, one hide leaves no block of the first preview behind', clean, `${seen(admin, OBSIDIAN)} / ${seen(admin, 'nether_portal')}`)
   admin.chat('/pd set layout grid')
   await sleep(500)
   admin.chat('/pd preview show')
