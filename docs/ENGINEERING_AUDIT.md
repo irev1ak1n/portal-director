@@ -134,3 +134,21 @@ Planning is cheap until about 1000 portals, so the spatial index matters mostly 
 
 Live suites at the baseline: names had one late-reply flake, simplify had two checks that expected an old tab list and help-page length (both are test problems, not plugin bugs, and are fixed in the regression pass).
 
+## Decisions
+
+| Question | Decision and why |
+|---|---|
+| PacketEvents for the preview | Not used. Paper's `Player#sendBlockChanges` sends exactly the fake blocks needed, to one player, with no extra dependency. PacketEvents 2.14.0 is reported to support Paper 26.3 but it was not loaded or tested here, and the preview does not need packet-level control |
+| HikariCP | Not used. One SQLite connection on one thread is what SQLite wants (one writer), so a pool adds a dependency and no benefit |
+| SQLite driver | The one Paper already bundles (sqlite-jdbc 3.49.1.0), so nothing is shaded or downloaded |
+| FastAsyncWorldEdit | Optional soft dependency through the WorldEdit API (compiled against 7.4.6). Not run against a real FAWE server, so it is documented as manual verification |
+| Cloud or Brigadier for commands | Kept the existing parser. It already gives context-aware, A to Z tab completion and friendly errors, every command and alias keeps working, and a rewrite would risk those for no user-visible gain. New commands (`take`, `preview`, `diagnostics`) use the same `Sub` interface |
+| MiniMessage | Used for the look of messages only. Words are always inserted as plain text, so players and arguments can not inject formatting |
+| Folia | Not supported and not assumed. The plugin uses the Bukkit scheduler |
+
+## Known limits
+
+- The preview shows the random layout only.
+- Take reset clears automatically only when the scene was empty at prepare.
+- The take commands wait a few milliseconds on the database from the main thread (small queries); the operation history never waits.
+- Nothing has been checked visually in a real client, and no real clients were used for performance.

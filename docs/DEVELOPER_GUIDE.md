@@ -72,9 +72,27 @@ node groups-test.js
 node nether-link-test.js
 node sequence-test.js
 node sky-army-test.js
+node target-test.js
+node enrollment-test.js
+node takes-test.js
+node preview-test.js
 ```
 
 `setup-test-server.ps1` creates an offline-mode Paper server bound to 127.0.0.1, next to the repository (not inside it), and installs the jar. Never copy those settings to a server other people can reach. `names-test.js` covers named portals, removal and Tab completion order through a real client. `groups-test.js` covers groups, preparing, hiding and the staggered reveal as seen by other bots, Nether travel on and off, one Nether partner per portal with the way back, removal, restart and migration of old group data. `simplify-test.js` covers facing, the radius boundary and margin, mixed mode, altitude and world-y limits, removed commands, migration, help, TNT and vanilla Nether travel. `nether-link-test.js` covers single portals and their Nether partners (same Nether coordinates after a rebuild), the cumulative TNT limit and A to Z listings. `sequence-test.js` covers the sequence commands, settings, tab completion, nether-arrival and tnt-strike; `sky-army-test.js` runs sky-army with 10, 20 and 40 bot players, an observer client, widening, shared portals and stop. See [`bot-test/README.md`](../bot-test/README.md) for what each script checks.
+
+`takes-test.js` covers saving, preparing (nobody moves), staging, starting, resetting and deleting a take, the refusals, and persistence over a restart. `preview-test.js` uses two bot clients to check that only the admin receives the fake blocks and that hide and rejoin leave nothing behind. Run suites one at a time: they share one test server directory and one port.
+
+Scenes are saved in the background, so a test that reads a scene file right after a command waits a moment first (`settle()` in `bot-test/lib/server.js`).
+
+`benchmark.js` and `gradlew benchmark` are the performance tools; see [PERFORMANCE.md](PERFORMANCE.md).
+
+### Unit tests and CI
+
+`./gradlew build` runs the unit tests (JUnit and MockBukkit). `.github/workflows/build.yml` runs the same on every push and pull request with pinned action versions, checks the Gradle wrapper, builds the jar twice and compares the two (the jar is reproducible), and keeps the test report and jar as artifacts. It does not publish a release.
+
+### Regression checklist before a release
+
+Build and unit tests pass, then run every live suite above once. Together they cover: layouts, ground, air and mixed placement, radius and spacing, named portals and removal, Nether pairing and return, groups and visibility, the three sequences, TNT safety defaults, scene clear, restart recovery, config readability, takes, and the preview. Check `/pd diagnostics` and the log for warnings afterwards.
 
 Keep test servers and worlds outside this repository.
 

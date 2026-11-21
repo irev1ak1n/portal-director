@@ -86,8 +86,11 @@ Base command: `/pd` (alias `/portaldirector`). `<name>` is required, `[name]` is
 | `/pd remove <x> <y> <z>` | The same, by the portal's anchor coordinates from `/pd list` |
 | `/pd clear` | Remove all portals and restore the ground |
 | `/pd stop` | Cancel a build, reveal or removal in progress |
+| `/pd preview show|hide|status` | Show where random portals would go, only to you, as fake blocks. Nothing is built ([details](docs/TAKES.md#preview)) |
+| `/pd take save|list|info|prepare|stage|start|reset|delete` | Save a recording setup and replay it. Saving never starts or moves anything ([details](docs/TAKES.md)) |
+| `/pd diagnostics [export|reset]` | Performance counters, database and arena status. `export` leaves out player names |
 | `/pd settings [tnt\|all]` | Show the current settings |
-| `/pd help [page or topic]` | Clickable help; topics are create, examples, group, layouts, portals, reveal, scenes, sequence, set and tnt |
+| `/pd help [page or topic]` | Clickable help; topics are create, examples, group, layouts, portals, reveal, scenes, sequence, set, take and tnt |
 | `/pd reload` | Reload `config.yml` |
 
 ### `/pd set`
@@ -194,9 +197,18 @@ To give limited access instead, use a permissions plugin such as [LuckPerms](htt
 | `portaldirector.scene` | op | `/pd clear` |
 | `portaldirector.sequence` | op | `/pd sequence` |
 | `portaldirector.tnt` | op | `/pd tnt` |
+| `portaldirector.arena` | op | `/pd take arena` (needs WorldEdit or FastAsyncWorldEdit) |
 
 `/pd help` is available to everyone.
 
 ## More documentation
 
+- [Takes, arena restore and preview](docs/TAKES.md)
+- [Database and crash recovery](docs/DATABASE.md)
+- [Performance and benchmarks](docs/PERFORMANCE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Engineering audit](docs/ENGINEERING_AUDIT.md)
+
 For developers: See the [Developer Guide](docs/DEVELOPER_GUIDE.md) for source code, building, and testing.
+
+Optional: WorldEdit or FastAsyncWorldEdit for arena restore, and `messages.*` in `config.yml` to restyle chat output with MiniMessage. Without them nothing changes.
