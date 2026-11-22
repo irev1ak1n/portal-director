@@ -4,7 +4,7 @@
  * recovery, a TNT Strike in safe mode and Sky Army with simulated bot players. It measures tick time with the vanilla
  * "tick query" command, heap use with jcmd, entity counts and how long each step takes.
  *
- *   node benchmark.js --label after --jar ../build/libs/PortalDirector-1.8.0.jar [--sizes 10,30,100,250] [--players 10,20,40] [--skip-sky] [--skip-tnt]
+ *   node benchmark.js --label after --jar ../build/libs/PortalDirector-1.9.0.jar [--sizes 10,30,100,250] [--players 10,20,40] [--skip-sky] [--skip-tnt]
  *
  * Results go to reports/benchmark-<label>.json. Bots are a load simulation, not real players, and nothing here measures
  * how the scene looks.

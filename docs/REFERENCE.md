@@ -290,6 +290,8 @@ When a player walks into a PortalDirector portal, the plugin sends them to that 
 
 ## Upgrading
 
+**From 1.8.0:** new and optional, nothing needs changing. `/pd take` saves and replays a recording setup, `/pd preview` shows random portals to you only, `/pd diagnostics` shows performance and status, and `/pd take arena` restores a box of blocks (needs WorldEdit or FastAsyncWorldEdit). A small database file, `portaldirector.db`, is created next to `config.yml` (`database.enabled: false` turns it off). Scenes are now saved in the background. New config keys: `database`, `preview`, `arena`, `performance.async-saves` and optional `messages.*`. See [TAKES.md](TAKES.md) and [DATABASE.md](DATABASE.md).
+
 **From 1.7.0:** `/pd group enrollment true|false` is new: `false` stops players joining a group by stepping on its block (the block and the members are kept), `true` resumes it. Groups saved by older versions stay open. Nothing needs changing.
 
 **From 1.6.0:** a player's name now works wherever `here` or `x y z` does: `/pd create portal <name> <player> <direction>`, `/pd create ... around <player>` and `/pd sequence <name> run <player>`. Nothing needs changing.

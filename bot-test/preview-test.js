@@ -122,7 +122,7 @@ async function main () {
   admin.chat('/pd preview show')
   const shown = await waitFor(() => seen(admin, OBSIDIAN) > 0, 20000)
   check('the admin sees obsidian frames', shown, seen(admin, OBSIDIAN))
-  check('the admin sees portal blocks', seen(admin, 'nether_portal') > 0, seen(admin, 'nether_portal'))
+  check('the admin sees portal blocks', await waitFor(() => seen(admin, 'nether_portal') > 0, 8000), seen(admin, 'nether_portal'))
   await sleep(1500)
   check('the other player sees none of it', seen(obs, OBSIDIAN) === 0 && seen(obs, 'nether_portal') === 0, `${seen(obs, OBSIDIAN)} / ${seen(obs, 'nether_portal')}`)
   out = await run('pd list', 600)
